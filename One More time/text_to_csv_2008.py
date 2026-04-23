@@ -1,0 +1,152 @@
+import csv
+
+# Raw text data as a string
+raw_data = '''ILLINOIS 103,069 25,979 24,210 5,765 5,584 4,173 3,188 2,839 2,663 2,571 1,956 1,188 1,144 21,809
+Adams 843 199 157 49 68 27 22 27 38 26 14 14 6 196
+Alexander 111 27 26 12 2 3 1 7 3 5 4 1 0 20
+Bond 156 43 36 8 9 11 9 2 8 3 1 0 1 25
+Boone 365 95 80 24 26 17 17 13 7 4 7 5 5 65
+Brown 56 18 8 4 4 2 0 1 1 0 2 0 2 14
+Bureau 397 102 95 17 22 21 18 7 10 23 2 6 5 69
+Calhoun 71 20 17 7 4 5 2 2 0 1 2 0 0 11
+Carroll 195 49 48 16 14 10 1 4 6 9 2 1 3 32
+Cass 166 47 37 9 16 5 6 1 2 6 2 2 1 32
+Champaign 1,147 254 257 58 70 68 51 29 27 21 16 15 7 274
+Christian 388 95 90 19 25 20 9 6 15 8 7 2 3 89
+Clark 211 69 47 13 12 11 5 7 2 4 5 1 1 34
+Clay 182 43 44 13 15 10 4 4 3 2 6 5 0 33
+Clinton 360 83 85 21 24 15 21 8 10 6 6 2 4 75
+Coles 535 138 130 40 40 19 15 14 11 17 6 9 5 91
+Cook 40,631 10,744 9,682 2,164 1,703 1,420 939 1,180 1,091 1,040 1,004 414 477 8,773
+Chicago 20,066 5,465 4,625 1,030 753 800 377 627 529 520 566 187 267 4,320
+Suburban Cook 20,567 5,279 5,058 1,134 950 620 562 553 562 520 438 227 210 4,454
+Crawford 235 61 59 18 21 7 5 4 7 10 0 3 0 40
+Cumberland 122 21 33 8 9 4 2 3 7 4 2 4 4 21
+DeKalb 630 160 127 45 28 32 31 30 9 10 7 6 7 138
+DeWitt 187 39 45 11 15 10 14 4 1 2 2 2 1 41
+Douglas 211 49 46 16 13 11 8 6 11 5 0 3 0 43
+DuPage 5,878 1,409 1,486 344 324 197 226 98 164 160 84 70 55 1,261
+Edgar 244 76 45 21 19 9 13 1 4 1 0 3 4 48
+Edwards 83 32 16 5 3 5 0 0 2 4 0 0 1 15
+Effingham 300 68 69 21 18 17 9 7 4 13 1 3 1 69
+Fayette 206 52 50 10 18 4 9 10 5 2 1 2 0 43
+Ford 210 51 40 10 14 13 11 3 7 8 5 0 2 46
+Franklin 558 120 127 26 38 26 41 23 13 24 11 6 8 95
+Fulton 440 117 104 31 24 17 10 4 11 7 6 7 0 102
+Gallatin 86 27 18 5 5 5 5 1 2 5 3 0 2 8
+Greene 187 51 39 11 12 12 5 6 8 9 4 0 3 27
+Grundy 371 94 96 14 10 20 16 18 10 10 5 2 5 71
+Hamilton 115 47 22 7 9 7 1 1 4 4 1 2 1 9
+Hancock 213 59 46 11 10 12 7 5 11 6 4 1 2 39
+Hardin 60 13 13 5 4 7 0 4 0 0 2 0 0 12
+Henderson 84 22 17 6 4 4 2 4 2 2 0 4 1 16
+Henry 508 141 116 24 35 27 21 12 18 11 9 7 2 85
+Iroquois 388 92 86 31 29 6 26 13 6 9 6 5 4 75
+Jackson 460 108 117 18 28 25 28 14 9 11 4 6 5 87
+Jasper 112 28 28 8 5 4 1 1 5 3 1 6 0 22
+Jefferson 459 106 98 20 41 24 20 12 35 10 9 7 3 74
+Jersey 209 56 37 10 12 9 14 10 6 3 1 3 1 47
+Jo Daviess 222 56 55 24 15 11 6 5 4 2 1 4 3 36
+Johnson 120 27 34 5 7 3 4 2 2 5 4 0 1 26
+Kane 2,677 597 660 135 137 100 81 91 60 66 62 34 34 620
+Kankakee 1,104 305 236 53 60 44 81 24 31 33 18 10 10 199
+Kendall 393 83 96 13 19 29 15 15 4 10 5 11 4 89
+Knox 684 148 121 44 70 36 42 14 24 10 7 9 2 157
+Lake 3,960 864 1,030 226 211 183 118 106 78 82 56 74 54 878
+LaSalle 1,293 348 305 70 71 56 43 34 38 19 13 9 20 267
+Lawrence 196 51 30 9 14 13 17 2 4 8 5 2 2 39
+Lee 352 69 98 21 25 13 14 10 7 12 7 4 3 69
+Livingston 396 111 87 23 24 27 10 14 10 12 8 7 4 59
+Logan 320 66 63 24 21 13 19 11 7 4 1 1 3 87
+McDonough 295 84 69 33 21 6 6 4 7 2 2 3 2 56
+McHenry 1,863 448 466 108 94 80 65 59 38 27 24 24 32 398
+McLean 1,157 299 260 57 71 54 66 33 22 20 12 19 21 223
+Macon 1,239 307 300 84 73 33 28 32 14 49 32 16 5 266
+Macoupin 567 153 132 30 36 26 15 17 18 15 5 7 7 106
+Madison 2,676 708 580 147 187 146 117 70 69 68 43 35 23 483
+Marion 511 129 109 24 40 22 26 20 17 21 9 5 4 85
+Marshall 172 45 26 14 13 12 7 1 7 5 1 0 1 40
+Mason 197 45 53 10 18 7 10 4 5 3 4 1 0 37
+Massac 203 48 47 9 17 9 5 5 3 14 1 2 2 41
+Menard 128 25 29 11 13 5 2 2 5 2 0 0 0 34
+Mercer 148 34 31 3 22 6 11 5 1 8 1 2 2 22
+Monroe 299 71 63 17 27 10 7 5 9 6 7 7 2 68
+Montgomery 390 100 89 37 20 16 24 8 13 7 2 5 1 68
+Morgan 442 106 99 22 25 26 14 8 16 6 4 3 3 110
+Moultrie 202 46 33 17 12 9 10 12 7 2 2 0 0 52
+Ogle 442 93 98 32 29 18 23 13 10 13 7 9 2 95
+Peoria 1,754 433 413 108 95 66 49 44 55 45 41 23 19 363
+Perry 269 66 61 14 17 14 8 14 6 4 2 2 1 60
+Piatt 167 34 40 7 8 9 4 7 6 2 0 0 3 47
+Pike 212 40 45 13 15 7 4 7 9 6 5 1 4 56
+Pope 57 14 15 2 7 3 1 0 1 1 0 1 1 11
+Pulaski 83 26 14 5 5 3 2 1 1 4 0 2 0 20
+Putnam 56 7 22 3 3 7 2 2 0 1 2 2 2 3
+Randolph 372 82 79 26 31 12 17 16 9 8 2 3 1 86
+Richland 211 44 42 15 17 13 0 2 8 10 3 2 2 53
+Rock Island 1,581 454 336 66 113 49 66 48 46 26 32 23 21 301
+St. Clair 2,477 574 563 137 158 110 89 108 39 55 47 31 23 543
+Saline 381 89 86 25 18 12 27 10 10 13 4 4 7 76
+Sangamon 1,782 415 389 116 108 87 34 40 48 49 25 14 35 422
+Schuyler 80 29 17 1 6 3 0 5 1 2 0 1 1 14
+Scott 50 15 12 2 3 3 0 1 0 0 2 2 0 10
+Shelby 262 67 68 16 11 15 3 9 9 9 2 2 3 48
+Stark 57 13 20 2 3 1 1 0 2 4 0 1 0 10
+Stephenson 512 107 124 40 38 19 10 14 8 9 9 6 4 124
+Tazewell 1,353 284 308 74 82 57 74 33 44 34 21 13 9 320
+Union 222 56 51 12 10 8 10 2 10 12 6 3 2 40
+Vermilion 926 226 212 49 93 44 14 26 18 12 16 8 4 204
+Wabash 136 32 34 7 9 7 6 0 1 2 2 1 2 33
+Warren 209 64 33 21 8 11 4 3 9 4 2 7 2 41
+Washington 166 46 38 14 7 12 2 5 3 4 5 3 2 25
+Wayne 221 65 41 17 24 8 1 1 12 5 4 2 3 38
+White 207 60 42 8 24 4 8 4 5 8 6 3 0 35
+Whiteside 653 177 141 45 46 31 16 23 21 13 5 6 6 123
+Will 3,820 967 979 192 192 169 88 109 85 86 70 47 53 783
+Williamson 758 189 154 44 65 36 31 16 17 33 16 13 8 136
+Winnebago 2,644 618 655 149 152 142 67 49 45 67 29 25 39 607
+Woodford 344 85 57 23 22 15 19 8 9 4 0 3 4 95'''
+
+# Define the column headers
+headers = ['County', 'Total Deaths', 'Diseases of Heart', 'Malignant Neoplasms', 
+          'Cerebrovascular Diseases', 'Chronic Lower Respiratory Diseases', 'Accidents',
+          'Alzheimers Disease', 'Diabetes Mellitus', 'Influenza and Pneumonia',
+          'Nephritis Nephrotic Syndrome Nephrosis', 'Septicemia', 
+          'Intentional Self Harm', 'Chronic Liver Disease Cirrhosis', 'All Other Causes']
+
+# Process the data
+rows = []
+for line in raw_data.strip().split('\n'):
+    # Split the line into parts and clean up the data
+    parts = line.split()
+    
+    # Handle county names with spaces
+    if parts[0] in ['Suburban', 'Jo', 'Rock', 'St.']:  # Special cases
+        if parts[0] == 'Rock':
+            county = 'Rock Island'
+            values = parts[2:]
+        elif parts[0] == 'St.':
+            county = 'St. Clair'
+            values = parts[2:]
+        else:
+            county = parts[0] + ' ' + parts[1]
+            values = parts[2:]
+    else:
+        county = parts[0]
+        values = parts[1:]
+    
+    # Remove commas from numbers and convert to integers
+    values = [int(v.replace(',', '')) for v in values]
+    
+    # Create the row with county name and values
+    row = [county] + values
+    rows.append(row)
+
+# Write to CSV
+output_file = 'csv_output/death_data_2008.csv'
+with open(output_file, 'w', newline='') as f:
+    writer = csv.writer(f)
+    writer.writerow(headers)
+    writer.writerows(rows)
+
+print(f"Data has been written to {output_file}") 
