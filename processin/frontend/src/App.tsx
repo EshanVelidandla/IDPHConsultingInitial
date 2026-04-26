@@ -26,24 +26,41 @@ function App() {
         <Box sx={{
           width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column',
           bgcolor: '#0A1628', borderRight: '1px solid #1E3050', zIndex: 10,
+          position: 'relative',
         }}>
+          {/* Left accent line */}
+          <Box sx={{
+            position: 'absolute', left: 0, top: 0, bottom: 0, width: '2px',
+            background: 'linear-gradient(to bottom, transparent 0%, #1565C0 20%, #1565C0 80%, transparent 100%)',
+            opacity: 0.7,
+            zIndex: 1,
+          }} />
+
           {/* Brand */}
-          <Box sx={{ px: 3, pt: 4, pb: 3.5, borderBottom: '1px solid #1E3050' }}>
+          <Box sx={{ px: 3, pt: 4, pb: 3, borderBottom: '1px solid #1E3050' }}>
             <Box sx={{
               display: 'inline-flex', alignItems: 'center', bgcolor: '#1565C0',
-              borderRadius: '3px', px: 1.25, py: 0.5, mb: 2,
+              borderRadius: '3px', px: 1.25, py: 0.5, mb: 1.5,
             }}>
               <span className="mono" style={{ color: '#fff', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em' }}>
                 IDPH
               </span>
             </Box>
-            <Box sx={{ color: '#FFFFFF', fontSize: 15, fontWeight: 600, lineHeight: 1.35, fontFamily: "'IBM Plex Sans', sans-serif" }}>
+            <Box sx={{ width: '100%', height: '1px', bgcolor: '#1E3050', mb: 1.5 }} />
+            <Box sx={{ color: '#FFFFFF', fontSize: 16, fontWeight: 600, lineHeight: 1.35, fontFamily: "'IBM Plex Sans', sans-serif" }}>
               IL Health<br />Analytics
             </Box>
           </Box>
 
           {/* Nav */}
           <Box component="nav" sx={{ p: '12px', flex: 1 }}>
+            <Box sx={{
+              px: 1, mb: 1,
+              fontSize: 9, color: '#2D4A6A', fontFamily: "'IBM Plex Mono', monospace",
+              letterSpacing: '0.12em', fontWeight: 600,
+            }}>
+              NAVIGATION
+            </Box>
             {navItems.map(({ to, label, Icon, exact }) => (
               <NavLink
                 key={to}
@@ -62,11 +79,19 @@ function App() {
             <Box sx={{ color: '#546E7A', fontSize: 11, lineHeight: 1.7, fontFamily: "'IBM Plex Mono', monospace" }}>
               Data: IDPH<br />2009 – 2022
             </Box>
+            <Box sx={{ color: '#2D4A6A', fontSize: 9, mt: 0.5, fontFamily: "'IBM Plex Mono', monospace" }}>
+              v1.0 · Illinois
+            </Box>
           </Box>
         </Box>
 
         {/* Main content */}
-        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', bgcolor: '#F0F4F8', minWidth: 0 }}>
+        <Box sx={{
+          flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          bgcolor: '#F0F4F8', minWidth: 0,
+          backgroundImage: 'radial-gradient(circle, rgba(13,27,42,0.03) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }}>
           <Routes>
             <Route path="/" element={<MapView />} />
             <Route path="/insights" element={<InsightsView />} />
