@@ -9,35 +9,15 @@ import {
 } from 'recharts';
 import axios from 'axios';
 import InsertChartIcon from '@mui/icons-material/InsertChart';
+import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, MONO } from '../data/constants';
 
 interface DeathRate {
   County: string;
   [key: string]: number | string;
 }
 
-const causeLabels: Record<string, string> = {
-  Total_Deaths: 'Total Deaths',
-  Diseases_of_Heart: 'Diseases of Heart',
-  Malignant_Neoplasms: 'Malignant Neoplasms (Cancer)',
-  Accidents: 'Accidents (Unintentional Injuries)',
-  COVID_19: 'COVID-19',
-  Cerebrovascular_Diseases: 'Cerebrovascular Diseases',
-  Chronic_Lower_Respiratory_Diseases: 'Chronic Lower Respiratory Diseases',
-  Alzheimers_Disease: "Alzheimer's Disease",
-  Diabetes_Mellitus: 'Diabetes Mellitus',
-  Nephritis_Nephrotic_Syndrome_Nephrosis: 'Nephritis & Nephrotic Syndrome',
-  Influenza_and_Pneumonia: 'Influenza & Pneumonia',
-  Septicemia: 'Septicemia',
-  Intentional_Self_Harm: 'Intentional Self-Harm (Suicide)',
-  Chronic_Liver_Disease_Cirrhosis: 'Chronic Liver Disease & Cirrhosis',
-  All_Other_Causes: 'All Other Causes',
-};
-
-const causes = Object.keys(causeLabels);
-
-const EXCLUDED = ['ILLINOIS', 'Chicago', 'Suburban Cook'];
+const EXCLUDED = EXCLUDED_COUNTIES;
 const PIE_COLORS = ['#EF5350', '#FF7043', '#FFA726', '#66BB6A', '#42A5F5'];
-const MONO: React.CSSProperties = { fontFamily: "'IBM Plex Mono', monospace" };
 
 const cardSx = {
   bgcolor: 'white',
@@ -57,7 +37,7 @@ const InsightsView = () => {
   useEffect(() => {
     if (!selectedCause) return;
     setLoading(true);
-    axios.get(`http://127.0.0.1:8000/death_rates?cause=${selectedCause}`)
+    axios.get(`${API_BASE}/death_rates?cause=${selectedCause}`)
       .then(r => { setDeathData(r.data); setError(null); })
       .catch(() => setError('Failed to load data. Ensure the backend is running.'))
       .finally(() => setLoading(false));
