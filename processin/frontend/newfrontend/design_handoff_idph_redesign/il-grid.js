@@ -1,0 +1,29 @@
+/* Illinois county grid layout — approximate (col, row) tile-grid coords
+ * Used to render a stylized editorial choropleth without real geometry.
+ * Origin (0,0) at top-left; row increases southward.
+ */
+window.IL_GRID = (function () {
+  // Hand-placed approximation of IL county positions on a 9-col grid
+  // Cook is intentionally large; Chicago metro counties cluster NE.
+  const cells = {
+    // Northern tier (row 0-1)
+    'Jo Daviess': [0, 0], 'Stephenson': [1, 0], 'Winnebago': [2, 0], 'Boone': [3, 0], 'McHenry': [4, 0], 'Lake': [5, 0],
+    'Carroll': [0, 1], 'Ogle': [1, 1], 'DeKalb': [2, 1], 'Kane': [3, 1], 'Cook_N': [4, 1], 'Cook': [5, 1],
+    'Whiteside': [0, 2], 'Lee': [1, 2], 'Kendall': [2, 2], 'DuPage': [3, 2], 'Will': [4, 2], 'Kankakee': [5, 2],
+    'Rock Island': [0, 3], 'Henry': [1, 3], 'Bureau': [2, 3], 'LaSalle': [3, 3], 'Grundy': [4, 3], 'Iroquois': [5, 3],
+    'Mercer': [0, 4], 'Stark': [1, 4], 'Putnam': [2, 4], 'Marshall': [3, 4], 'Livingston': [4, 4], 'Ford': [5, 4],
+    'Warren': [0, 5], 'Knox': [1, 5], 'Peoria': [2, 5], 'Woodford': [3, 5], 'McLean': [4, 5], 'Vermilion': [6, 5], 'Champaign': [5, 5],
+    'Henderson': [0, 6], 'McDonough': [1, 6], 'Fulton': [2, 6], 'Tazewell': [3, 6], 'DeWitt': [4, 6], 'Piatt': [5, 6], 'Edgar': [6, 6],
+    'Hancock': [0, 7], 'Schuyler': [1, 7], 'Mason': [2, 7], 'Logan': [3, 7], 'Macon': [4, 7], 'Douglas': [5, 7], 'Coles': [6, 7],
+    'Adams': [0, 8], 'Brown': [1, 8], 'Cass': [2, 8], 'Menard': [3, 8], 'Sangamon': [4, 8], 'Moultrie': [5, 8], 'Cumberland': [6, 8], 'Clark': [7, 8],
+    'Pike': [0, 9], 'Scott': [1, 9], 'Morgan': [2, 9], 'Christian': [3, 9], 'Shelby': [4, 9], 'Effingham': [5, 9], 'Jasper': [6, 9], 'Crawford': [7, 9],
+    'Calhoun': [0, 10], 'Greene': [1, 10], 'Macoupin': [2, 10], 'Montgomery': [3, 10], 'Fayette': [4, 10], 'Clay': [5, 10], 'Richland': [6, 10], 'Lawrence': [7, 10],
+    'Jersey': [1, 11], 'Madison': [2, 11], 'Bond': [3, 11], 'Marion': [4, 11], 'Wayne': [5, 11], 'Edwards': [6, 11], 'Wabash': [7, 11],
+    'St. Clair': [2, 12], 'Clinton': [3, 12], 'Jefferson': [4, 12], 'Hamilton': [5, 12], 'White': [6, 12],
+    'Monroe': [2, 13], 'Washington': [3, 13], 'Franklin': [4, 13], 'Saline': [5, 13], 'Gallatin': [6, 13],
+    'Randolph': [2, 14], 'Perry': [3, 14], 'Williamson': [4, 14], 'Hardin': [5, 14],
+    'Jackson': [3, 15], 'Union': [4, 15], 'Pope': [5, 15],
+    'Alexander': [3, 16], 'Pulaski': [4, 16], 'Johnson': [4.6, 15.5], 'Massac': [5, 16],
+  };
+  return cells;
+})();

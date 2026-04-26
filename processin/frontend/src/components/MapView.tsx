@@ -1,79 +1,63 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
-import {
-  FormControl, InputLabel, Select, MenuItem, CircularProgress,
-  Alert, Box, Slider, Typography, Autocomplete, TextField,
-} from '@mui/material';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTip, ResponsiveContainer, Cell,
-} from 'recharts';
-import axios from 'axios';
+import { MapContainer, GeoJSON as LeafletGeoJSON, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Feature, Geometry } from 'geojson';
 import 'leaflet/dist/leaflet.css';
 import './MapView.css';
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-import {
-  causeLabels, causes, countyCodeToName, IDPH_DISTRICTS, API_BASE, calcSlope,
-} from '../data/constants';
-
-const DefaultIcon = L.icon({ iconUrl: icon, shadowUrl: iconShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
-L.Marker.prototype.options.icon = DefaultIcon;
+import axios from 'axios';
+import type { FeatureCollection, Feature } from 'geojson';
+import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, calcSlope, IDPH_DISTRICTS } from '../data/constants';
+import type { SharedState } from '../App';
 
 interface DeathRate { County: string; [key: string]: number | string; }
-interface CountyProps { FIPS_CO: number; COUNTY_NAM: string; DISTRICT: number; [key: string]: any; }
+interface MapViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
 
-const YEAR_MIN = 2009;
-const YEAR_MAX = 2022;
-const YEAR_MARKS = [2009, 2012, 2015, 2018, 2022].map(y => ({ value: y, label: String(y) }));
-const illinoisBounds: L.LatLngBoundsExpression = [[36.9701, -91.513], [42.5083, -87.0199]];
-const MONO: React.CSSProperties = { fontFamily: "'IBM Plex Mono', monospace" };
+const D_HIGH = '#B23A2E';
+const D_HIGH_TINT = '#F2E4E1';
+const D_MID_TINT = '#F5ECDD';
+const D_LOW = '#4F7A4D';
+const D_LOW_TINT = '#E4ECDF';
+const D_NULL_TINT = '#EFEDE7';
+const INK = '#1C1B18';
+const INK_4 = '#9A968C';
+const RULE = '#E6E3DC';
 
-const LEGEND_ITEMS = [
-  { color: '#EF5350', label: 'High', sub: '>20% above avg' },
-  { color: '#FFA726', label: 'Near Average', sub: '±20% of avg' },
-  { color: '#66BB6A', label: 'Low', sub: '>20% below avg' },
-  { color: '#9E9E9E', label: 'Suppressed', sub: 'Count < 5 or no data' },
-];
+function tileColor(rate: number, stateRate: number): string {
+  if (!rate || !stateRate) return D_NULL_TINT;
+  const r = rate / stateRate;
+  if (r > 1.2) return D_HIGH_TINT;
+  if (r < 0.8) return D_LOW_TINT;
+  return D_MID_TINT;
+}
 
-const countyNames = Object.values(countyCodeToName).sort();
-
-/** Flies the map to a county centroid by computing it from GeoJSON features. */
-function FlyToCounty({ target, geoJSONData }: { target: string | null; geoJSONData: any }) {
+function FitBounds({ geojson }: { geojson: FeatureCollection | null }) {
   const map = useMap();
+  const fitted = useRef(false);
   useEffect(() => {
-    if (!target || !geoJSONData) return;
-    const feature = geoJSONData.features.find(
-      (f: any) => countyCodeToName[f.properties.FIPS_CO?.toString().padStart(3, '0')] === target
-    );
-    if (!feature) return;
-    const layer = L.geoJSON(feature);
-    const bounds = layer.getBounds();
-    map.flyToBounds(bounds, { padding: [40, 40], duration: 0.8 });
-  }, [target, geoJSONData, map]);
+    if (!geojson || fitted.current) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const bounds = L.geoJSON(geojson as any).getBounds();
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [12, 12] });
+      fitted.current = true;
+    }
+  }, [geojson, map]);
   return null;
 }
 
-const MapView = () => {
+const MapView = ({ shared, setShared }: MapViewProps) => {
   const navigate = useNavigate();
-  const [selectedCause, setSelectedCause] = useState('');
-  const [selectedYear, setSelectedYear] = useState(2022);
-  const [selectedDistrict, setSelectedDistrict] = useState<number | ''>('');
-  const [searchTarget, setSearchTarget] = useState<string | null>(null);
+  const { selectedCause, selectedYear, selectedDistrict, searchTarget } = shared;
+
   const [countyData, setCountyData] = useState<DeathRate[]>([]);
-  const [geoJSONData, setGeoJSONData] = useState<any>(null);
-  const [hoveredCounty, setHoveredCounty] = useState<string | null>(null);
-  const [countyRates, setCountyRates] = useState<any[]>([]);
-  const [hoveredStats, setHoveredStats] = useState<{ rate: number; stateRate: number } | null>(null);
+  const [geoData, setGeoData] = useState<FeatureCollection | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     axios.get(`${API_BASE}/geojson`)
-      .then(r => setGeoJSONData(r.data))
-      .catch(() => setError('Failed to load map data. Ensure the backend is running.'));
+      .then(r => setGeoData(r.data))
+      .catch(() => setError('Failed to load map geometry.'));
   }, []);
 
   useEffect(() => {
@@ -81,329 +65,303 @@ const MapView = () => {
     setLoading(true);
     axios.get(`${API_BASE}/death_rates?cause=${selectedCause}`)
       .then(r => { setCountyData(r.data); setError(null); })
-      .catch(() => setError('Failed to load death rate data.'))
+      .catch(() => setError('Failed to load data. Ensure the backend is running at port 8000.'))
       .finally(() => setLoading(false));
   }, [selectedCause]);
 
-  /** Counties flagged as priority: above 120% of state avg AND worsening slope */
-  const priorityCounties = useMemo<Set<string>>(() => {
-    if (!countyData.length || !selectedCause) return new Set();
-    const stateRow = countyData.find(d => d.County === 'ILLINOIS');
-    if (!stateRow) return new Set();
-    const latestYear = Object.keys(stateRow).filter(k => k !== 'County' && k !== '2008').sort().pop() ?? '2022';
-    const stateRate = Number(stateRow[latestYear]);
-    const set = new Set<string>();
-    countyData.forEach(d => {
-      if (['ILLINOIS', 'Chicago', 'Suburban Cook'].includes(d.County)) return;
-      const rate = Number(d[latestYear]);
-      if (!rate) return;
-      if (rate > stateRate * 1.2 && calcSlope(d as Record<string, number | string>, 2015, 2022) > 0) {
-        set.add(d.County);
-      }
-    });
-    return set;
-  }, [countyData, selectedCause]);
+  const stateRate = useMemo(() => {
+    const row = countyData.find(d => d.County === 'ILLINOIS');
+    return Number(row?.[selectedYear.toString()]) || 0;
+  }, [countyData, selectedYear]);
 
-  const districtCountySet = useMemo<Set<string>>(() => {
-    if (!selectedDistrict) return new Set();
-    const names = IDPH_DISTRICTS[selectedDistrict as number]?.counties ?? [];
-    return new Set(names);
+  const rateMap = useMemo<Record<string, number>>(() => {
+    const m: Record<string, number> = {};
+    countyData.forEach(d => {
+      if (!EXCLUDED_COUNTIES.includes(d.County))
+        m[d.County.toLowerCase()] = Number(d[selectedYear.toString()]) || 0;
+    });
+    return m;
+  }, [countyData, selectedYear]);
+
+  const nameMap = useMemo<Record<string, string>>(() => {
+    const m: Record<string, string> = {};
+    countyData.forEach(d => {
+      if (!EXCLUDED_COUNTIES.includes(d.County)) m[d.County.toLowerCase()] = d.County;
+    });
+    return m;
+  }, [countyData]);
+
+  const priorityCounties = useMemo<Set<string>>(() => {
+    if (!countyData.length || !stateRate) return new Set();
+    const s = new Set<string>();
+    countyData.forEach(d => {
+      if (EXCLUDED_COUNTIES.includes(d.County)) return;
+      const rate = Number(d[selectedYear.toString()]);
+      if (rate > stateRate * 1.2 && calcSlope(d as Record<string, number | string>, 2015, selectedYear) > 0)
+        s.add(d.County.toLowerCase());
+    });
+    return s;
+  }, [countyData, stateRate, selectedYear]);
+
+  const districtSet = useMemo<Set<string> | null>(() => {
+    if (!selectedDistrict) return null;
+    return new Set(
+      (IDPH_DISTRICTS[selectedDistrict as number]?.counties ?? []).map((n: string) => n.toLowerCase())
+    );
   }, [selectedDistrict]);
 
-  const getCountyColor = (feature: Feature<Geometry, CountyProps>): string => {
-    if (!selectedCause || !countyData.length) return '#CCCCCC';
-    const fipsCode = feature.properties.FIPS_CO?.toString().padStart(3, '0');
-    const countyName = countyCodeToName[fipsCode];
-    if (!countyName) return '#CCCCCC';
-
-    if (selectedDistrict && !districtCountySet.has(countyName)) return '#D6DDE6';
-
-    const countyStats = countyData.find(d => d.County === countyName);
-    if (!countyStats) return '#CCCCCC';
-    const rate = Number(countyStats[selectedYear.toString()]);
-    if (!rate) return '#9E9E9E';
-    const stateRate = Number(countyData.find(d => d.County === 'ILLINOIS')?.[selectedYear.toString()]);
-    if (!stateRate) return '#CCCCCC';
-    if (rate > stateRate * 1.2) return '#EF5350';
-    if (rate < stateRate * 0.8) return '#66BB6A';
-    return '#FFA726';
-  };
-
-  const style = (feature: Feature<Geometry, CountyProps> | undefined): L.PathOptions => {
-    if (!feature) return { fillColor: '#CCCCCC', weight: 1, opacity: 1, color: 'white', fillOpacity: 0.75 };
-    const fipsCode = feature.properties.FIPS_CO?.toString().padStart(3, '0');
-    const countyName = countyCodeToName[fipsCode];
-    const isPriority = selectedCause && countyName && priorityCounties.has(countyName);
-    const dimmed = selectedDistrict && countyName && !districtCountySet.has(countyName);
-    return {
-      fillColor: getCountyColor(feature),
-      weight: isPriority ? 2.5 : 1,
-      opacity: 1,
-      color: isPriority ? '#B71C1C' : 'white',
-      dashArray: isPriority ? '6 3' : undefined,
-      fillOpacity: dimmed ? 0.25 : 0.75,
-    };
-  };
-
-  const onEachFeature = (feature: Feature<Geometry, CountyProps>, layer: L.Layer) => {
-    if (!feature.properties) return;
-    const fipsCode = feature.properties.FIPS_CO?.toString().padStart(3, '0');
-    const countyName = countyCodeToName[fipsCode];
-    if (!countyName) return;
-
-    layer.on({
-      mouseover: () => {
-        if (layer instanceof L.Path) layer.setStyle({ weight: 2.5, fillOpacity: 0.95 });
-        setHoveredCounty(countyName);
-        if (selectedCause && countyData.length) {
-          const countyStats = countyData.find(d => d.County === countyName);
-          const stateStats = countyData.find(d => d.County === 'ILLINOIS');
-          if (countyStats) {
-            const years = Object.keys(countyStats).filter(k => k !== 'County' && k !== '2008').sort();
-            setCountyRates(years.map(year => ({
-              year,
-              County: Number(countyStats[year]) > 0 ? Number(countyStats[year]) : null,
-              State: Number(stateStats?.[year]) > 0 ? Number(stateStats?.[year]) : null,
-            })));
-            setHoveredStats({
-              rate: Number(countyStats[selectedYear.toString()]) || 0,
-              stateRate: Number(stateStats?.[selectedYear.toString()]) || 0,
-            });
-          }
-        }
-      },
-      mouseout: () => {
-        if (layer instanceof L.Path) layer.setStyle({ weight: 1, fillOpacity: 0.75 });
-        setHoveredCounty(null);
-        setCountyRates([]);
-        setHoveredStats(null);
-      },
-      click: () => {
-        if (countyName) navigate(`/county/${encodeURIComponent(countyName)}`);
-      },
-    });
-  };
-
-  const pctDiff = hoveredStats && hoveredStats.stateRate > 0
-    ? ((hoveredStats.rate - hoveredStats.stateRate) / hoveredStats.stateRate) * 100
-    : null;
-
-  const isPriorityHovered = hoveredCounty ? priorityCounties.has(hoveredCounty) : false;
-
-  if (!geoJSONData && loading) return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-      <CircularProgress sx={{ color: '#1565C0' }} />
-    </Box>
+  const priorityList = useMemo(() =>
+    Array.from(priorityCounties)
+      .map(n => ({ name: nameMap[n] || n, rate: rateMap[n] || 0 }))
+      .sort((a, b) => b.rate - a.rate)
+      .slice(0, 8),
+    [priorityCounties, rateMap, nameMap]
   );
 
+  const getStyle = useCallback((feature: Feature | undefined): L.PathOptions => {
+    if (!feature) return {};
+    const key = ((feature.properties?.COUNTY_NAM as string) || '').toLowerCase();
+    const rate = rateMap[key] || 0;
+    const fill = selectedCause ? tileColor(rate, stateRate) : D_NULL_TINT;
+    const isPriority = priorityCounties.has(key);
+    const isDimmed = districtSet != null && !districtSet.has(key);
+    return {
+      fillColor: fill,
+      fillOpacity: isDimmed ? 0.25 : 0.92,
+      color: isPriority ? D_HIGH : '#C4C0B6',
+      weight: isPriority ? 1.8 : 0.6,
+      dashArray: isPriority ? '5 3' : undefined,
+    };
+  }, [rateMap, stateRate, selectedCause, priorityCounties, districtSet]);
+
+  const onEachFeature = useCallback((feature: Feature, layer: L.Layer) => {
+    const key = ((feature.properties?.COUNTY_NAM as string) || '').toLowerCase();
+    const titleName = nameMap[key] || (feature.properties?.COUNTY_NAM as string) || '';
+    const rate = rateMap[key] || 0;
+    const ratio = rate && stateRate ? rate / stateRate : 0;
+    const isPriority = priorityCounties.has(key);
+    const isSearch = searchTarget.length > 1 && titleName.toLowerCase().startsWith(searchTarget.toLowerCase());
+    const row = countyData.find(d => d.County.toLowerCase() === key);
+    const slope = row ? calcSlope(row as Record<string, number | string>, 2015, selectedYear) : 0;
+
+    const pctStr = ratio > 0
+      ? `${(ratio - 1) * 100 > 0 ? '+' : ''}${((ratio - 1) * 100).toFixed(0)}%`
+      : '&mdash;';
+    const slopeStr = slope !== 0 ? `${slope > 0 ? '+' : ''}${slope.toFixed(2)}/yr` : '&mdash;';
+    const slopeColor = slope > 0 ? D_HIGH : slope < 0 ? D_LOW : INK_4;
+    const ratioColor = ratio > 1.2 ? D_HIGH : ratio < 0.8 ? D_LOW : INK;
+
+    const tooltipHtml = `
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;min-width:186px;${isPriority ? `border-top:3px solid ${D_HIGH};` : ''}">
+        <div style="font-family:'Inter Tight',sans-serif;font-size:13px;font-weight:500;color:${INK};margin-bottom:8px;letter-spacing:-0.01em;">${titleName} County</div>
+        ${selectedCause ? `
+          <div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:4px;">
+            <span style="color:${INK_4}">Rate&nbsp;/&nbsp;100k</span>
+            <span style="color:${INK}">${rate > 0 ? rate.toFixed(1) : '&mdash;'}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:4px;">
+            <span style="color:${INK_4}">vs.&nbsp;state&nbsp;avg</span>
+            <span style="color:${ratioColor}">${pctStr}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:16px;padding-top:6px;border-top:1px solid ${RULE};">
+            <span style="color:${INK_4}">Slope&nbsp;2015&ndash;${selectedYear}</span>
+            <span style="color:${slopeColor}">${slopeStr}</span>
+          </div>
+          ${isPriority ? `<div style="margin-top:6px;padding:3px 7px;background:${D_HIGH_TINT};font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:${D_HIGH};">Priority county</div>` : ''}
+        ` : `<div style="color:${INK_4}">Select a cause to view data</div>`}
+        <div style="margin-top:6px;font-size:9px;letter-spacing:0.06em;text-transform:uppercase;color:${INK_4};">Click to drill in &rarr;</div>
+      </div>
+    `;
+
+    (layer as L.Path).bindTooltip(tooltipHtml, {
+      sticky: true,
+      className: 'idph-tip',
+      opacity: 1,
+    });
+
+    if (isSearch) {
+      (layer as L.Path).setStyle({ color: INK, weight: 2.5 });
+    }
+
+    const path = layer as L.Path;
+    path.on('mouseover', () => {
+      path.setStyle({ weight: 2, fillOpacity: 1 });
+      path.bringToFront();
+    });
+    path.on('mouseout', () => {
+      path.setStyle(getStyle(feature));
+    });
+    (layer as L.Path).on('click', () => {
+      navigate(`/county/${encodeURIComponent(titleName)}`);
+    });
+  }, [rateMap, stateRate, nameMap, priorityCounties, selectedCause, selectedYear, countyData, searchTarget, navigate, getStyle]);
+
   return (
-    <Box sx={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
-
-      {/* Top controls */}
-      <Box sx={{
-        position: 'absolute', top: 14, left: 14, right: 14, zIndex: 1000,
-        display: 'flex', gap: 1.5, alignItems: 'flex-end', pointerEvents: 'none', flexWrap: 'wrap',
-      }}>
-        {/* Cause */}
-        <Box sx={{ pointerEvents: 'all', bgcolor: 'white', borderRadius: '6px', boxShadow: '0 2px 12px rgba(0,0,0,0.12)', p: 1.5, minWidth: 260 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel sx={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>Cause of Death</InputLabel>
-            <Select value={selectedCause} label="Cause of Death" onChange={e => setSelectedCause(e.target.value)} disabled={loading}
-              sx={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>
-              {causes.map(c => (
-                <MenuItem key={c} value={c} sx={{ fontSize: 13, fontFamily: "'IBM Plex Sans', sans-serif" }}>{causeLabels[c]}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-
-        {/* Year slider */}
-        {selectedCause && (
-          <Box sx={{ pointerEvents: 'all', bgcolor: 'white', borderRadius: '6px', boxShadow: '0 2px 12px rgba(0,0,0,0.12)', px: 2.5, pt: 1.5, pb: 0.5, minWidth: 290 }}>
-            <Typography sx={{ fontSize: 10, color: '#546E7A', ...MONO, letterSpacing: '0.08em', mb: 0.25 }}>
-              YEAR &nbsp;·&nbsp; {selectedYear}
-            </Typography>
-            <Slider value={selectedYear} min={YEAR_MIN} max={YEAR_MAX} step={1} marks={YEAR_MARKS}
-              onChange={(_, v) => setSelectedYear(v as number)}
-              sx={{
-                color: '#1565C0',
-                '& .MuiSlider-markLabel': { fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: '#90A4AE' },
-                '& .MuiSlider-thumb': { width: 13, height: 13 },
-                '& .MuiSlider-rail': { opacity: 0.3 },
-                mb: 0.5,
-              }}
-            />
-          </Box>
-        )}
-
-        {/* District filter */}
-        <Box sx={{ pointerEvents: 'all', bgcolor: 'white', borderRadius: '6px', boxShadow: '0 2px 12px rgba(0,0,0,0.12)', p: 1.5, minWidth: 200 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel sx={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>IDPH District</InputLabel>
-            <Select value={selectedDistrict} label="IDPH District" onChange={e => setSelectedDistrict(e.target.value as number | '')}
-              sx={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>
-              <MenuItem value="" sx={{ fontSize: 13 }}>All Districts</MenuItem>
+    <div className="view fade-in" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* View head */}
+      <div className="view-head">
+        <div className="titles">
+          <div className="eyebrow eyebrow-ink">Choropleth · 102 counties</div>
+          <h1 className="h-display" style={{ marginTop: 8 }}>Mortality across Illinois</h1>
+          <p className="body" style={{ marginTop: 10, maxWidth: 540, color: 'var(--ink-3)' }}>
+            County-level age-adjusted death rates per 100,000 residents. Hover for trend; click to drill in.
+          </p>
+        </div>
+        <div className="ix">
+          <div className="field">
+            <div className="field-label">Cause of death</div>
+            <select className="sel" style={{ width: 260 }}
+              value={selectedCause}
+              onChange={e => setShared({ ...shared, selectedCause: e.target.value })}>
+              <option value="">— Select cause —</option>
+              {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <div className="field-label">District filter</div>
+            <select className="sel" style={{ width: 200 }}
+              value={selectedDistrict || ''}
+              onChange={e => setShared({ ...shared, selectedDistrict: e.target.value ? Number(e.target.value) : '' })}>
+              <option value="">All districts</option>
               {Object.entries(IDPH_DISTRICTS).map(([num, { name }]) => (
-                <MenuItem key={num} value={Number(num)} sx={{ fontSize: 12 }}>{name}</MenuItem>
+                <option key={num} value={num}>D{num} · {(name as string).split(' — ')[1]}</option>
               ))}
-            </Select>
-          </FormControl>
-        </Box>
+            </select>
+          </div>
+          <div className="field">
+            <div className="field-label">Search county</div>
+            <div style={{ position: 'relative' }}>
+              <svg style={{ position: 'absolute', left: 9, top: 9, color: 'var(--ink-4)', pointerEvents: 'none' }}
+                width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
+                <circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5L14 14" />
+              </svg>
+              <input className="inp" placeholder="Filter county…" style={{ paddingLeft: 30, width: 180 }}
+                value={searchTarget}
+                onChange={e => setShared({ ...shared, searchTarget: e.target.value })}
+                list="county-search-list" />
+              <datalist id="county-search-list">
+                {countyData.filter(d => !EXCLUDED_COUNTIES.includes(d.County))
+                  .map(d => <option key={d.County} value={d.County} />)}
+              </datalist>
+            </div>
+          </div>
+          <div style={{ width: 220 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span className="eyebrow">Year</span>
+              <span className="num" style={{ fontSize: 18, color: 'var(--ink)', fontWeight: 500 }}>{selectedYear}</span>
+            </div>
+            <input type="range" className="range" min={2009} max={2022} value={selectedYear}
+              onChange={e => setShared({ ...shared, selectedYear: Number(e.target.value) })} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--ink-4)' }}>
+              {[2009, 2012, 2015, 2018, 2022].map(y => <span key={y}>{y}</span>)}
+            </div>
+          </div>
+        </div>
+      </div>
 
-        {/* County search */}
-        <Box sx={{ pointerEvents: 'all', bgcolor: 'white', borderRadius: '6px', boxShadow: '0 2px 12px rgba(0,0,0,0.12)', minWidth: 200 }}>
-          <Autocomplete
-            options={countyNames}
-            size="small"
-            onChange={(_, value) => setSearchTarget(value)}
-            renderInput={params => (
-              <TextField {...params} label="Jump to county" sx={{ '& .MuiInputBase-root': { fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 } }} />
-            )}
-          />
-        </Box>
-      </Box>
-
-      {/* Map */}
-      {error ? (
-        <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>
-      ) : (
-        <MapContainer center={[40.0, -89.0]} zoom={7} style={{ height: '100%', width: '100%' }}
-          maxBounds={illinoisBounds} minZoom={6} maxZoom={12}>
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          />
-          {geoJSONData && (
-            <GeoJSON
-              key={`${selectedCause}-${selectedYear}-${selectedDistrict}-${priorityCounties.size}`}
-              data={geoJSONData}
-              style={style as any}
-              onEachFeature={onEachFeature as any}
-            />
-          )}
-          <FlyToCounty target={searchTarget} geoJSONData={geoJSONData} />
-        </MapContainer>
+      {error && (
+        <div className="error-banner" style={{ margin: '16px 40px' }}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
+            <circle cx="8" cy="8" r="6" /><path d="M8 5v4M8 11v.5" />
+          </svg>
+          {error}
+        </div>
       )}
 
-      {/* Legend */}
-      {selectedCause && (
-        <Box sx={{
-          position: 'absolute', bottom: 20, right: 14, zIndex: 1000,
-          bgcolor: 'white', borderRadius: '8px', boxShadow: '0 2px 12px rgba(0,0,0,0.14)', p: 2, minWidth: 200,
-        }}>
-          <Typography sx={{ fontSize: 10, color: '#546E7A', ...MONO, letterSpacing: '0.08em', fontWeight: 600, mb: 1.5 }}>
-            MORTALITY INDEX
-          </Typography>
-          {LEGEND_ITEMS.map(({ color, label, sub }) => (
-            <Box key={label} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.25 }}>
-              <Box sx={{ width: 11, height: 11, borderRadius: '2px', bgcolor: color, flexShrink: 0, mt: '2px' }} />
-              <Box>
-                <Typography sx={{ fontSize: 12, fontWeight: 500, lineHeight: 1.2 }}>{label}</Typography>
-                <Typography sx={{ fontSize: 10, color: '#90A4AE', lineHeight: 1.4 }}>{sub}</Typography>
-              </Box>
-            </Box>
-          ))}
-          {priorityCounties.size > 0 && (
-            <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid #E0E7EF' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 18, height: 4, bgcolor: '#B71C1C', borderRadius: '2px',
-                  backgroundImage: 'repeating-linear-gradient(90deg, #B71C1C 0px, #B71C1C 4px, transparent 4px, transparent 7px)' }} />
-                <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#B71C1C' }}>
-                  Priority ({priorityCounties.size})
-                </Typography>
-              </Box>
-              <Typography sx={{ fontSize: 10, color: '#90A4AE', mt: 0.25 }}>
-                High rate + worsening trend
-              </Typography>
-            </Box>
+      {/* Map + sidebar */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', flex: 1, overflow: 'hidden', position: 'relative' }}>
+
+        {/* Map column */}
+        <div style={{ position: 'relative', overflow: 'hidden' }}>
+          {loading && (
+            <div className="loading-center" style={{ position: 'absolute', inset: 0, zIndex: 800, background: 'rgba(251,250,247,0.7)' }}>
+              <div className="spinner" />
+              <span>Loading data…</span>
+            </div>
           )}
-        </Box>
-      )}
-
-      {/* Hover tooltip */}
-      {hoveredCounty && selectedCause && (
-        <Box sx={{
-          position: 'absolute', bottom: 20, left: 14, zIndex: 1000,
-          bgcolor: 'white', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
-          p: 2.25, minWidth: 290, maxWidth: 340,
-          borderLeft: isPriorityHovered ? '3px solid #C62828' : 'none',
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4 }}>
-            <Typography sx={{ fontSize: 15, fontWeight: 600, color: '#0D1B2A' }}>
-              {hoveredCounty} County
-            </Typography>
-            {isPriorityHovered && (
-              <Box sx={{ bgcolor: '#FFEBEE', borderRadius: '4px', px: 0.75, py: 0.2 }}>
-                <Typography sx={{ fontSize: 10, color: '#C62828', fontWeight: 700 }}>PRIORITY</Typography>
-              </Box>
+          <MapContainer
+            center={[40.0, -89.3]}
+            zoom={6}
+            style={{ height: '100%', width: '100%' }}
+            zoomControl={true}
+            scrollWheelZoom={true}
+            attributionControl={false}
+          >
+            {geoData && (
+              <LeafletGeoJSON
+                key={`${selectedCause}-${selectedYear}-${searchTarget}`}
+                data={geoData}
+                style={getStyle as (feature?: Feature) => L.PathOptions}
+                onEachFeature={onEachFeature}
+              />
             )}
-          </Box>
-          <Typography sx={{ fontSize: 11, color: '#546E7A', ...MONO, mb: 1.75 }}>
-            {causeLabels[selectedCause]} · {selectedYear}
-          </Typography>
-          <Typography sx={{ fontSize: 11, color: '#546E7A', mb: 1, fontStyle: 'italic' }}>
-            Click county to drill down →
-          </Typography>
+            {geoData && <FitBounds geojson={geoData} />}
+          </MapContainer>
+        </div>
 
-          {hoveredStats && hoveredStats.rate > 0 ? (
-            <Box sx={{ mb: 1.75 }}>
-              {[
-                { label: 'County rate', value: hoveredStats.rate },
-                { label: 'State average', value: hoveredStats.stateRate },
-              ].map(({ label, value }) => (
-                <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 0.75 }}>
-                  <Typography sx={{ fontSize: 12, color: '#546E7A' }}>{label}</Typography>
-                  <Typography sx={{ fontSize: 13, fontWeight: 600, ...MONO }}>
-                    {value > 0 ? value.toFixed(1) : '—'}
-                    <span style={{ fontSize: 10, color: '#90A4AE', fontWeight: 400 }}> /100k</span>
-                  </Typography>
-                </Box>
-              ))}
-              {pctDiff !== null && hoveredStats.rate > 0 && (
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', pt: 0.75, borderTop: '1px solid #E0E7EF' }}>
-                  <Typography sx={{ fontSize: 12, color: '#546E7A' }}>vs. state</Typography>
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, ...MONO,
-                    color: pctDiff > 20 ? '#C62828' : pctDiff < -20 ? '#2E7D32' : '#E65100' }}>
-                    {pctDiff > 0 ? '+' : ''}{pctDiff.toFixed(1)}%
-                  </Typography>
-                </Box>
+        {/* Right rail */}
+        <div style={{ borderLeft: `1px solid ${RULE}`, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 28, overflowY: 'auto' }}>
+
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>Scale</div>
+            {[
+              { c: D_HIGH_TINT, border: D_HIGH, label: 'High', sub: '> 20% above state' },
+              { c: '#F5ECDD', border: '#C68B3C', label: 'Near average', sub: '± 20% of state' },
+              { c: D_LOW_TINT, border: D_LOW, label: 'Low', sub: '> 20% below state' },
+              { c: D_NULL_TINT, border: '#C4C0B6', label: 'Suppressed', sub: 'Count < 5 / no data' },
+            ].map(({ c, border, label, sub }) => (
+              <div key={label} className="legend-row">
+                <span className="legend-swatch" style={{ background: c, borderLeft: `3px solid ${border}` }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'baseline' }}>
+                  <span style={{ color: 'var(--ink)', fontSize: 12.5 }}>{label}</span>
+                  <span className="num" style={{ fontSize: 10, color: 'var(--ink-4)' }}>{sub}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>Priority border</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div style={{ width: 24, height: 2, borderTop: `2px dashed ${D_HIGH}` }} />
+              <span className="caption">High rate + worsening trend</span>
+            </div>
+            <p className="caption" style={{ color: 'var(--ink-4)' }}>
+              Counties where rate exceeds state average by ≥ 20% and 2015–{selectedYear} slope is positive.
+            </p>
+          </div>
+
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>
+              Priority counties
+              {priorityList.length > 0 && (
+                <span className="chip priority" style={{ marginLeft: 8 }}>{priorityList.length}</span>
               )}
-            </Box>
-          ) : (
-            <Typography sx={{ fontSize: 12, color: '#9E9E9E', mb: 1.75, fontStyle: 'italic' }}>
-              Data suppressed for this year
-            </Typography>
-          )}
+            </div>
+            {!selectedCause ? (
+              <p className="caption" style={{ color: 'var(--ink-4)' }}>Select a cause to surface priority counties.</p>
+            ) : priorityList.length === 0 ? (
+              <p className="caption" style={{ color: 'var(--ink-4)' }}>No priority counties for {selectedYear}.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {priorityList.map((c, i) => (
+                  <div key={c.name}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderTop: i === 0 ? 'none' : `1px solid ${RULE}`, cursor: 'pointer' }}
+                    onClick={() => navigate(`/county/${encodeURIComponent(c.name)}`)}>
+                    <span style={{ fontSize: 13, color: 'var(--ink)' }}>{c.name}</span>
+                    <span className="num" style={{ fontSize: 11, color: D_HIGH }}>{c.rate.toFixed(1)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-          {countyRates.length > 0 && (
-            <Box sx={{ height: 110 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={countyRates} margin={{ top: 2, right: 2, left: -24, bottom: 0 }}>
-                  <XAxis dataKey="year" tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono' }} interval={2} />
-                  <YAxis tick={{ fontSize: 9 }} />
-                  <RechartsTip
-                    contentStyle={{ fontSize: 11, fontFamily: 'IBM Plex Mono', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
-                    cursor={{ fill: 'rgba(21,101,192,0.07)' }}
-                  />
-                  <Bar dataKey="County" name="County" radius={[2, 2, 0, 0]}>
-                    {countyRates.map((entry, i) => (
-                      <Cell key={i} fill={entry.year === selectedYear.toString() ? '#1565C0' : '#90CAF9'} />
-                    ))}
-                  </Bar>
-                  <Bar dataKey="State" name="IL Avg" fill="#CFD8DC" radius={[2, 2, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </Box>
-          )}
-        </Box>
-      )}
-
-      {loading && (
-        <Box className="map-loading-overlay">
-          <CircularProgress sx={{ color: '#1565C0' }} />
-        </Box>
-      )}
-    </Box>
+          <div style={{ marginTop: 'auto' }}>
+            <span className="tiny">Source · IDPH Vital Statistics · Age-adjusted rates per 100,000</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

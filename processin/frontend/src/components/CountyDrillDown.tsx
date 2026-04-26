@@ -1,21 +1,38 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, CircularProgress, Alert, Chip,
-} from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, LineChart, Line, Legend,
 } from 'recharts';
 import axios from 'axios';
 import { causeLabels, causes, API_BASE, calcSlope } from '../data/constants';
 import { countyPop2020 } from '../data/population';
+import type { SharedState } from '../App';
 
 interface DeathRate { County: string; [key: string]: number | string; }
 type AllData = Record<string, DeathRate[]>;
+interface ViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
 
-const CountyDrillDown = () => {
+const D_HIGH = '#B23A2E';
+const D_HIGH_TINT = '#F2E4E1';
+const D_MID = '#C68B3C';
+const D_LOW = '#4F7A4D';
+const D_LOW_TINT = '#E4ECDF';
+const INK = '#1C1B18';
+const INK_3 = '#6B675F';
+const INK_4 = '#9A968C';
+const RULE = '#E6E3DC';
+
+const TIP_STYLE = {
+  fontSize: 11,
+  fontFamily: "'IBM Plex Mono',monospace",
+  border: 'none',
+  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+  borderRadius: 0,
+  background: '#FFFFFF',
+};
+
+const CountyDrillDown = (_props: ViewProps) => {
   const { countyName } = useParams<{ countyName: string }>();
   const navigate = useNavigate();
   const decoded = decodeURIComponent(countyName ?? '');
@@ -35,16 +52,14 @@ const CountyDrillDown = () => {
       const map: AllData = {};
       results.forEach(({ cause, data }) => { map[cause] = data; });
       setAllData(map);
-      setError(null);
     }).catch(() => setError('Failed to load county data.'))
       .finally(() => setLoading(false));
   }, []);
 
-  const getLatestYear = (data: DeathRate[]): string =>
+  const getLatestYear = (data: DeathRate[]) =>
     Object.keys(data.find(d => d.County === 'ILLINOIS') ?? {})
       .filter(k => k !== 'County' && k !== '2008').sort().pop() ?? '2022';
 
-  /** Per-cause summary: county rate, state rate, ratio, slope */
   const causeSummary = causes.map(cause => {
     const data = allData[cause] ?? [];
     const latestYear = getLatestYear(data);
@@ -57,7 +72,6 @@ const CountyDrillDown = () => {
     return { cause, countyRate, stateRate, ratio, slope, latestYear };
   }).filter(d => d.countyRate > 0 || d.stateRate > 0);
 
-  /** Trend line for selected cause */
   const trendData = (() => {
     if (!selectedCause) return [];
     const data = allData[selectedCause] ?? [];
@@ -73,180 +87,245 @@ const CountyDrillDown = () => {
   })();
 
   const pop = countyPop2020[decoded];
-
   const topCauses = [...causeSummary].sort((a, b) => b.ratio - a.ratio).slice(0, 3);
 
-  if (loading) return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-      <CircularProgress sx={{ color: '#1565C0' }} />
-    </Box>
-  );
-  if (error) return <Alert severity="error" sx={{ m: 3 }}>{error}</Alert>;
+  const totalRow = causeSummary.find(d => d.cause === 'Total_Deaths');
+  const excessDeaths = (() => {
+    if (!totalRow?.stateRate || !pop) return 0;
+    return ((totalRow.countyRate - totalRow.stateRate) / 100000) * pop;
+  })();
+
+  const trendSlope = selectedCause
+    ? calcSlope(allData[selectedCause]?.find(d => d.County === decoded) as Record<string, number | string> ?? {}, 2015, 2022)
+    : 0;
+
+  if (loading) return <div className="loading-center"><div className="spinner" /><span>Loading county data…</span></div>;
+  if (error) return <div className="error-banner" style={{ margin: 32 }}>{error}</div>;
 
   return (
-    <Box sx={{ height: '100%', overflowY: 'auto' }}>
-      {/* Header */}
-      <Box sx={{ px: 3, py: 2.5, borderBottom: '1px solid #D6E4EF', bgcolor: 'white', position: 'sticky', top: 0, zIndex: 5 }}>
-        <Box
-          onClick={() => navigate(-1)}
-          sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, color: '#1565C0', cursor: 'pointer', mb: 1,
-            fontSize: 13, fontWeight: 500, '&:hover': { textDecoration: 'underline' } }}
-        >
-          <ArrowBackIcon sx={{ fontSize: 16 }} /> Back
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#0D1B2A' }}>{decoded} County</Typography>
+    <div className="view fade-in" style={{ overflowY: 'auto' }}>
+      {/* View head */}
+      <div className="view-head">
+        <div className="titles">
+          <button className="btn btn-sm btn-ghost" style={{ marginBottom: 16 }}
+            onClick={() => navigate(-1)}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
+              <path d="M10 3L5 8l5 5"/>
+            </svg>
+            Back
+          </button>
+          <div className="eyebrow eyebrow-ink">County Profile</div>
+          <h1 className="h-display" style={{ marginTop: 8 }}>{decoded} County</h1>
           {pop && (
-            <Typography sx={{ fontSize: 13, color: '#546E7A', fontFamily: "'IBM Plex Mono', monospace" }}>
-              Pop. {pop.toLocaleString()} (2020)
-            </Typography>
+            <p className="body" style={{ marginTop: 10, color: 'var(--ink-3)' }}>
+              Population {pop.toLocaleString()} (2020 census) · 2009–2022 mortality data
+            </p>
           )}
-        </Box>
-        {topCauses.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-            <Typography sx={{ fontSize: 12, color: '#546E7A', mr: 0.5, alignSelf: 'center' }}>Highest burden:</Typography>
-            {topCauses.map(({ cause, ratio }) => (
-              <Chip
-                key={cause}
-                label={`${causeLabels[cause]} (+${((ratio - 1) * 100).toFixed(0)}%)`}
-                size="small"
-                onClick={() => setSelectedCause(cause)}
-                sx={{
-                  fontSize: 11, height: 22, bgcolor: '#FFEBEE', color: '#C62828',
-                  border: selectedCause === cause ? '1.5px solid #C62828' : '1px solid #FFCDD2',
-                  cursor: 'pointer',
-                }}
-              />
-            ))}
-          </Box>
-        )}
-      </Box>
+        </div>
+        <div className="ix">
+          <div className="field">
+            <div className="field-label">Trend cause</div>
+            <select className="sel" style={{ width: 240 }}
+              value={selectedCause || ''}
+              onChange={e => setSelectedCause(e.target.value || null)}>
+              <option value="">— Select to view trend —</option>
+              {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
 
-      <Box sx={{ p: 3 }}>
-        {/* All-causes comparison bar chart */}
-        <Box sx={{ bgcolor: 'white', borderRadius: '8px', p: 2.5, mb: 2.5, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#0D1B2A', mb: 0.5 }}>
-            All-Cause Profile vs. State Average
-          </Typography>
-          <Typography sx={{ fontSize: 12, color: '#546E7A', mb: 2 }}>
-            Click any bar to see the trend for that cause below
-          </Typography>
-          <Box sx={{ height: Math.max(300, causeSummary.length * 28) }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={causeSummary.map(d => ({
-                  cause: causeLabels[d.cause].replace(' (Cancer)', '').replace(' (Suicide)', '').replace(' (Unintentional Injuries)', ''),
-                  causeKey: d.cause,
-                  County: d.countyRate,
-                  State: d.stateRate,
-                  ratio: d.ratio,
-                }))}
-                layout="vertical"
-                margin={{ top: 0, right: 60, left: 0, bottom: 0 }}
-                onClick={(data: any) => data?.activePayload?.[0] && setSelectedCause(data.activePayload[0].payload.causeKey)}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#E0E7EF" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }}
-                  label={{ value: 'Rate per 100,000', position: 'insideBottom', offset: -5, fontSize: 11, fill: '#546E7A' }} />
-                <YAxis dataKey="cause" type="category" tick={{ fontSize: 11 }} width={160} />
-                <Tooltip
-                  contentStyle={{ fontSize: 12, fontFamily: 'IBM Plex Mono', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-                  formatter={(v: any, name: string) => [`${Number(v).toFixed(1)} /100k`, name === 'County' ? decoded : 'IL State Avg']}
-                  cursor={{ fill: 'rgba(21,101,192,0.07)' }}
-                />
-                <Bar dataKey="County" name="County" radius={[0, 3, 3, 0]} style={{ cursor: 'pointer' }}>
-                  {causeSummary.map((d, i) => (
-                    <Cell
-                      key={i}
-                      fill={
-                        d.cause === selectedCause ? '#1565C0'
-                          : d.ratio > 1.2 ? '#EF5350'
-                          : d.ratio < 0.8 ? '#66BB6A'
-                          : '#FFA726'
-                      }
-                    />
-                  ))}
-                </Bar>
-                <Bar dataKey="State" name="State Avg" fill="#CFD8DC" radius={[0, 3, 3, 0]} style={{ cursor: 'pointer' }} />
-                <Legend
-                  wrapperStyle={{ fontSize: 11, fontFamily: "'IBM Plex Sans', sans-serif" }}
-                  formatter={(value: string) => value === 'County' ? decoded : 'IL State Avg'}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </Box>
-        </Box>
+      {/* KPI strip */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: `1px solid ${RULE}` }}>
+        <div className="stat">
+          <div className="stat-label">Population (2020)</div>
+          <div className="stat-value num">{pop ? (pop / 1000).toFixed(0) + 'k' : '—'}</div>
+          <div className="stat-meta"><span>US Census</span></div>
+        </div>
+        <div className="stat">
+          <div className="stat-label">All-cause rate / 100k</div>
+          <div className="stat-value num">{(totalRow?.countyRate ?? 0) > 0 ? (totalRow?.countyRate ?? 0).toFixed(1) : '—'}</div>
+          <div className="stat-meta"><span>Latest year</span></div>
+        </div>
+        <div className="stat">
+          <div className="stat-label">Excess deaths · annual</div>
+          <div className="stat-value num" style={{ color: excessDeaths > 0 ? D_HIGH : excessDeaths < 0 ? D_LOW : undefined }}>
+            {Math.abs(excessDeaths) > 0.5 ? `${excessDeaths > 0 ? '+' : ''}${excessDeaths.toFixed(1)}` : '—'}
+          </div>
+          <div className="stat-meta"><span>vs. state avg</span></div>
+        </div>
+        <div className="stat">
+          <div className="stat-label">Top cause vs. state</div>
+          <div className="stat-value" style={{ fontSize: 18, fontFamily: 'var(--sans)' }}>
+            {topCauses[0] ? causeLabels[topCauses[0].cause].split(' ')[0] : '—'}
+          </div>
+          <div className="stat-meta" style={{ color: topCauses[0]?.ratio > 1.2 ? D_HIGH : D_LOW }}>
+            {topCauses[0]?.ratio > 0 ? `${((topCauses[0].ratio - 1) * 100 > 0 ? '+' : '')}${((topCauses[0].ratio - 1) * 100).toFixed(0)}%` : ''}
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: '32px 40px', display: 'flex', flexDirection: 'column', gap: 32 }}>
+
+        {/* Top causes chips */}
+        {topCauses.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="eyebrow" style={{ marginRight: 4 }}>Highest burden causes</span>
+            {topCauses.map(({ cause, ratio }) => (
+              <button key={cause}
+                className={`chip${cause === selectedCause ? ' active' : ' priority'}`}
+                onClick={() => setSelectedCause(cause === selectedCause ? null : cause)}>
+                {causeLabels[cause].split('(')[0].trim()}
+                {ratio > 0 && <span style={{ marginLeft: 4 }}>{ratio > 1 ? '+' : ''}{((ratio - 1) * 100).toFixed(0)}%</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* All-causes profile bar chart */}
+        <div className="panel">
+          <div className="panel-head">
+            <div className="titles">
+              <div className="eyebrow">Cause breakdown</div>
+              <div className="h3">{decoded} vs. Illinois — all causes</div>
+            </div>
+            <span className="caption">Click bar to see trend below</span>
+          </div>
+          <div className="panel-body">
+            <div style={{ height: Math.max(280, causeSummary.length * 28) }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={causeSummary.map(d => ({
+                    cause: causeLabels[d.cause].replace(' (Cancer)', '').replace(' (Suicide)', '').replace(' (Unintentional Injuries)', ''),
+                    causeKey: d.cause,
+                    County: d.countyRate,
+                    State: d.stateRate,
+                    ratio: d.ratio,
+                  }))}
+                  layout="vertical"
+                  margin={{ top: 0, right: 48, left: 0, bottom: 0 }}
+                  onClick={(data) => data?.activePayload?.[0] && setSelectedCause(data.activePayload[0].payload.causeKey)}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke={RULE} horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
+                  <YAxis dataKey="cause" type="category" tick={{ fontSize: 11, fill: INK_3 }} width={160} />
+                  <Tooltip contentStyle={TIP_STYLE}
+                    formatter={(v: unknown, name: string) => [`${Number(v).toFixed(1)} /100k`, name === 'County' ? decoded : 'IL avg']} />
+                  <Bar dataKey="County" name="County" radius={[0, 2, 2, 0]} style={{ cursor: 'pointer' }}>
+                    {causeSummary.map((d, i) => (
+                      <Cell key={i} fill={d.cause === selectedCause ? INK : d.ratio > 1.2 ? D_HIGH : d.ratio < 0.8 ? D_LOW : D_MID} />
+                    ))}
+                  </Bar>
+                  <Bar dataKey="State" name="IL avg" fill={RULE} radius={[0, 2, 2, 0]} />
+                  <Legend wrapperStyle={{ fontSize: 11, fontFamily: "'Inter Tight',sans-serif" }}
+                    formatter={(v: string) => v === 'County' ? decoded : 'IL avg'} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
 
         {/* Trend line for selected cause */}
         {selectedCause && trendData.length > 0 && (
-          <Box sx={{ bgcolor: 'white', borderRadius: '8px', p: 2.5, mb: 2.5, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5, mb: 2 }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#0D1B2A' }}>
-                {causeLabels[selectedCause]} — Trend 2009–2022
-              </Typography>
-              <Typography sx={{
-                fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
-                color: calcSlope(allData[selectedCause]?.find(d => d.County === decoded) as Record<string, number | string> ?? {}, 2015, 2022) > 0 ? '#C62828' : '#2E7D32',
-              }}>
-                {(() => {
-                  const s = calcSlope(allData[selectedCause]?.find(d => d.County === decoded) as Record<string, number | string> ?? {}, 2015, 2022);
-                  return `${s > 0 ? '↑ +' : '↓ '}${s.toFixed(2)}/yr`;
-                })()}
-              </Typography>
-            </Box>
-            <Box sx={{ height: 220 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData} margin={{ top: 4, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E0E7EF" />
-                  <XAxis dataKey="year" tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }} />
-                  <YAxis tick={{ fontSize: 10 }}
-                    label={{ value: '/100k', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#90A4AE', dx: 4 }} />
-                  <Tooltip
-                    contentStyle={{ fontSize: 12, fontFamily: 'IBM Plex Mono', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-                    formatter={(v: any, name: string) => [`${Number(v).toFixed(1)} /100k`, name === 'County' ? decoded : 'IL State Avg']}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 11 }}
-                    formatter={(value: string) => value === 'County' ? decoded : 'IL State Avg'} />
-                  <Line type="monotone" dataKey="County" stroke="#1565C0" strokeWidth={2.5}
-                    dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls={false} />
-                  <Line type="monotone" dataKey="State" stroke="#90A4AE" strokeWidth={1.5}
-                    strokeDasharray="5 3" dot={false} connectNulls={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </Box>
-          </Box>
+          <div className="panel">
+            <div className="panel-head">
+              <div className="titles">
+                <div className="eyebrow">Trend overlay</div>
+                <div className="h3">{causeLabels[selectedCause]} — {decoded} vs. Illinois</div>
+              </div>
+              <span className="num" style={{ fontSize: 11.5, color: trendSlope > 0 ? D_HIGH : D_LOW }}>
+                {trendSlope > 0 ? '↑ +' : '↓ '}{trendSlope.toFixed(2)}/yr
+              </span>
+            </div>
+            <div className="panel-body">
+              <div style={{ height: 220 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendData} margin={{ top: 4, right: 20, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={RULE} />
+                    <XAxis dataKey="year" tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
+                    <YAxis tick={{ fontSize: 10, fill: INK_4 }}
+                      label={{ value: '/100k', angle: -90, position: 'insideLeft', fontSize: 10, fill: INK_4, dx: 4 }} />
+                    <Tooltip contentStyle={TIP_STYLE}
+                      formatter={(v: unknown, name: string) => [`${Number(v).toFixed(1)} /100k`, name === 'County' ? decoded : 'IL avg']} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v: string) => v === 'County' ? decoded : 'IL avg'} />
+                    <Line type="monotone" dataKey="County" stroke={INK} strokeWidth={2.5}
+                      dot={{ r: 3, fill: INK }} activeDot={{ r: 5 }} connectNulls={false} />
+                    <Line type="monotone" dataKey="State" stroke={INK_4} strokeWidth={1.5}
+                      strokeDasharray="5 3" dot={false} connectNulls={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
         )}
 
-        {/* Mortality burden */}
-        {pop && causeSummary.length > 0 && (() => {
-          const totalRow = causeSummary.find(d => d.cause === 'Total_Deaths');
-          if (!totalRow || !totalRow.stateRate) return null;
-          const excessDeaths = ((totalRow.countyRate - totalRow.stateRate) / 100000) * pop;
-          if (Math.abs(excessDeaths) < 0.5) return null;
-          return (
-            <Box sx={{
-              bgcolor: excessDeaths > 0 ? '#FFEBEE' : '#E8F5E9',
-              border: `1px solid ${excessDeaths > 0 ? '#EF9A9A' : '#A5D6A7'}`,
-              borderRadius: '8px', p: 2.5,
-            }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 600, color: excessDeaths > 0 ? '#C62828' : '#2E7D32', mb: 0.5 }}>
-                Estimated Mortality Burden
-              </Typography>
-              <Typography sx={{ fontSize: 13, color: '#0D1B2A' }}>
-                <strong style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 15 }}>
-                  {Math.abs(excessDeaths).toFixed(1)}
-                </strong>{' '}
-                {excessDeaths > 0 ? 'excess deaths per year' : 'fewer deaths per year'} vs. state average,
-                based on 2020 population of {pop.toLocaleString()}.
-              </Typography>
-              <Typography sx={{ fontSize: 11, color: '#546E7A', mt: 0.75 }}>
-                Formula: (county rate − state rate) × population ÷ 100,000 · Uses Total Deaths cause, latest year.
-              </Typography>
-            </Box>
-          );
-        })()}
-      </Box>
-    </Box>
+        {/* Mortality burden callout */}
+        {Math.abs(excessDeaths) > 0.5 && (
+          <div style={{
+            padding: '20px 24px',
+            background: excessDeaths > 0 ? D_HIGH_TINT : D_LOW_TINT,
+            borderLeft: `4px solid ${excessDeaths > 0 ? D_HIGH : D_LOW}`,
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 16,
+          }}>
+            <span className="num" style={{ fontSize: 28, color: excessDeaths > 0 ? D_HIGH : D_LOW, lineHeight: 1 }}>
+              {excessDeaths > 0 ? '+' : ''}{excessDeaths.toFixed(1)}
+            </span>
+            <div>
+              <div style={{ fontSize: 13, color: INK, fontWeight: 500 }}>
+                estimated {excessDeaths > 0 ? 'excess' : 'fewer'} deaths per year vs. state average
+              </div>
+              <div className="caption" style={{ marginTop: 4 }}>
+                (county rate − state rate) × {pop ? pop.toLocaleString() : 'population'} ÷ 100,000 · Total Deaths · latest year
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cause table */}
+        <div className="panel">
+          <div className="panel-head">
+            <div className="titles">
+              <div className="eyebrow">All causes</div>
+              <div className="h3">Full cause breakdown vs. state</div>
+            </div>
+          </div>
+          <div className="panel-body-flat">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th className="col-left">Cause</th>
+                  <th style={{ textAlign: 'right' }}>{decoded}</th>
+                  <th style={{ textAlign: 'right' }}>IL avg</th>
+                  <th style={{ textAlign: 'right' }}>Ratio</th>
+                  <th style={{ textAlign: 'right' }}>Slope</th>
+                </tr>
+              </thead>
+              <tbody>
+                {causeSummary
+                  .filter(d => d.countyRate > 0)
+                  .sort((a, b) => b.ratio - a.ratio)
+                  .map(d => (
+                    <tr key={d.cause} onClick={() => setSelectedCause(d.cause)} style={{ cursor: 'pointer' }}>
+                      <td className="col-left">{causeLabels[d.cause]}</td>
+                      <td>{d.countyRate.toFixed(1)}</td>
+                      <td style={{ color: INK_4 }}>{d.stateRate.toFixed(1)}</td>
+                      <td style={{ color: d.ratio > 1.2 ? D_HIGH : d.ratio < 0.8 ? D_LOW : D_MID }}>
+                        {d.ratio > 0 ? `${d.ratio > 1 ? '+' : ''}${((d.ratio - 1) * 100).toFixed(0)}%` : '—'}
+                      </td>
+                      <td style={{ color: d.slope > 0 ? D_HIGH : d.slope < 0 ? D_LOW : INK_4 }}>
+                        {d.slope !== 0 ? `${d.slope > 0 ? '+' : ''}${d.slope.toFixed(2)}` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
