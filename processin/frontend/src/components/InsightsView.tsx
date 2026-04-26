@@ -1,38 +1,53 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Typography, Box, FormControl, InputLabel, Select, MenuItem,
-  CircularProgress, Alert, Grid, Paper,
-} from '@mui/material';
-import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell,
-  ReferenceLine,
+  Tooltip, ResponsiveContainer, ReferenceLine, Cell,
 } from 'recharts';
 import axios from 'axios';
-import InsertChartIcon from '@mui/icons-material/InsertChart';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
-import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, MONO } from '../data/constants';
+import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE } from '../data/constants';
 import { countyPop2020 } from '../data/population';
+import type { SharedState } from '../App';
 
-interface DeathRate {
-  County: string;
-  [key: string]: number | string;
-}
+interface DeathRate { County: string; [key: string]: number | string; }
 
-const EXCLUDED = EXCLUDED_COUNTIES;
-const PIE_COLORS = ['#EF5350', '#FF7043', '#FFA726', '#66BB6A', '#42A5F5'];
+interface ViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
 
-const cardSx = {
-  bgcolor: 'white',
-  borderRadius: '8px',
-  p: 2.25,
-  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-  height: '100%',
+// Design tokens for Recharts SVG attributes
+const D_HIGH = '#B23A2E';
+const D_LOW = '#4F7A4D';
+const D_MID = '#C68B3C';
+const INK = '#1C1B18';
+const INK_3 = '#6B675F';
+const INK_4 = '#9A968C';
+const RULE = '#E6E3DC';
+
+const TIP_STYLE = {
+  fontSize: 11,
+  fontFamily: "'IBM Plex Mono', monospace",
+  border: 'none',
+  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+  borderRadius: 0,
+  background: '#FFFFFF',
 };
 
-const InsightsView = () => {
-  const [selectedCause, setSelectedCause] = useState('');
+function YearScrub({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="year-scrub" style={{ width: 220 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
+        <span className="eyebrow">Year</span>
+        <span className="num" style={{ fontSize: 18, color: 'var(--ink)', fontWeight: 500 }}>{value}</span>
+      </div>
+      <input type="range" className="range" min={2009} max={2022} value={value}
+        onChange={e => onChange(Number(e.target.value))} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--ink-4)' }}>
+        {[2009, 2012, 2015, 2018, 2022].map(y => <span key={y}>{y}</span>)}
+      </div>
+    </div>
+  );
+}
+
+const InsightsView = ({ shared, setShared }: ViewProps) => {
+  const { selectedCause, selectedYear } = shared;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deathData, setDeathData] = useState<DeathRate[]>([]);
@@ -47,540 +62,445 @@ const InsightsView = () => {
       .finally(() => setLoading(false));
   }, [selectedCause]);
 
-  const getLatestYear = () => {
-    const stateRow = deathData.find(d => d.County === 'ILLINOIS');
-    if (!stateRow) return null;
-    return Object.keys(stateRow)
-      .filter(k => k !== 'County' && k !== '2008')
-      .sort()
-      .pop() ?? null;
-  };
+  const latestYear = (() => {
+    const row = deathData.find(d => d.County === 'ILLINOIS');
+    if (!row) return null;
+    return Object.keys(row).filter(k => k !== 'County' && k !== '2008').sort().pop() ?? null;
+  })();
 
-  const getStatewideTrend = () => {
-    const stateData = deathData.find(d => d.County === 'ILLINOIS');
-    if (!stateData) return [];
-    return Object.entries(stateData)
+  const stateRate = Number(deathData.find(d => d.County === 'ILLINOIS')?.[selectedYear.toString()]) || 0;
+
+  const statewideTrend = useMemo(() => {
+    const row = deathData.find(d => d.County === 'ILLINOIS');
+    if (!row) return [];
+    return Object.entries(row)
       .filter(([k]) => k !== 'County' && k !== '2008')
-      .map(([year, value]) => ({ year, rate: Number(value) > 0 ? Number(value) : null }))
+      .map(([year, val]) => ({ year, rate: Number(val) > 0 ? Number(val) : null }))
       .sort((a, b) => a.year.localeCompare(b.year));
-  };
+  }, [deathData]);
 
-  const getTopCounties = () => {
-    const latestYear = getLatestYear();
+  const countyBand = useMemo(() => {
+    if (!deathData.length) return {};
+    const years = statewideTrend.map(d => d.year);
+    const result: Record<string, { min: number; max: number }> = {};
+    years.forEach(y => {
+      const vals = deathData
+        .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
+        .map(d => Number(d[y]))
+        .filter(v => v > 0);
+      if (vals.length) result[y] = { min: Math.min(...vals), max: Math.max(...vals) };
+    });
+    return result;
+  }, [deathData, statewideTrend]);
+
+  const trendWithBand = useMemo(() =>
+    statewideTrend.map(d => ({
+      ...d,
+      low: countyBand[d.year]?.min ?? null,
+      high: countyBand[d.year]?.max ?? null,
+    })),
+    [statewideTrend, countyBand]
+  );
+
+  const topCounties = useMemo(() => {
     if (!latestYear) return [];
     const sorted = deathData
-      .filter(d => !EXCLUDED.includes(d.County))
-      .map(d => ({ county: d.County, rate: Number(d[latestYear]) || 0 }))
+      .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
+      .map(d => ({ county: d.County, rate: Number(d[selectedYear.toString()]) || 0 }))
       .filter(d => d.rate > 0)
       .sort((a, b) => b.rate - a.rate);
     return showBottom ? sorted.slice(-5).reverse() : sorted.slice(0, 5);
-  };
+  }, [deathData, selectedYear, showBottom, latestYear]);
 
-  const getRegionalDistribution = () => {
-    const latestYear = getLatestYear();
-    if (!latestYear) return [];
-    const stateRate = Number(deathData.find(d => d.County === 'ILLINOIS')?.[latestYear]);
-    const cats: Record<string, number> = {
-      'Much Higher (>40%)': 0,
-      'Higher (20-40%)': 0,
-      'Near Average (±20%)': 0,
-      'Lower (20-40%)': 0,
-      'Much Lower (>40%)': 0,
-    };
-    deathData.filter(d => !EXCLUDED.includes(d.County)).forEach(county => {
-      const rate = Number(county[latestYear]);
-      if (!rate) return;
-      const ratio = rate / stateRate;
-      if (ratio > 1.4) cats['Much Higher (>40%)']++;
-      else if (ratio > 1.2) cats['Higher (20-40%)']++;
-      else if (ratio >= 0.8) cats['Near Average (±20%)']++;
-      else if (ratio >= 0.6) cats['Lower (20-40%)']++;
-      else cats['Much Lower (>40%)']++;
+  const distribution = useMemo(() => {
+    if (!stateRate) return [];
+    const cats = [
+      { label: 'Much higher', sub: '> 40% above', color: D_HIGH, min: 1.4, max: Infinity },
+      { label: 'Higher', sub: '20–40% above', color: '#C85A4E', min: 1.2, max: 1.4 },
+      { label: 'Near average', sub: '± 20%', color: D_MID, min: 0.8, max: 1.2 },
+      { label: 'Lower', sub: '20–40% below', color: '#5A9458', min: 0.6, max: 0.8 },
+      { label: 'Much lower', sub: '> 40% below', color: D_LOW, min: 0, max: 0.6 },
+    ];
+    return cats.map(cat => {
+      const count = deathData
+        .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
+        .filter(d => {
+          const rate = Number(d[selectedYear.toString()]);
+          if (!rate) return false;
+          const ratio = rate / stateRate;
+          return ratio >= cat.min && ratio < cat.max;
+        }).length;
+      return { ...cat, count };
     });
-    return Object.entries(cats).map(([name, value]) => ({ name, value })).filter(d => d.value > 0);
-  };
+  }, [deathData, stateRate, selectedYear]);
 
-  const getHighestCounty = () => {
-    const y = getLatestYear();
-    if (!y) return null;
+  const stateTrend = useMemo(() => {
+    const row = deathData.find(d => d.County === 'ILLINOIS');
+    if (!row) return null;
+    const r2009 = Number(row['2009']);
+    const rLatest = latestYear ? Number(row[latestYear]) : 0;
+    if (!r2009 || !rLatest) return null;
+    return { pct: ((rLatest - r2009) / r2009) * 100, from: r2009, to: rLatest };
+  }, [deathData, latestYear]);
+
+  const highest = useMemo(() => {
+    if (!latestYear) return null;
     return deathData
-      .filter(d => !EXCLUDED.includes(d.County))
-      .map(d => ({ county: d.County, rate: Number(d[y]) || 0 }))
+      .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
+      .map(d => ({ county: d.County, rate: Number(d[selectedYear.toString()]) || 0 }))
       .filter(d => d.rate > 0)
       .sort((a, b) => b.rate - a.rate)[0] ?? null;
-  };
+  }, [deathData, selectedYear, latestYear]);
 
-  const getLowestCounty = () => {
-    const y = getLatestYear();
-    if (!y) return null;
+  const lowest = useMemo(() => {
+    if (!latestYear) return null;
     return deathData
-      .filter(d => !EXCLUDED.includes(d.County))
-      .map(d => ({ county: d.County, rate: Number(d[y]) || 0 }))
+      .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
+      .map(d => ({ county: d.County, rate: Number(d[selectedYear.toString()]) || 0 }))
       .filter(d => d.rate > 0)
       .sort((a, b) => a.rate - b.rate)[0] ?? null;
-  };
+  }, [deathData, selectedYear, latestYear]);
 
-  const getStateTrend = () => {
-    const stateRow = deathData.find(d => d.County === 'ILLINOIS');
-    if (!stateRow) return null;
-    const rate2009 = Number(stateRow['2009']);
-    const y = getLatestYear();
-    const rateLatest = y ? Number(stateRow[y]) : 0;
-    if (!rate2009 || !rateLatest) return null;
-    return { pct: ((rateLatest - rate2009) / rate2009) * 100, from: rate2009, to: rateLatest };
-  };
-
-  const getCountiesAboveAvg = () => {
-    const y = getLatestYear();
-    if (!y) return null;
-    const stateRate = Number(deathData.find(d => d.County === 'ILLINOIS')?.[y]);
+  const aboveAvg = useMemo(() => {
     if (!stateRate) return null;
-    return deathData
-      .filter(d => !EXCLUDED.includes(d.County))
-      .filter(d => Number(d[y]) > stateRate).length;
-  };
+    return deathData.filter(d => !EXCLUDED_COUNTIES.includes(d.County))
+      .filter(d => Number(d[selectedYear.toString()]) > stateRate).length;
+  }, [deathData, stateRate, selectedYear]);
 
-  // Mortality burden: excess deaths per year vs. state avg
   const mortalityBurden = useMemo(() => {
-    const y = getLatestYear();
-    if (!y || !deathData.length) return [];
-    const stateRate = Number(deathData.find(d => d.County === 'ILLINOIS')?.[y]);
-    if (!stateRate) return [];
+    if (!stateRate || !deathData.length) return [];
     return deathData
-      .filter(d => !EXCLUDED.includes(d.County))
+      .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
       .map(d => {
-        const rate = Number(d[y]) || 0;
+        const rate = Number(d[selectedYear.toString()]) || 0;
         if (!rate) return null;
         const pop = countyPop2020[d.County] ?? 0;
-        const excessDeaths = Math.round(((rate - stateRate) * pop) / 100000);
-        return { county: d.County, excessDeaths, rate };
+        const excess = Math.round(((rate - stateRate) * pop) / 100000);
+        return excess > 0 ? { county: d.County, excessDeaths: excess, rate } : null;
       })
-      .filter((d): d is { county: string; excessDeaths: number; rate: number } =>
-        d !== null && d.excessDeaths > 0
-      )
+      .filter((d): d is { county: string; excessDeaths: number; rate: number } => d !== null)
       .sort((a, b) => b.excessDeaths - a.excessDeaths)
       .slice(0, 10);
-  }, [deathData]);
+  }, [deathData, stateRate, selectedYear]);
 
-  // Trajectory: 2009 to 2022 absolute change per county
   const trajectory = useMemo(() => {
     if (!deathData.length) return { improved: [], declined: [] };
     const rows = deathData
-      .filter(d => !EXCLUDED.includes(d.County))
+      .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
       .map(d => {
-        const r2009 = Number(d['2009']) || 0;
-        const r2022 = Number(d['2022']) || 0;
-        if (!r2009 || !r2022) return null;
-        return { county: d.County, change: r2022 - r2009 };
+        const r09 = Number(d['2009']) || 0;
+        const r22 = Number(d['2022']) || 0;
+        if (!r09 || !r22) return null;
+        return { county: d.County, change: r22 - r09 };
       })
       .filter((d): d is { county: string; change: number } => d !== null)
       .sort((a, b) => a.change - b.change);
-
     return {
-      improved: rows.slice(0, 8).map(d => ({ county: d.county, change: Math.abs(d.change), direction: 'improved' })),
-      declined: rows.slice(-8).reverse().map(d => ({ county: d.county, change: d.change, direction: 'declined' })),
+      improved: rows.slice(0, 8).map(d => ({ county: d.county, change: Math.abs(d.change) })),
+      declined: rows.slice(-8).reverse().map(d => ({ county: d.county, change: d.change })),
     };
   }, [deathData]);
 
-  // COVID-era shift: rate change from 2019 to 2022
   const covidImpact = useMemo(() => {
     if (!deathData.length) return [];
     return deathData
-      .filter(d => !EXCLUDED.includes(d.County))
+      .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
       .map(d => {
-        const r2019 = Number(d['2019']) || 0;
-        const r2022 = Number(d['2022']) || 0;
-        if (!r2019 || !r2022) return null;
-        return { county: d.County, change: +(r2022 - r2019).toFixed(1), pct: +((r2022 - r2019) / r2019 * 100).toFixed(1) };
+        const r19 = Number(d['2019']) || 0;
+        const r22 = Number(d['2022']) || 0;
+        if (!r19 || !r22) return null;
+        return { county: d.County, change: +(r22 - r19).toFixed(1), pct: +((r22 - r19) / r19 * 100).toFixed(1) };
       })
       .filter((d): d is { county: string; change: number; pct: number } => d !== null)
       .sort((a, b) => b.change - a.change)
       .slice(0, 12);
   }, [deathData]);
 
-  const highest = getHighestCounty();
-  const lowest = getLowestCounty();
-  const trend = getStateTrend();
-  const aboveAvg = getCountiesAboveAvg();
-  const latestYear = getLatestYear();
-
-  const StatCard = ({
-    label, accent, children,
-  }: { label: string; accent: string; children: React.ReactNode }) => (
-    <Paper elevation={0} sx={{ ...cardSx, borderTop: `3px solid ${accent}` }}>
-      <Typography sx={{ fontSize: 10, color: '#90A4AE', ...MONO, letterSpacing: '0.08em', mb: 1 }}>
-        {label}
-      </Typography>
-      {children}
-    </Paper>
-  );
-
-  const SectionHeader = ({ title, sub }: { title: string; sub?: string }) => (
-    <Box sx={{ mb: 2.5 }}>
-      <Typography sx={{ fontSize: 15, fontWeight: 600, color: '#0D1B2A' }}>{title}</Typography>
-      {sub && <Typography sx={{ fontSize: 11, color: '#546E7A', mt: 0.25 }}>{sub}</Typography>}
-    </Box>
-  );
+  const hasData = selectedCause && deathData.length > 0;
 
   return (
-    <Box sx={{ height: '100%', overflowY: 'auto', p: 2.5 }}>
-      {/* Header + selector */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <Box sx={{ flex: 1 }}>
-          <Typography sx={{ fontSize: 20, fontWeight: 600, color: '#0D1B2A', lineHeight: 1 }}>
-            Mortality Insights
-          </Typography>
-          {selectedCause && latestYear && (
-            <Typography sx={{ fontSize: 12, color: '#546E7A', mt: 0.5 }}>
-              {causeLabels[selectedCause]} · Latest data: {latestYear}
-            </Typography>
-          )}
-        </Box>
-        <Box sx={{ bgcolor: 'white', borderRadius: '6px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', p: 1.5, minWidth: 280 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel sx={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>
-              Cause of Death
-            </InputLabel>
-            <Select
+    <div className="view fade-in" style={{ overflowY: 'auto' }}>
+      {/* View head */}
+      <div className="view-head">
+        <div className="titles">
+          <div className="eyebrow eyebrow-ink">Mortality Insights</div>
+          <h1 className="h-display" style={{ marginTop: 8 }}>Statewide patterns &amp;<br />county trajectories.</h1>
+          <p className="body" style={{ marginTop: 12, maxWidth: 540, color: 'var(--ink-3)' }}>
+            Population-adjusted excess deaths, change since 2009, and the COVID-era shift across 102 Illinois counties.
+          </p>
+        </div>
+        <div className="ix">
+          <div className="field">
+            <div className="field-label">Cause of death</div>
+            <select className="sel" style={{ width: 260 }}
               value={selectedCause}
-              label="Cause of Death"
-              onChange={e => setSelectedCause(e.target.value)}
-              disabled={loading}
-              sx={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}
-            >
-              {causes.map(c => (
-                <MenuItem key={c} value={c} sx={{ fontSize: 13, fontFamily: "'IBM Plex Sans', sans-serif" }}>
-                  {causeLabels[c]}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-      </Box>
+              onChange={e => setShared({ ...shared, selectedCause: e.target.value })}>
+              <option value="">— Select cause —</option>
+              {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
+            </select>
+          </div>
+          <YearScrub value={selectedYear} onChange={v => setShared({ ...shared, selectedYear: v })} />
+        </div>
+      </div>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && <div className="error-banner">{error}</div>}
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', pt: 8 }}>
-          <CircularProgress sx={{ color: '#1565C0' }} />
-        </Box>
-      ) : selectedCause && deathData.length ? (
-        <>
-          {/* Executive summary cards */}
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard label="HIGHEST RATE COUNTY" accent="#EF5350">
-                <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#C62828', ...MONO }}>
-                  {highest ? highest.rate.toFixed(1) : '—'}
-                </Typography>
-                <Typography sx={{ fontSize: 11, color: '#546E7A', mt: 0.25 }}>
-                  per 100k — {highest?.county ?? '—'}
-                </Typography>
-              </StatCard>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard label="LOWEST RATE COUNTY" accent="#66BB6A">
-                <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#2E7D32', ...MONO }}>
-                  {lowest ? lowest.rate.toFixed(1) : '—'}
-                </Typography>
-                <Typography sx={{ fontSize: 11, color: '#546E7A', mt: 0.25 }}>
-                  per 100k — {lowest?.county ?? '—'}
-                </Typography>
-              </StatCard>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard label="STATE TREND 2009→2022" accent={trend && trend.pct < 0 ? '#66BB6A' : '#EF5350'}>
-                <Typography sx={{
-                  fontSize: 18, fontWeight: 700, ...MONO,
-                  color: trend ? (trend.pct < 0 ? '#2E7D32' : '#C62828') : '#9E9E9E',
-                }}>
-                  {trend ? `${trend.pct > 0 ? '+' : ''}${trend.pct.toFixed(1)}%` : '—'}
-                </Typography>
-                <Typography sx={{ fontSize: 11, color: '#546E7A', mt: 0.25 }}>
-                  {trend ? `${trend.from.toFixed(1)} → ${trend.to.toFixed(1)} per 100k` : 'Insufficient data'}
-                </Typography>
-              </StatCard>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard label="COUNTIES ABOVE STATE AVG" accent="#FFA726">
-                <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#E65100', ...MONO }}>
-                  {aboveAvg ?? '—'}<span style={{ fontSize: 13, color: '#90A4AE' }}> / 102</span>
-                </Typography>
-                <Typography sx={{ fontSize: 11, color: '#546E7A', mt: 0.25 }}>
-                  counties with above-avg rate
-                </Typography>
-              </StatCard>
-            </Grid>
-          </Grid>
-
-          {/* Statewide trend */}
-          <Paper elevation={0} sx={{ ...cardSx, mb: 2.5, height: 'auto' }}>
-            <SectionHeader
-              title="Statewide Mortality Rate Over Time"
-              sub="Illinois aggregate rate per 100,000 population, 2009–2022"
-            />
-            <Box sx={{ height: 240 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={getStatewideTrend()} margin={{ top: 4, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E0E7EF" />
-                  <XAxis dataKey="year" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} />
-                  <YAxis
-                    tick={{ fontSize: 11 }}
-                    label={{ value: 'Rate per 100k', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#90A4AE', dx: -4 }}
-                  />
-                  <Tooltip
-                    contentStyle={{ fontSize: 12, fontFamily: 'IBM Plex Mono', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-                    formatter={(v: any) => [`${Number(v).toFixed(1)} per 100k`, 'IL State Rate']}
-                  />
-                  <Line
-                    type="monotone" dataKey="rate" stroke="#1565C0" strokeWidth={2}
-                    dot={{ r: 3, fill: '#1565C0' }} activeDot={{ r: 5 }}
-                    connectNulls={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </Box>
-          </Paper>
-
-          {/* Top/Bottom counties + Distribution */}
-          <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-            <Grid item xs={12} md={6}>
-              <Paper elevation={0} sx={{ ...cardSx, height: 'auto' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>
-                    {showBottom ? 'Bottom 5 Counties' : 'Top 5 Counties'} (Latest Year)
-                  </Typography>
-                  <Box
-                    onClick={() => setShowBottom(v => !v)}
-                    sx={{
-                      fontSize: 11, fontWeight: 600, color: '#1565C0', cursor: 'pointer',
-                      border: '1px solid #1565C0', borderRadius: '4px', px: 1.25, py: 0.4,
-                      userSelect: 'none',
-                      '&:hover': { bgcolor: 'rgba(21,101,192,0.06)' },
-                    }}
-                  >
-                    Show {showBottom ? 'Top 5' : 'Bottom 5'}
-                  </Box>
-                </Box>
-                <Box sx={{ height: 240 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={getTopCounties()} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E0E7EF" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }} />
-                      <YAxis dataKey="county" type="category" tick={{ fontSize: 11 }} width={90} />
-                      <Tooltip
-                        contentStyle={{ fontSize: 12, fontFamily: 'IBM Plex Mono', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-                        formatter={(v: any) => [`${Number(v).toFixed(1)} per 100k`, 'Rate']}
-                      />
-                      <Bar dataKey="rate" fill={showBottom ? '#66BB6A' : '#EF5350'} radius={[0, 3, 3, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Box>
-              </Paper>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Paper elevation={0} sx={{ ...cardSx, height: 'auto' }}>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', mb: 2 }}>
-                  County Distribution vs. State Average
-                </Typography>
-                <Box sx={{ height: 240 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={getRegionalDistribution()}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="45%"
-                        cy="50%"
-                        outerRadius={90}
-                        innerRadius={40}
-                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {getRegionalDistribution().map((_, i) => (
-                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ fontSize: 12, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-                        formatter={(v: any) => [`${v} counties`, '']}
-                      />
-                      <Legend
-                        wrapperStyle={{ fontSize: 11, fontFamily: 'IBM Plex Sans, sans-serif' }}
-                        iconType="circle"
-                        iconSize={8}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </Box>
-              </Paper>
-            </Grid>
-          </Grid>
-
-          {/* --- NEW PANELS --- */}
-
-          {/* Mortality Burden */}
-          {mortalityBurden.length > 0 && (
-            <Paper elevation={0} sx={{ ...cardSx, mb: 2.5, height: 'auto' }}>
-              <SectionHeader
-                title="Mortality Burden — Excess Deaths vs. State Average"
-                sub={`Top counties by estimated excess deaths per year (latest year · population-adjusted)`}
-              />
-              <Box sx={{ height: 280 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={mortalityBurden} layout="vertical" margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E0E7EF" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }}
-                      label={{ value: 'Estimated excess deaths/yr vs. state avg', position: 'insideBottom', offset: -4, fontSize: 10, fill: '#90A4AE' }}
-                    />
-                    <YAxis dataKey="county" type="category" tick={{ fontSize: 10 }} width={90} />
-                    <Tooltip
-                      contentStyle={{ fontSize: 12, fontFamily: 'IBM Plex Mono', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-                      formatter={(v: any) => [`+${Number(v).toLocaleString()} deaths/yr`, 'Excess burden']}
-                    />
-                    <Bar dataKey="excessDeaths" fill="#EF5350" radius={[0, 3, 3, 0]}>
-                      {mortalityBurden.map((_, i) => (
-                        <Cell key={i} fill={i < 3 ? '#B71C1C' : i < 6 ? '#EF5350' : '#FF7043'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
-              <Typography sx={{ fontSize: 10, color: '#B0BEC5', mt: 1, ...MONO }}>
-                Excess deaths = (county rate − state rate) × county population / 100,000. Source: 2020 US Census.
-              </Typography>
-            </Paper>
-          )}
-
-          {/* Trajectory Analysis */}
-          <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-            <Grid item xs={12} md={6}>
-              <Paper elevation={0} sx={{ ...cardSx, height: 'auto' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <TrendingDownIcon sx={{ fontSize: 18, color: '#2E7D32' }} />
-                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>
-                    Most Improved (2009 → 2022)
-                  </Typography>
-                </Box>
-                <Typography sx={{ fontSize: 11, color: '#546E7A', mb: 1.5 }}>
-                  Counties with the largest rate decrease over the full period
-                </Typography>
-                <Box sx={{ height: 220 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={trajectory.improved} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E0E7EF" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }}
-                        tickFormatter={v => `-${v.toFixed(0)}`}
-                      />
-                      <YAxis dataKey="county" type="category" tick={{ fontSize: 10 }} width={85} />
-                      <Tooltip
-                        contentStyle={{ fontSize: 12, fontFamily: 'IBM Plex Mono', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-                        formatter={(v: any) => [`−${Number(v).toFixed(1)} per 100k`, 'Rate decrease']}
-                      />
-                      <Bar dataKey="change" fill="#66BB6A" radius={[0, 3, 3, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Box>
-              </Paper>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Paper elevation={0} sx={{ ...cardSx, height: 'auto' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <TrendingUpIcon sx={{ fontSize: 18, color: '#C62828' }} />
-                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>
-                    Most Declined (2009 → 2022)
-                  </Typography>
-                </Box>
-                <Typography sx={{ fontSize: 11, color: '#546E7A', mb: 1.5 }}>
-                  Counties with the largest rate increase over the full period
-                </Typography>
-                <Box sx={{ height: 220 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={trajectory.declined} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E0E7EF" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }}
-                        tickFormatter={v => `+${v.toFixed(0)}`}
-                      />
-                      <YAxis dataKey="county" type="category" tick={{ fontSize: 10 }} width={85} />
-                      <Tooltip
-                        contentStyle={{ fontSize: 12, fontFamily: 'IBM Plex Mono', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-                        formatter={(v: any) => [`+${Number(v).toFixed(1)} per 100k`, 'Rate increase']}
-                      />
-                      <Bar dataKey="change" fill="#EF5350" radius={[0, 3, 3, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Box>
-              </Paper>
-            </Grid>
-          </Grid>
-
-          {/* COVID-Era Impact (2019 → 2022) */}
-          {covidImpact.length > 0 && (
-            <Paper elevation={0} sx={{ ...cardSx, mb: 2.5, height: 'auto' }}>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
-                <SectionHeader
-                  title="COVID-Era Rate Shift (2019 → 2022)"
-                  sub="County-level mortality rate change across the pandemic period — positive values indicate increased burden"
-                />
-                <Box sx={{ bgcolor: '#FFF8E1', border: '1px solid #FFE082', borderRadius: '6px', px: 1.5, py: 0.75, flexShrink: 0, ml: 2 }}>
-                  <Typography sx={{ fontSize: 11, color: '#6D4C00', fontWeight: 600 }}>2019 → 2022</Typography>
-                </Box>
-              </Box>
-              <Box sx={{ height: 300 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={covidImpact} margin={{ top: 4, right: 20, left: 10, bottom: 40 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E0E7EF" />
-                    <XAxis
-                      dataKey="county"
-                      tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono' }}
-                      angle={-45}
-                      textAnchor="end"
-                      interval={0}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10, fontFamily: 'IBM Plex Mono' }}
-                      tickFormatter={v => `${v > 0 ? '+' : ''}${v.toFixed(0)}`}
-                      label={{ value: 'Rate change per 100k', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#90A4AE', dx: -4 }}
-                    />
-                    <ReferenceLine y={0} stroke="#546E7A" strokeWidth={1.5} />
-                    <Tooltip
-                      contentStyle={{ fontSize: 12, fontFamily: 'IBM Plex Mono', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-                      formatter={(v: any, _: any, props: any) => [
-                        `${Number(v) > 0 ? '+' : ''}${Number(v).toFixed(1)} per 100k (${props.payload.pct > 0 ? '+' : ''}${props.payload.pct.toFixed(1)}%)`,
-                        'Rate change'
-                      ]}
-                    />
-                    <Bar dataKey="change" radius={[2, 2, 0, 0]}>
-                      {covidImpact.map((d, i) => (
-                        <Cell key={i} fill={d.change > 0 ? '#EF5350' : '#66BB6A'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
-              <Typography sx={{ fontSize: 10, color: '#B0BEC5', mt: 1, ...MONO }}>
-                Positive values (red) indicate rate increased from pre-pandemic 2019 to 2022. Cells suppressed where 2019 or 2022 data unavailable.
-              </Typography>
-            </Paper>
-          )}
-
-          <Typography sx={{ fontSize: 10, color: '#B0BEC5', mt: 1, mb: 2, textAlign: 'center' }}>
-            Cook County data represents the combined county total. Chicago and Suburban Cook reported as IDPH subdivisions.
-            Cells showing 0.0 represent suppressed data (death count &lt; 5).
-          </Typography>
-        </>
+      {!hasData && !loading ? (
+        <div className="empty" style={{ margin: '48px 40px' }}>
+          <div className="empty-eyebrow">No data selected</div>
+          <div className="empty-title">Select a cause of death</div>
+          <div className="empty-body">Choose a cause from the dropdown above to view statewide trends, county distribution, and trajectory analysis.</div>
+        </div>
+      ) : loading ? (
+        <div className="loading-center"><div className="spinner" /><span>Loading data…</span></div>
       ) : (
-        <Box sx={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          height: 300, color: '#90A4AE',
-        }}>
-          <InsertChartIcon sx={{ fontSize: 40, mb: 1.5, opacity: 0.4 }} />
-          <Typography sx={{ fontSize: 14 }}>Select a cause of death to view insights</Typography>
-        </Box>
+        <>
+          {/* KPI strip */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid var(--rule)' }}>
+            <div className="stat fade-in fade-in-1">
+              <div className="stat-label">Highest county rate</div>
+              <div className="stat-value num" style={{ color: D_HIGH }}>{highest ? highest.rate.toFixed(1) : '—'}</div>
+              <div className="stat-meta"><span>{highest?.county ?? '—'} · {selectedYear}</span></div>
+            </div>
+            <div className="stat fade-in fade-in-2">
+              <div className="stat-label">Lowest county rate</div>
+              <div className="stat-value num" style={{ color: D_LOW }}>{lowest ? lowest.rate.toFixed(1) : '—'}</div>
+              <div className="stat-meta"><span>{lowest?.county ?? '—'} · {selectedYear}</span></div>
+            </div>
+            <div className="stat fade-in fade-in-3">
+              <div className="stat-label">State trend 2009–2022</div>
+              <div className="stat-value num" style={{ color: stateTrend ? (stateTrend.pct < 0 ? D_LOW : D_HIGH) : 'var(--ink-5)' }}>
+                {stateTrend ? `${stateTrend.pct > 0 ? '+' : ''}${stateTrend.pct.toFixed(1)}%` : '—'}
+              </div>
+              <div className="stat-meta"><span>{stateTrend ? `${stateTrend.from.toFixed(1)} → ${stateTrend.to.toFixed(1)} /100k` : ''}</span></div>
+            </div>
+            <div className="stat fade-in fade-in-4">
+              <div className="stat-label">Counties above state avg</div>
+              <div className="stat-value num">{aboveAvg ?? '—'}</div>
+              <div className="stat-meta"><span>of 102 · {selectedYear}</span></div>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div style={{ padding: '32px 40px', display: 'flex', flexDirection: 'column', gap: 32 }}>
+
+            {/* Statewide trend */}
+            <div className="panel">
+              <div className="panel-head">
+                <div className="titles">
+                  <div className="eyebrow">Statewide trend</div>
+                  <div className="h3">Age-adjusted death rate, 2009 – {latestYear ?? 2022}</div>
+                </div>
+                <span className="caption" style={{ color: 'var(--ink-4)' }}>Band = county min/max</span>
+              </div>
+              <div className="panel-body">
+                <div style={{ height: 240 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trendWithBand} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={RULE} />
+                      <XAxis dataKey="year" tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
+                      <YAxis tick={{ fontSize: 10, fill: INK_4 }} label={{ value: 'per 100k', angle: -90, position: 'insideLeft', fontSize: 10, fill: INK_4, dx: -4 }} />
+                      <Tooltip contentStyle={TIP_STYLE}
+                        formatter={(v: unknown) => [`${Number(v).toFixed(1)} per 100k`, 'IL State Rate']} />
+                      <Line type="monotone" dataKey="high" stroke={RULE} strokeWidth={1} dot={false} name="County max" />
+                      <Line type="monotone" dataKey="low" stroke={RULE} strokeWidth={1} dot={false} name="County min" />
+                      <Line type="monotone" dataKey="rate" stroke={INK} strokeWidth={2}
+                        dot={{ r: 3, fill: INK }} activeDot={{ r: 5, fill: INK }} connectNulls={false} name="IL avg" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* Top/Bottom + Distribution */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 32 }}>
+              <div className="panel">
+                <div className="panel-head">
+                  <div className="titles">
+                    <div className="eyebrow">County ranking</div>
+                    <div className="h3">{showBottom ? 'Five lowest' : 'Five highest'} counties</div>
+                  </div>
+                  <div className="seg">
+                    <button className={`seg-btn${!showBottom ? ' active' : ''}`} onClick={() => setShowBottom(false)}>Highest</button>
+                    <button className={`seg-btn${showBottom ? ' active' : ''}`} onClick={() => setShowBottom(true)}>Lowest</button>
+                  </div>
+                </div>
+                <div className="panel-body">
+                  <div style={{ height: 200 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={topCounties} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={RULE} horizontal={false} />
+                        <XAxis type="number" tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
+                        <YAxis dataKey="county" type="category" tick={{ fontSize: 11, fill: INK_3 }} width={88} />
+                        <Tooltip contentStyle={TIP_STYLE} formatter={(v: unknown) => [`${Number(v).toFixed(1)} /100k`, 'Rate']} />
+                        <Bar dataKey="rate" radius={[0, 2, 2, 0]}>
+                          {topCounties.map((_, i) => <Cell key={i} fill={showBottom ? D_LOW : D_HIGH} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-head">
+                  <div className="titles">
+                    <div className="eyebrow">Distribution</div>
+                    <div className="h3">Counties vs. state average · {selectedYear}</div>
+                  </div>
+                </div>
+                <div className="panel-body">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    {distribution.map(({ label, sub, color, count }, i) => (
+                      <div key={label} style={{ display: 'grid', gridTemplateColumns: '12px 1fr 32px', alignItems: 'center', padding: '10px 0', borderTop: i === 0 ? 'none' : `1px solid ${RULE}`, gap: 12 }}>
+                        <span style={{ width: 10, height: 10, background: color, display: 'inline-block' }} />
+                        <div>
+                          <div style={{ color: INK, fontSize: 12.5 }}>{label}</div>
+                          <div className="num" style={{ fontSize: 10, color: INK_4, marginTop: 1 }}>{sub}</div>
+                        </div>
+                        <span className="num" style={{ color: count > 0 ? INK : 'var(--ink-5)', fontSize: 13, textAlign: 'right' }}>{count || '—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Burden */}
+            {mortalityBurden.length > 0 && (
+              <div className="panel">
+                <div className="panel-head">
+                  <div className="titles">
+                    <div className="eyebrow">Burden analysis</div>
+                    <div className="h3">Excess deaths, population-adjusted</div>
+                  </div>
+                  <span className="caption">Top 10 by excess deaths/yr · {selectedYear}</span>
+                </div>
+                <div className="panel-body">
+                  <div style={{ height: 260 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={mortalityBurden} layout="vertical" margin={{ top: 0, right: 24, left: 8, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={RULE} horizontal={false} />
+                        <XAxis type="number" tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
+                        <YAxis dataKey="county" type="category" tick={{ fontSize: 10, fill: INK_3 }} width={88} />
+                        <Tooltip contentStyle={TIP_STYLE}
+                          formatter={(v: unknown) => [`+${Number(v).toLocaleString()} deaths/yr`, 'Excess burden']} />
+                        <Bar dataKey="excessDeaths" radius={[0, 2, 2, 0]}>
+                          {mortalityBurden.map((_, i) => <Cell key={i} fill={i < 3 ? D_HIGH : '#C85A4E'} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="tiny" style={{ marginTop: 8 }}>
+                    Excess deaths = (county rate − state rate) × county population / 100,000. Source: 2020 US Census.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Trajectory */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+              <div className="panel">
+                <div className="panel-head">
+                  <div className="titles">
+                    <div className="eyebrow">Trajectory · improved</div>
+                    <div className="h3">Largest decreases 2009–2022</div>
+                  </div>
+                </div>
+                <div className="panel-body">
+                  <div style={{ height: 220 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={trajectory.improved} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={RULE} horizontal={false} />
+                        <XAxis type="number" tick={{ fontSize: 10, fill: INK_4 }}
+                          tickFormatter={v => `-${Number(v).toFixed(0)}`} />
+                        <YAxis dataKey="county" type="category" tick={{ fontSize: 10, fill: INK_3 }} width={85} />
+                        <Tooltip contentStyle={TIP_STYLE}
+                          formatter={(v: unknown) => [`−${Number(v).toFixed(1)} /100k`, 'Decrease']} />
+                        <Bar dataKey="change" fill={D_LOW} radius={[0, 2, 2, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-head">
+                  <div className="titles">
+                    <div className="eyebrow">Trajectory · declined</div>
+                    <div className="h3">Largest increases 2009–2022</div>
+                  </div>
+                </div>
+                <div className="panel-body">
+                  <div style={{ height: 220 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={trajectory.declined} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={RULE} horizontal={false} />
+                        <XAxis type="number" tick={{ fontSize: 10, fill: INK_4 }}
+                          tickFormatter={v => `+${Number(v).toFixed(0)}`} />
+                        <YAxis dataKey="county" type="category" tick={{ fontSize: 10, fill: INK_3 }} width={85} />
+                        <Tooltip contentStyle={TIP_STYLE}
+                          formatter={(v: unknown) => [`+${Number(v).toFixed(1)} /100k`, 'Increase']} />
+                        <Bar dataKey="change" fill={D_HIGH} radius={[0, 2, 2, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* COVID-era impact */}
+            {covidImpact.length > 0 && (
+              <div className="panel">
+                <div className="panel-head">
+                  <div className="titles">
+                    <div className="eyebrow">COVID-era impact</div>
+                    <div className="h3">Rate shift 2019 → 2022</div>
+                  </div>
+                  <span className="caption">Sorted by absolute change</span>
+                </div>
+                <div className="panel-body">
+                  <div style={{ height: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={covidImpact} margin={{ top: 4, right: 16, left: 8, bottom: 48 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={RULE} />
+                        <XAxis dataKey="county" tick={{ fontSize: 8.5, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }}
+                          angle={-45} textAnchor="end" interval={0} />
+                        <YAxis tick={{ fontSize: 10, fill: INK_4 }}
+                          tickFormatter={v => `${v > 0 ? '+' : ''}${Number(v).toFixed(0)}`} />
+                        <ReferenceLine y={0} stroke={INK_3} strokeWidth={1.5} />
+                        <Tooltip contentStyle={TIP_STYLE}
+                          formatter={(v: unknown, _: unknown, props: { payload?: { pct?: number } }) =>
+                            [`${Number(v) > 0 ? '+' : ''}${Number(v).toFixed(1)} /100k (${(props.payload?.pct ?? 0) > 0 ? '+' : ''}${(props.payload?.pct ?? 0).toFixed(1)}%)`, 'Rate change']} />
+                        <Bar dataKey="change" radius={[2, 2, 0, 0]}>
+                          {covidImpact.map((d, i) => <Cell key={i} fill={d.change > 0 ? D_HIGH : D_LOW} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Methodology footer */}
+            <div style={{ paddingTop: 24, borderTop: `1px solid ${RULE}`, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 32 }}>
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 8 }}>Methodology</div>
+                <p className="caption">Age-adjusted to 2000 US standard. Suppressed when count &lt; 5 (NCHS guidance).</p>
+              </div>
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 8 }}>Coverage</div>
+                <p className="caption">102 counties · {2022 - 2009 + 1} years · {causes.length} cause categories.</p>
+              </div>
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 8 }}>Source</div>
+                <p className="caption">IDPH Vital Statistics warehouse. Cook County total includes Chicago and Suburban Cook subdivisions.</p>
+              </div>
+            </div>
+          </div>
+        </>
       )}
-    </Box>
+    </div>
   );
 };
 

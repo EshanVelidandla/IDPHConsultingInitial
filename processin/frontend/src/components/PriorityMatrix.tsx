@@ -1,130 +1,114 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, CircularProgress, Alert, FormControl, InputLabel, Select, MenuItem, Slider,
-} from '@mui/material';
-import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Cell,
 } from 'recharts';
 import axios from 'axios';
 import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, calcSlope } from '../data/constants';
+import type { SharedState } from '../App';
 
 interface DeathRate { County: string; [key: string]: number | string; }
+interface CountyPoint { county: string; x: number; y: number; rate: number; stateRate: number; }
 
-interface CountyPoint {
-  county: string;
-  x: number;
-  y: number;
-  rate: number;
-  stateRate: number;
-}
+interface ViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
 
-const YEAR_MIN = 2009;
-const YEAR_MAX = 2022;
-const YEAR_MARKS = [2009, 2013, 2017, 2022].map(y => ({ value: y, label: String(y) }));
+const D_HIGH = '#B23A2E';
+const D_MID = '#C68B3C';
+const D_LOW = '#4F7A4D';
+const INK = '#1C1B18';
+const INK_3 = '#6B675F';
+const INK_4 = '#9A968C';
+const RULE = '#E6E3DC';
+const ACCENT = '#1F5C5A';
 
 function dotColor(x: number, y: number): string {
-  const high = x > 1.0;
-  const worsening = y > 0;
-  if (high && worsening) return '#EF5350';
-  if (!high && worsening) return '#FFA726';
-  if (high && !worsening) return '#64B5F6';
-  return '#66BB6A';
+  if (x > 1.0 && y > 0) return D_HIGH;
+  if (x <= 1.0 && y > 0) return D_MID;
+  if (x > 1.0 && y <= 0) return ACCENT;
+  return D_LOW;
 }
 
-const CustomDot = (props: any) => {
-  const { cx, cy, payload } = props;
+const CustomDot = (props: { cx?: number; cy?: number; payload?: CountyPoint }) => {
+  const { cx = 0, cy = 0, payload } = props;
+  if (!payload) return null;
   const color = dotColor(payload.x, payload.y);
   return (
-    <circle
-      cx={cx} cy={cy} r={5}
+    <circle cx={cx} cy={cy} r={5}
       fill={color} fillOpacity={0.85}
-      stroke="white" strokeWidth={1}
-      style={{ cursor: 'pointer' }}
-    />
+      stroke="#FFFFFF" strokeWidth={1.2}
+      style={{ cursor: 'pointer' }} />
   );
 };
 
-const CustomTooltip = ({ active, payload, selectedYear }: any) => {
+const CustomTooltip = ({ active, payload, selectedYear }: { active?: boolean; payload?: { payload: CountyPoint }[]; selectedYear: number }) => {
   if (!active || !payload?.length) return null;
-  const d: CountyPoint = payload[0].payload;
-  const pctVsState = ((d.x - 1) * 100).toFixed(1);
-  const slopeSign = d.y > 0 ? '+' : '';
+  const d = payload[0].payload;
+  const pct = ((d.x - 1) * 100).toFixed(1);
+  const color = dotColor(d.x, d.y);
   return (
-    <Box sx={{
-      bgcolor: 'white', borderRadius: '6px', p: 1.75,
-      boxShadow: '0 4px 16px rgba(0,0,0,0.18)', minWidth: 200,
-      fontFamily: "'IBM Plex Sans', sans-serif",
+    <div style={{
+      background: '#FFFFFF',
+      border: `1px solid ${RULE}`,
+      padding: '12px 14px',
+      minWidth: 200,
+      fontFamily: "'IBM Plex Mono',monospace",
+      fontSize: 11,
+      borderTop: `3px solid ${color}`,
+      boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
     }}>
-      <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#0D1B2A', mb: 0.5 }}>
+      <div style={{ fontSize: 13, fontWeight: 500, color: INK, marginBottom: 8, fontFamily: "'Inter Tight',sans-serif" }}>
         {d.county} County
-      </Typography>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
-        <Typography sx={{ fontSize: 12, color: '#546E7A' }}>Rate vs state ({selectedYear})</Typography>
-        <Typography sx={{ fontSize: 12, fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace",
-          color: Number(pctVsState) > 0 ? '#C62828' : '#2E7D32' }}>
-          {Number(pctVsState) > 0 ? '+' : ''}{pctVsState}%
-        </Typography>
-      </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
-        <Typography sx={{ fontSize: 12, color: '#546E7A' }}>Trend slope (2009–{selectedYear})</Typography>
-        <Typography sx={{ fontSize: 12, fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace",
-          color: d.y > 0 ? '#C62828' : '#2E7D32' }}>
-          {slopeSign}{d.y.toFixed(2)}/yr
-        </Typography>
-      </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Typography sx={{ fontSize: 12, color: '#546E7A' }}>Rate ({selectedYear})</Typography>
-        <Typography sx={{ fontSize: 12, fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace" }}>
-          {d.rate.toFixed(1)}<span style={{ fontSize: 10, color: '#90A4AE' }}> /100k</span>
-        </Typography>
-      </Box>
-      <Typography sx={{ fontSize: 10, color: '#90A4AE', mt: 0.75, fontStyle: 'italic' }}>
-        Click to view county detail
-      </Typography>
-    </Box>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 4 }}>
+        <span style={{ color: INK_3 }}>Rate vs state ({selectedYear})</span>
+        <span style={{ color: Number(pct) > 0 ? D_HIGH : D_LOW }}>{Number(pct) > 0 ? '+' : ''}{pct}%</span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 4 }}>
+        <span style={{ color: INK_3 }}>Slope (2009–{selectedYear})</span>
+        <span style={{ color: d.y > 0 ? D_HIGH : D_LOW }}>{d.y > 0 ? '+' : ''}{d.y.toFixed(2)}/yr</span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, paddingTop: 6, borderTop: `1px solid ${RULE}` }}>
+        <span style={{ color: INK_3 }}>Rate ({selectedYear})</span>
+        <span style={{ color: INK }}>{d.rate.toFixed(1)} /100k</span>
+      </div>
+      <div style={{ marginTop: 8, color: INK_4, fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+        Click to drill in →
+      </div>
+    </div>
   );
 };
 
-const PriorityMatrix = () => {
+const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
   const navigate = useNavigate();
-  const [selectedCause, setSelectedCause] = useState('Diseases_of_Heart');
-  const [selectedYear, setSelectedYear] = useState<number>(YEAR_MAX);
+  const { selectedCause, selectedYear } = shared;
   const [deathData, setDeathData] = useState<DeathRate[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const cause = selectedCause || 'Diseases_of_Heart';
+
   useEffect(() => {
-    if (!selectedCause) return;
     setLoading(true);
-    axios.get(`${API_BASE}/death_rates?cause=${selectedCause}`)
+    axios.get(`${API_BASE}/death_rates?cause=${cause}`)
       .then(r => { setDeathData(r.data); setError(null); })
       .catch(() => setError('Failed to load data.'))
       .finally(() => setLoading(false));
-  }, [selectedCause]);
+  }, [cause]);
 
   const points = useMemo<CountyPoint[]>(() => {
     if (!deathData.length) return [];
     const stateRow = deathData.find(d => d.County === 'ILLINOIS');
     if (!stateRow) return [];
-    const yearKey = selectedYear.toString();
-    const stateRate = Number(stateRow[yearKey]);
+    const stateRate = Number(stateRow[selectedYear.toString()]);
     if (!stateRate) return [];
-
     return deathData
       .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
       .map(d => {
-        const countyRate = Number(d[yearKey]);
+        const countyRate = Number(d[selectedYear.toString()]);
         if (!countyRate) return null;
-        const slope = calcSlope(d as Record<string, number | string>, YEAR_MIN, selectedYear);
-        return {
-          county: d.County,
-          x: countyRate / stateRate,
-          y: slope,
-          rate: countyRate,
-          stateRate,
-        };
+        const slope = calcSlope(d as Record<string, number | string>, 2009, selectedYear);
+        return { county: d.County, x: countyRate / stateRate, y: slope, rate: countyRate, stateRate };
       })
       .filter(Boolean) as CountyPoint[];
   }, [deathData, selectedYear]);
@@ -132,151 +116,149 @@ const PriorityMatrix = () => {
   const priorityCount = useMemo(() => points.filter(p => p.x > 1.2 && p.y > 0).length, [points]);
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header */}
-      <Box sx={{ px: 3, py: 2.5, borderBottom: '1px solid #D6E4EF', bgcolor: 'white', flexShrink: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 3, mb: 2 }}>
-          <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 600, color: '#0D1B2A' }}>Priority Matrix</Typography>
-            <Typography sx={{ fontSize: 12, color: '#546E7A', mt: 0.25 }}>
-              X: rate vs. state avg ({selectedYear}) · Y: slope 2009–{selectedYear} · top-right = highest intervention priority
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-            {priorityCount > 0 && !loading && (
-              <Box sx={{ bgcolor: '#FFEBEE', border: '1px solid #EF9A9A', borderRadius: '6px', px: 1.5, py: 0.75 }}>
-                <Typography sx={{ fontSize: 12, color: '#C62828', fontWeight: 600 }}>
-                  {priorityCount} priority {priorityCount === 1 ? 'county' : 'counties'}
-                </Typography>
-              </Box>
-            )}
-            <Box sx={{ bgcolor: 'white', borderRadius: '6px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', p: 1.25, minWidth: 260 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>Cause</InputLabel>
-                <Select
-                  value={selectedCause}
-                  label="Cause"
-                  onChange={e => setSelectedCause(e.target.value)}
-                  disabled={loading}
-                  sx={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}
-                >
-                  {causes.map(c => (
-                    <MenuItem key={c} value={c} sx={{ fontSize: 13 }}>{causeLabels[c]}</MenuItem>
+    <div className="view fade-in" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* View head */}
+      <div className="view-head">
+        <div className="titles">
+          <div className="eyebrow eyebrow-ink">Priority Matrix</div>
+          <h1 className="h-display" style={{ marginTop: 8 }}>Where to intervene first.</h1>
+          <p className="body" style={{ marginTop: 12, maxWidth: 540, color: 'var(--ink-3)' }}>
+            Each county plotted by its current rate (vs. state average) and its trajectory (slope from 2009). Upper-right quadrant warrants immediate attention.
+          </p>
+        </div>
+        <div className="ix">
+          <div className="field">
+            <div className="field-label">Cause</div>
+            <select className="sel" style={{ width: 260 }}
+              value={selectedCause}
+              onChange={e => setShared({ ...shared, selectedCause: e.target.value })}>
+              <option value="">— Select cause —</option>
+              {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
+            </select>
+          </div>
+          <div style={{ width: 220 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span className="eyebrow">Year</span>
+              <span className="num" style={{ fontSize: 18, color: 'var(--ink)', fontWeight: 500 }}>{selectedYear}</span>
+            </div>
+            <input type="range" className="range" min={2009} max={2022} value={selectedYear}
+              onChange={e => setShared({ ...shared, selectedYear: Number(e.target.value) })} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--ink-4)' }}>
+              {[2009, 2012, 2015, 2018, 2022].map(y => <span key={y}>{y}</span>)}
+            </div>
+          </div>
+          {priorityCount > 0 && !loading && (
+            <div className="chip priority" style={{ alignSelf: 'flex-end', marginBottom: 2 }}>
+              {priorityCount} priority {priorityCount === 1 ? 'county' : 'counties'}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {error && <div className="error-banner" style={{ margin: '16px 40px' }}>{error}</div>}
+
+      {/* Chart + right rail */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', flex: 1, overflow: 'hidden' }}>
+        {/* Scatter plot */}
+        <div style={{ padding: '32px 40px', position: 'relative', overflow: 'hidden' }}>
+          {loading ? (
+            <div className="loading-center"><div className="spinner" /><span>Loading…</span></div>
+          ) : (
+            <>
+              {/* Quadrant watermarks */}
+              {points.length > 0 && (
+                <>
+                  <div style={{ position: 'absolute', top: 44, right: 50, opacity: 0.15, pointerEvents: 'none', fontSize: 9, fontFamily: 'var(--mono)', color: D_HIGH, letterSpacing: '0.12em', textTransform: 'uppercase', textAlign: 'right' }}>
+                    High · Worsening
+                  </div>
+                  <div style={{ position: 'absolute', top: 44, left: 58, opacity: 0.15, pointerEvents: 'none', fontSize: 9, fontFamily: 'var(--mono)', color: D_MID, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                    Low · Worsening
+                  </div>
+                  <div style={{ position: 'absolute', bottom: 56, right: 50, opacity: 0.15, pointerEvents: 'none', fontSize: 9, fontFamily: 'var(--mono)', color: ACCENT, letterSpacing: '0.12em', textTransform: 'uppercase', textAlign: 'right' }}>
+                    High · Improving
+                  </div>
+                  <div style={{ position: 'absolute', bottom: 56, left: 58, opacity: 0.15, pointerEvents: 'none', fontSize: 9, fontFamily: 'var(--mono)', color: D_LOW, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                    Low · Improving
+                  </div>
+                </>
+              )}
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 20, right: 32, bottom: 48, left: 48 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={RULE} />
+                  <XAxis type="number" dataKey="x" name="Rate ratio" domain={['auto', 'auto']}
+                    tickFormatter={v => `${((v - 1) * 100).toFixed(0)}%`}
+                    label={{ value: `Rate vs. state average (${selectedYear})`, position: 'insideBottom', offset: -28, fontSize: 11, fill: INK_4 }}
+                    tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
+                  <YAxis type="number" dataKey="y" name="Annual slope"
+                    tickFormatter={v => `${v > 0 ? '+' : ''}${Number(v).toFixed(1)}`}
+                    label={{ value: `Annual rate change 2009–${selectedYear} (/100k/yr)`, angle: -90, position: 'insideLeft', offset: 8, fontSize: 11, fill: INK_4 }}
+                    tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
+                  <ReferenceLine x={1} stroke={INK_4} strokeDasharray="6 4" strokeWidth={1} />
+                  <ReferenceLine y={0} stroke={INK_4} strokeDasharray="6 4" strokeWidth={1} />
+                  <Tooltip content={<CustomTooltip selectedYear={selectedYear} />} cursor={{ fill: 'transparent' }} />
+                  <Scatter data={points} shape={<CustomDot />}
+                    onClick={(d: unknown) => navigate(`/county/${encodeURIComponent((d as CountyPoint).county)}`)}>
+                    {points.map((p, i) => <Cell key={i} fill={dotColor(p.x, p.y)} />)}
+                  </Scatter>
+                </ScatterChart>
+              </ResponsiveContainer>
+            </>
+          )}
+        </div>
+
+        {/* Right rail */}
+        <div style={{ borderLeft: `1px solid ${RULE}`, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 28, overflowY: 'auto' }}>
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>How to read</div>
+            <p className="caption">
+              Each dot is a county. X-axis: current rate ÷ state rate (right = above average). Y-axis: long-term slope; positive = worsening.
+            </p>
+          </div>
+
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>Quadrants</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {[
+                { color: D_HIGH, label: 'Priority', desc: 'High & worsening — intervene now' },
+                { color: D_MID, label: 'Watch', desc: 'Below average but trending up' },
+                { color: ACCENT, label: 'Recovering', desc: 'Above average but improving' },
+                { color: D_LOW, label: 'Stable', desc: 'Below average and improving' },
+              ].map(({ color, label, desc }, i) => (
+                <div key={label} style={{ display: 'grid', gridTemplateColumns: '10px 1fr', gap: 12, padding: '10px 0', borderTop: i === 0 ? 'none' : `1px solid ${RULE}` }}>
+                  <span style={{ width: 8, height: 8, background: color, borderRadius: '50%', marginTop: 5, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ color: INK, fontSize: 13 }}>{label}</div>
+                    <div className="caption" style={{ marginTop: 2 }}>{desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {priorityCount > 0 && points.length > 0 && (
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 10 }}>
+                Priority counties
+                <span className="chip priority" style={{ marginLeft: 8 }}>{priorityCount}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {points
+                  .filter(p => p.x > 1.2 && p.y > 0)
+                  .sort((a, b) => b.x - a.x)
+                  .slice(0, 8)
+                  .map((p, i) => (
+                    <div key={p.county} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderTop: i === 0 ? 'none' : `1px solid ${RULE}`, cursor: 'pointer' }}
+                      onClick={() => navigate(`/county/${encodeURIComponent(p.county)}`)}>
+                      <span style={{ fontSize: 12.5, color: INK }}>{p.county}</span>
+                      <span className="num" style={{ fontSize: 10.5, color: D_HIGH }}>+{((p.x - 1) * 100).toFixed(0)}%</span>
+                    </div>
                   ))}
-                </Select>
-              </FormControl>
-            </Box>
-          </Box>
-        </Box>
-
-        {/* Year slider */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Box sx={{ flex: 1, maxWidth: 380 }}>
-            <Typography sx={{ fontSize: 10, color: '#546E7A', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.08em', mb: 0.5 }}>
-              REFERENCE YEAR
-            </Typography>
-            <Slider
-              value={selectedYear}
-              min={YEAR_MIN}
-              max={YEAR_MAX}
-              step={1}
-              marks={YEAR_MARKS}
-              onChange={(_, v) => setSelectedYear(v as number)}
-              valueLabelDisplay="auto"
-              sx={{
-                color: '#1565C0',
-                '& .MuiSlider-markLabel': { fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: '#90A4AE' },
-                '& .MuiSlider-thumb': { width: 13, height: 13 },
-                '& .MuiSlider-rail': { opacity: 0.3 },
-              }}
-            />
-          </Box>
-
-          {/* Quadrant legend */}
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            {[
-              { color: '#EF5350', label: 'High & Worsening' },
-              { color: '#FFA726', label: 'Low & Worsening' },
-              { color: '#64B5F6', label: 'High & Improving' },
-              { color: '#66BB6A', label: 'Low & Improving' },
-            ].map(({ color, label }) => (
-              <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color }} />
-                <Typography sx={{ fontSize: 11, color: '#546E7A' }}>{label}</Typography>
-              </Box>
-            ))}
-          </Box>
-        </Box>
-      </Box>
-
-      {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
-
-      {/* Chart */}
-      <Box sx={{ flex: 1, p: 2, position: 'relative' }}>
-        {loading ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <CircularProgress sx={{ color: '#1565C0' }} />
-          </Box>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 20, right: 30, bottom: 40, left: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E0E7EF" />
-              <XAxis
-                type="number"
-                dataKey="x"
-                name="Rate vs. State"
-                domain={['auto', 'auto']}
-                tickFormatter={v => `${((v - 1) * 100).toFixed(0)}%`}
-                label={{ value: `Rate vs. State Average (${selectedYear})`, position: 'insideBottom', offset: -20, fontSize: 12, fill: '#546E7A' }}
-                tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }}
-              />
-              <YAxis
-                type="number"
-                dataKey="y"
-                name="Annual Trend"
-                tickFormatter={v => `${v > 0 ? '+' : ''}${v.toFixed(1)}`}
-                label={{ value: `Annual Rate Change 2009–${selectedYear} (per 100k/yr)`, angle: -90, position: 'insideLeft', offset: 10, fontSize: 12, fill: '#546E7A' }}
-                tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }}
-              />
-              <ReferenceLine x={1} stroke="#546E7A" strokeDasharray="6 4" strokeWidth={1.5} />
-              <ReferenceLine y={0} stroke="#546E7A" strokeDasharray="6 4" strokeWidth={1.5} />
-              <Tooltip content={<CustomTooltip selectedYear={selectedYear} />} />
-              <Scatter
-                data={points}
-                shape={<CustomDot />}
-                onClick={(d: any) => navigate(`/county/${encodeURIComponent(d.county)}`)}
-              >
-                {points.map((p, i) => (
-                  <Cell key={i} fill={dotColor(p.x, p.y)} />
-                ))}
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
-        )}
-
-        {/* Quadrant watermarks */}
-        {!loading && points.length > 0 && (
-          <>
-            <Box sx={{ position: 'absolute', top: 30, right: 40, opacity: 0.25, pointerEvents: 'none' }}>
-              <Typography sx={{ fontSize: 11, color: '#C62828', fontWeight: 700, textAlign: 'right' }}>
-                HIGH & WORSENING
-              </Typography>
-            </Box>
-            <Box sx={{ position: 'absolute', top: 30, left: 55, opacity: 0.25, pointerEvents: 'none' }}>
-              <Typography sx={{ fontSize: 11, color: '#E65100', fontWeight: 700 }}>LOW & WORSENING</Typography>
-            </Box>
-            <Box sx={{ position: 'absolute', bottom: 60, right: 40, opacity: 0.25, pointerEvents: 'none' }}>
-              <Typography sx={{ fontSize: 11, color: '#1565C0', fontWeight: 700, textAlign: 'right' }}>
-                HIGH & IMPROVING
-              </Typography>
-            </Box>
-            <Box sx={{ position: 'absolute', bottom: 60, left: 55, opacity: 0.25, pointerEvents: 'none' }}>
-              <Typography sx={{ fontSize: 11, color: '#2E7D32', fontWeight: 700 }}>LOW & IMPROVING</Typography>
-            </Box>
-          </>
-        )}
-      </Box>
-    </Box>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
