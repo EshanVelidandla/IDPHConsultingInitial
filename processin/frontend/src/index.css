@@ -1,18 +1,89 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  --sidebar-width: 220px;
+  --navy: #0A1628;
+  --navy-mid: #132038;
+  --navy-border: #1E3050;
+  --accent: #1565C0;
+  --accent-hover: #1976D2;
+  --red: #C62828;
+  --red-light: #EF5350;
+  --green: #2E7D32;
+  --green-light: #66BB6A;
+  --amber: #E65100;
+  --amber-light: #FFA726;
+  --gray-suppressed: #9E9E9E;
+  --surface: #F0F4F8;
+  --card: #FFFFFF;
+  --text-primary: #0D1B2A;
+  --text-secondary: #546E7A;
+  --text-muted: #90A4AE;
+  --border: #D6E4EF;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+  background: var(--surface);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
 }
 
 .leaflet-container {
   width: 100%;
   height: 100%;
-} 
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+/* Sidebar nav pills */
+.nav-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  color: #6B8CAE;
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  margin-bottom: 3px;
+  transition: background 0.13s ease, color 0.13s ease;
+  font-family: 'IBM Plex Sans', sans-serif;
+  letter-spacing: 0.01em;
+  border-left: 2px solid transparent;
+}
+
+.nav-pill:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #B8D0E8;
+}
+
+.nav-pill.active {
+  background: rgba(21, 101, 192, 0.2);
+  color: #90CAF9;
+  border-left-color: #1565C0;
+}
+
+/* Mono utility */
+.mono {
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #C5D5E4; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #90A4AE; }
+
+/* Stat card accent borders */
+.stat-card-red { border-top: 3px solid var(--red-light); }
+.stat-card-green { border-top: 3px solid var(--green-light); }
+.stat-card-blue { border-top: 3px solid var(--accent); }
+.stat-card-amber { border-top: 3px solid var(--amber-light); }

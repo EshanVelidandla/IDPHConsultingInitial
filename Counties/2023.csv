@@ -1,0 +1,2552 @@
+﻿FIPS,County,Cause of Death,Deaths
+,,,
+001,ADAMS,Diseases of heart (heart disease),173
+001,ADAMS,All other causes,155
+001,ADAMS,Malignant neoplasms (cancer),128
+001,ADAMS,Chronic lower respiratory diseases,41
+001,ADAMS,Accidents (unintentional injuries),37
+001,ADAMS,Cerebrovascular diseases (stroke),34
+001,ADAMS,Septicemia,21
+001,ADAMS,Diabetes mellitus (diabetes),21
+001,ADAMS,Parkinson disease,20
+001,ADAMS,COVID-19,19
+001,ADAMS,Alzheimer disease,17
+001,ADAMS,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",12
+001,ADAMS,Influenza and pneumonia,12
+001,ADAMS,Essential hypertension and hypertensive renal disease (hypertension),*
+001,ADAMS,Chronic liver disease and cirrhosis,*
+001,ADAMS,Pneumonitis due to solids and liquids,*
+001,ADAMS,Intentional self-harm (suicide),*
+001,ADAMS,Assault (homicide),*
+001,ADAMS,Anemias,*
+001,ADAMS,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+001,ADAMS,Cholelithiasis and other disorders of gallbladder,*
+001,ADAMS,Nutritional deficiencies,*
+001,ADAMS,Hernia,*
+001,ADAMS,Peptic ulcer,*
+001,ADAMS,Atherosclerosis,*
+001,ADAMS,Human immunodeficiency virus (HIV) disease,*
+001,ADAMS,Unknown (R99),*
+001,ADAMS,"Congenital malformations, deformations and chromosomal abnormalities",*
+001,ADAMS,Viral hepatitis,*
+003,ALEXANDER,Malignant neoplasms (cancer),16
+003,ALEXANDER,Diseases of heart (heart disease),13
+003,ALEXANDER,All other causes,11
+003,ALEXANDER,Chronic lower respiratory diseases,*
+003,ALEXANDER,Essential hypertension and hypertensive renal disease (hypertension),*
+003,ALEXANDER,COVID-19,*
+003,ALEXANDER,Chronic liver disease and cirrhosis,*
+003,ALEXANDER,Cerebrovascular diseases (stroke),*
+003,ALEXANDER,Assault (homicide),*
+003,ALEXANDER,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+003,ALEXANDER,Pneumonitis due to solids and liquids,*
+003,ALEXANDER,Diabetes mellitus (diabetes),*
+003,ALEXANDER,Viral hepatitis,*
+003,ALEXANDER,Nutritional deficiencies,*
+003,ALEXANDER,Intentional self-harm (suicide),*
+003,ALEXANDER,Influenza and pneumonia,*
+003,ALEXANDER,"Congenital malformations, deformations and chromosomal abnormalities",*
+003,ALEXANDER,Accidents (unintentional injuries),*
+003,ALEXANDER,Alzheimer disease,*
+005,BOND,Diseases of heart (heart disease),45
+005,BOND,Malignant neoplasms (cancer),39
+005,BOND,All other causes,29
+005,BOND,Accidents (unintentional injuries),14
+005,BOND,Cerebrovascular diseases (stroke),12
+005,BOND,Chronic lower respiratory diseases,*
+005,BOND,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+005,BOND,Diabetes mellitus (diabetes),*
+005,BOND,Influenza and pneumonia,*
+005,BOND,Intentional self-harm (suicide),*
+005,BOND,Septicemia,*
+005,BOND,Essential hypertension and hypertensive renal disease (hypertension),*
+005,BOND,COVID-19,*
+005,BOND,Alzheimer disease,*
+005,BOND,,*
+005,BOND,Parkinson disease,*
+005,BOND,Peptic ulcer,*
+005,BOND,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+005,BOND,Human immunodeficiency virus (HIV) disease,*
+007,BOONE,Malignant neoplasms (cancer),92
+007,BOONE,Diseases of heart (heart disease),86
+007,BOONE,All other causes,79
+007,BOONE,Accidents (unintentional injuries),33
+007,BOONE,Cerebrovascular diseases (stroke),33
+007,BOONE,Chronic lower respiratory diseases,29
+007,BOONE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",16
+007,BOONE,Diabetes mellitus (diabetes),14
+007,BOONE,Alzheimer disease,12
+007,BOONE,Septicemia,*
+007,BOONE,Intentional self-harm (suicide),*
+007,BOONE,Parkinson disease,*
+007,BOONE,COVID-19,*
+007,BOONE,Chronic liver disease and cirrhosis,*
+007,BOONE,Essential hypertension and hypertensive renal disease (hypertension),*
+007,BOONE,Influenza and pneumonia,*
+007,BOONE,Anemias,*
+007,BOONE,Pneumonitis due to solids and liquids,*
+007,BOONE,Aortic aneurysm and dissection,*
+007,BOONE,Certain conditions originating in the perinatal period,*
+007,BOONE,"Congenital malformations, deformations and chromosomal abnormalities",*
+007,BOONE,Unknown (R99),*
+007,BOONE,Nutritional deficiencies,*
+007,BOONE,Infections of kidney,*
+007,BOONE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+007,BOONE,Enterocolitis due to Clostridium difficile,*
+007,BOONE,Assault (homicide),*
+009,BROWN,Diseases of heart (heart disease),14
+009,BROWN,All other causes,*
+009,BROWN,Malignant neoplasms (cancer),*
+009,BROWN,Chronic lower respiratory diseases,*
+009,BROWN,Accidents (unintentional injuries),*
+009,BROWN,Influenza and pneumonia,*
+009,BROWN,Intentional self-harm (suicide),*
+009,BROWN,Cerebrovascular diseases (stroke),*
+009,BROWN,Diabetes mellitus (diabetes),*
+009,BROWN,Septicemia,*
+009,BROWN,Essential hypertension and hypertensive renal disease (hypertension),*
+009,BROWN,Alzheimer disease,*
+009,BROWN,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+009,BROWN,Parkinson disease,*
+009,BROWN,Assault (homicide),*
+011,BUREAU,Diseases of heart (heart disease),122
+011,BUREAU,Malignant neoplasms (cancer),75
+011,BUREAU,All other causes,47
+011,BUREAU,Cerebrovascular diseases (stroke),26
+011,BUREAU,Accidents (unintentional injuries),21
+011,BUREAU,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",18
+011,BUREAU,Chronic lower respiratory diseases,13
+011,BUREAU,Alzheimer disease,11
+011,BUREAU,Parkinson disease,10
+011,BUREAU,COVID-19,*
+011,BUREAU,Diabetes mellitus (diabetes),*
+011,BUREAU,Intentional self-harm (suicide),*
+011,BUREAU,Chronic liver disease and cirrhosis,*
+011,BUREAU,Influenza and pneumonia,*
+011,BUREAU,Septicemia,*
+011,BUREAU,Nutritional deficiencies,*
+011,BUREAU,Aortic aneurysm and dissection,*
+011,BUREAU,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+011,BUREAU,Cholelithiasis and other disorders of gallbladder,*
+011,BUREAU,Pneumonitis due to solids and liquids,*
+011,BUREAU,Enterocolitis due to Clostridium difficile,*
+011,BUREAU,Tuberculosis,*
+011,BUREAU,Viral hepatitis,*
+011,BUREAU,Anemias,*
+013,CALHOUN,Diseases of heart (heart disease),12
+013,CALHOUN,Malignant neoplasms (cancer),11
+013,CALHOUN,All other causes,*
+013,CALHOUN,Diabetes mellitus (diabetes),*
+013,CALHOUN,Cerebrovascular diseases (stroke),*
+013,CALHOUN,Peptic ulcer,*
+013,CALHOUN,COVID-19,*
+013,CALHOUN,Chronic lower respiratory diseases,*
+013,CALHOUN,Essential hypertension and hypertensive renal disease (hypertension),*
+013,CALHOUN,Alzheimer disease,*
+013,CALHOUN,Pneumonitis due to solids and liquids,*
+015,CARROLL,Diseases of heart (heart disease),53
+015,CARROLL,All other causes,46
+015,CARROLL,Malignant neoplasms (cancer),45
+015,CARROLL,Cerebrovascular diseases (stroke),*
+015,CARROLL,Atherosclerosis,*
+015,CARROLL,Accidents (unintentional injuries),*
+015,CARROLL,Chronic lower respiratory diseases,*
+015,CARROLL,Septicemia,*
+015,CARROLL,Alzheimer disease,*
+015,CARROLL,Chronic liver disease and cirrhosis,*
+015,CARROLL,COVID-19,*
+015,CARROLL,Parkinson disease,*
+015,CARROLL,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+015,CARROLL,Intentional self-harm (suicide),*
+015,CARROLL,Diabetes mellitus (diabetes),*
+015,CARROLL,Nutritional deficiencies,*
+015,CARROLL,Influenza and pneumonia,*
+015,CARROLL,Enterocolitis due to Clostridium difficile,*
+015,CARROLL,Pneumonitis due to solids and liquids,*
+015,CARROLL,Aortic aneurysm and dissection,*
+017,CASS,Diseases of heart (heart disease),40
+017,CASS,Malignant neoplasms (cancer),28
+017,CASS,All other causes,20
+017,CASS,Cerebrovascular diseases (stroke),12
+017,CASS,Pneumonitis due to solids and liquids,*
+017,CASS,Accidents (unintentional injuries),*
+017,CASS,Essential hypertension and hypertensive renal disease (hypertension),*
+017,CASS,Diabetes mellitus (diabetes),*
+017,CASS,Septicemia,*
+017,CASS,Alzheimer disease,*
+017,CASS,Chronic lower respiratory diseases,*
+017,CASS,COVID-19,*
+017,CASS,Influenza and pneumonia,*
+017,CASS,Assault (homicide),*
+017,CASS,"Congenital malformations, deformations and chromosomal abnormalities",*
+017,CASS,Parkinson disease,*
+017,CASS,Intentional self-harm (suicide),*
+017,CASS,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+017,CASS,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+017,CASS,Chronic liver disease and cirrhosis,*
+017,CASS,Cholelithiasis and other disorders of gallbladder,*
+017,CASS,Anemias,*
+017,CASS,Nutritional deficiencies,*
+019,CHAMPAIGN,Diseases of heart (heart disease),359
+019,CHAMPAIGN,Malignant neoplasms (cancer),295
+019,CHAMPAIGN,All other causes,232
+019,CHAMPAIGN,Accidents (unintentional injuries),104
+019,CHAMPAIGN,Alzheimer disease,63
+019,CHAMPAIGN,Cerebrovascular diseases (stroke),55
+019,CHAMPAIGN,Chronic lower respiratory diseases,45
+019,CHAMPAIGN,Diabetes mellitus (diabetes),25
+019,CHAMPAIGN,Intentional self-harm (suicide),25
+019,CHAMPAIGN,COVID-19,24
+019,CHAMPAIGN,Septicemia,24
+019,CHAMPAIGN,Parkinson disease,22
+019,CHAMPAIGN,Chronic liver disease and cirrhosis,22
+019,CHAMPAIGN,Pneumonitis due to solids and liquids,20
+019,CHAMPAIGN,Influenza and pneumonia,20
+019,CHAMPAIGN,Nutritional deficiencies,19
+019,CHAMPAIGN,Essential hypertension and hypertensive renal disease (hypertension),18
+019,CHAMPAIGN,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",16
+019,CHAMPAIGN,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",11
+019,CHAMPAIGN,Assault (homicide),10
+019,CHAMPAIGN,Certain conditions originating in the perinatal period,*
+019,CHAMPAIGN,Aortic aneurysm and dissection,*
+019,CHAMPAIGN,"Congenital malformations, deformations and chromosomal abnormalities",*
+019,CHAMPAIGN,Human immunodeficiency virus (HIV) disease,*
+019,CHAMPAIGN,Cholelithiasis and other disorders of gallbladder,*
+019,CHAMPAIGN,Peptic ulcer,*
+019,CHAMPAIGN,Hernia,*
+019,CHAMPAIGN,Viral hepatitis,*
+019,CHAMPAIGN,Enterocolitis due to Clostridium difficile,*
+019,CHAMPAIGN,Anemias,*
+019,CHAMPAIGN,Unknown (R99),*
+019,CHAMPAIGN,Acute bronchitis and bronchiolitis,*
+019,CHAMPAIGN,Complications of medical and surgical care,*
+019,CHAMPAIGN,Legal intervention,*
+021,CHRISTIAN,Diseases of heart (heart disease),104
+021,CHRISTIAN,Malignant neoplasms (cancer),75
+021,CHRISTIAN,All other causes,75
+021,CHRISTIAN,Accidents (unintentional injuries),22
+021,CHRISTIAN,Chronic lower respiratory diseases,21
+021,CHRISTIAN,Cerebrovascular diseases (stroke),18
+021,CHRISTIAN,Septicemia,11
+021,CHRISTIAN,Alzheimer disease,*
+021,CHRISTIAN,Chronic liver disease and cirrhosis,*
+021,CHRISTIAN,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+021,CHRISTIAN,Influenza and pneumonia,*
+021,CHRISTIAN,Diabetes mellitus (diabetes),*
+021,CHRISTIAN,Intentional self-harm (suicide),*
+021,CHRISTIAN,Essential hypertension and hypertensive renal disease (hypertension),*
+021,CHRISTIAN,Nutritional deficiencies,*
+021,CHRISTIAN,COVID-19,*
+021,CHRISTIAN,Aortic aneurysm and dissection,*
+021,CHRISTIAN,Parkinson disease,*
+021,CHRISTIAN,Pneumonitis due to solids and liquids,*
+021,CHRISTIAN,"Congenital malformations, deformations and chromosomal abnormalities",*
+021,CHRISTIAN,Anemias,*
+021,CHRISTIAN,Diseases of appendix,*
+021,CHRISTIAN,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+021,CHRISTIAN,Peptic ulcer,*
+021,CHRISTIAN,Assault (homicide),*
+021,CHRISTIAN,Cholelithiasis and other disorders of gallbladder,*
+021,CHRISTIAN,Complications of medical and surgical care,*
+023,CLARK,Diseases of heart (heart disease),56
+023,CLARK,All other causes,39
+023,CLARK,Malignant neoplasms (cancer),37
+023,CLARK,Chronic lower respiratory diseases,17
+023,CLARK,Cerebrovascular diseases (stroke),14
+023,CLARK,Accidents (unintentional injuries),*
+023,CLARK,COVID-19,*
+023,CLARK,Essential hypertension and hypertensive renal disease (hypertension),*
+023,CLARK,Diabetes mellitus (diabetes),*
+023,CLARK,Intentional self-harm (suicide),*
+023,CLARK,Influenza and pneumonia,*
+023,CLARK,"Congenital malformations, deformations and chromosomal abnormalities",*
+023,CLARK,Parkinson disease,*
+023,CLARK,Alzheimer disease,*
+023,CLARK,Pneumonitis due to solids and liquids,*
+023,CLARK,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+023,CLARK,Septicemia,*
+023,CLARK,Aortic aneurysm and dissection,*
+023,CLARK,Anemias,*
+023,CLARK,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+023,CLARK,Nutritional deficiencies,*
+023,CLARK,Chronic liver disease and cirrhosis,*
+023,CLARK,Complications of medical and surgical care,*
+023,CLARK,Assault (homicide),*
+025,CLAY,Malignant neoplasms (cancer),44
+025,CLAY,Diseases of heart (heart disease),34
+025,CLAY,All other causes,33
+025,CLAY,Chronic lower respiratory diseases,14
+025,CLAY,Cerebrovascular diseases (stroke),*
+025,CLAY,Accidents (unintentional injuries),*
+025,CLAY,Alzheimer disease,*
+025,CLAY,Septicemia,*
+025,CLAY,Chronic liver disease and cirrhosis,*
+025,CLAY,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+025,CLAY,Certain conditions originating in the perinatal period,*
+025,CLAY,Diabetes mellitus (diabetes),*
+025,CLAY,COVID-19,*
+025,CLAY,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+025,CLAY,Nutritional deficiencies,*
+025,CLAY,Infections of kidney,*
+025,CLAY,Influenza and pneumonia,*
+025,CLAY,Parkinson disease,*
+025,CLAY,Aortic aneurysm and dissection,*
+027,CLINTON,Diseases of heart (heart disease),105
+027,CLINTON,Malignant neoplasms (cancer),83
+027,CLINTON,All other causes,51
+027,CLINTON,Cerebrovascular diseases (stroke),26
+027,CLINTON,Chronic lower respiratory diseases,18
+027,CLINTON,Accidents (unintentional injuries),12
+027,CLINTON,Alzheimer disease,11
+027,CLINTON,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",11
+027,CLINTON,Chronic liver disease and cirrhosis,*
+027,CLINTON,Parkinson disease,*
+027,CLINTON,Essential hypertension and hypertensive renal disease (hypertension),*
+027,CLINTON,Intentional self-harm (suicide),*
+027,CLINTON,Septicemia,*
+027,CLINTON,COVID-19,*
+027,CLINTON,Diabetes mellitus (diabetes),*
+027,CLINTON,Nutritional deficiencies,*
+027,CLINTON,Influenza and pneumonia,*
+027,CLINTON,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+027,CLINTON,Anemias,*
+027,CLINTON,Aortic aneurysm and dissection,*
+027,CLINTON,Assault (homicide),*
+027,CLINTON,Certain conditions originating in the perinatal period,*
+027,CLINTON,Meningitis,*
+027,CLINTON,Unknown (R99),*
+027,CLINTON,Complications of medical and surgical care,*
+027,CLINTON,Pneumonitis due to solids and liquids,*
+027,CLINTON,,*
+029,COLES,All other causes,108
+029,COLES,Diseases of heart (heart disease),97
+029,COLES,Malignant neoplasms (cancer),84
+029,COLES,Chronic lower respiratory diseases,31
+029,COLES,Essential hypertension and hypertensive renal disease (hypertension),23
+029,COLES,Accidents (unintentional injuries),17
+029,COLES,Cerebrovascular diseases (stroke),16
+029,COLES,Influenza and pneumonia,16
+029,COLES,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",15
+029,COLES,Intentional self-harm (suicide),*
+029,COLES,Septicemia,*
+029,COLES,Diabetes mellitus (diabetes),*
+029,COLES,COVID-19,*
+029,COLES,Alzheimer disease,*
+029,COLES,Parkinson disease,*
+029,COLES,Nutritional deficiencies,*
+029,COLES,Chronic liver disease and cirrhosis,*
+029,COLES,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+029,COLES,Pneumonitis due to solids and liquids,*
+029,COLES,Aortic aneurysm and dissection,*
+029,COLES,Anemias,*
+029,COLES,Hernia,*
+029,COLES,Cholelithiasis and other disorders of gallbladder,*
+029,COLES,Unknown (R99),*
+029,COLES,Meningitis,*
+031,COOK,Diseases of heart (heart disease),"9,690"
+031,COOK,Malignant neoplasms (cancer),"8,450"
+031,COOK,All other causes,"6,427"
+031,COOK,Accidents (unintentional injuries),"3,068"
+031,COOK,Cerebrovascular diseases (stroke),"2,661"
+031,COOK,Chronic lower respiratory diseases,"1,320"
+031,COOK,Alzheimer disease,"1,283"
+031,COOK,Diabetes mellitus (diabetes),"1,113"
+031,COOK,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)","1,051"
+031,COOK,Assault (homicide),802
+031,COOK,Influenza and pneumonia,751
+031,COOK,Septicemia,617
+031,COOK,Chronic liver disease and cirrhosis,564
+031,COOK,COVID-19,558
+031,COOK,Parkinson disease,514
+031,COOK,Essential hypertension and hypertensive renal disease (hypertension),512
+031,COOK,Intentional self-harm (suicide),509
+031,COOK,Pneumonitis due to solids and liquids,345
+031,COOK,Nutritional deficiencies,225
+031,COOK,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",223
+031,COOK,Unknown (R99),221
+031,COOK,Certain conditions originating in the perinatal period,173
+031,COOK,Aortic aneurysm and dissection,128
+031,COOK,"Congenital malformations, deformations and chromosomal abnormalities",118
+031,COOK,Anemias,81
+031,COOK,Cholelithiasis and other disorders of gallbladder,72
+031,COOK,Human immunodeficiency virus (HIV) disease,64
+031,COOK,Peptic ulcer,59
+031,COOK,Enterocolitis due to Clostridium difficile,58
+031,COOK,Atherosclerosis,49
+031,COOK,Complications of medical and surgical care,36
+031,COOK,Viral hepatitis,28
+031,COOK,Hernia,20
+031,COOK,"Pregnancy, childbirth and the puerperium",19
+031,COOK,Infections of kidney,12
+031,COOK,Meningitis,10
+031,COOK,Tuberculosis,*
+031,COOK,Diseases of appendix,*
+031,COOK,Legal intervention,*
+031,COOK,Salmonella infections,*
+031,COOK,Hyperplasia of prostate,*
+031,COOK,Inflammatory diseases of female pelvic organs,*
+031,COOK,Pneumoconioses and chemical effects,*
+031,COOK,,*
+033,CRAWFORD,Diseases of heart (heart disease),53
+033,CRAWFORD,Malignant neoplasms (cancer),45
+033,CRAWFORD,All other causes,42
+033,CRAWFORD,Accidents (unintentional injuries),15
+033,CRAWFORD,Chronic lower respiratory diseases,12
+033,CRAWFORD,Cerebrovascular diseases (stroke),*
+033,CRAWFORD,Diabetes mellitus (diabetes),*
+033,CRAWFORD,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+033,CRAWFORD,Influenza and pneumonia,*
+033,CRAWFORD,Intentional self-harm (suicide),*
+033,CRAWFORD,Essential hypertension and hypertensive renal disease (hypertension),*
+033,CRAWFORD,COVID-19,*
+033,CRAWFORD,Chronic liver disease and cirrhosis,*
+033,CRAWFORD,Septicemia,*
+033,CRAWFORD,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+033,CRAWFORD,Alzheimer disease,*
+033,CRAWFORD,Complications of medical and surgical care,*
+033,CRAWFORD,Anemias,*
+033,CRAWFORD,Unknown (R99),*
+033,CRAWFORD,Human immunodeficiency virus (HIV) disease,*
+035,CUMBERLAND,All other causes,28
+035,CUMBERLAND,Malignant neoplasms (cancer),27
+035,CUMBERLAND,Diseases of heart (heart disease),23
+035,CUMBERLAND,Accidents (unintentional injuries),10
+035,CUMBERLAND,Chronic lower respiratory diseases,*
+035,CUMBERLAND,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+035,CUMBERLAND,Intentional self-harm (suicide),*
+035,CUMBERLAND,Chronic liver disease and cirrhosis,*
+035,CUMBERLAND,Septicemia,*
+035,CUMBERLAND,Essential hypertension and hypertensive renal disease (hypertension),*
+035,CUMBERLAND,Diabetes mellitus (diabetes),*
+035,CUMBERLAND,Influenza and pneumonia,*
+035,CUMBERLAND,Nutritional deficiencies,*
+035,CUMBERLAND,Atherosclerosis,*
+035,CUMBERLAND,Pneumonitis due to solids and liquids,*
+035,CUMBERLAND,Parkinson disease,*
+035,CUMBERLAND,Aortic aneurysm and dissection,*
+035,CUMBERLAND,Unknown (R99),*
+035,CUMBERLAND,Cerebrovascular diseases (stroke),*
+035,CUMBERLAND,"Congenital malformations, deformations and chromosomal abnormalities",*
+037,DE KALB,Malignant neoplasms (cancer),180
+037,DE KALB,Diseases of heart (heart disease),158
+037,DE KALB,All other causes,145
+037,DE KALB,Cerebrovascular diseases (stroke),49
+037,DE KALB,Accidents (unintentional injuries),42
+037,DE KALB,Alzheimer disease,40
+037,DE KALB,Chronic lower respiratory diseases,29
+037,DE KALB,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",23
+037,DE KALB,Diabetes mellitus (diabetes),16
+037,DE KALB,Chronic liver disease and cirrhosis,15
+037,DE KALB,Parkinson disease,14
+037,DE KALB,Intentional self-harm (suicide),14
+037,DE KALB,Septicemia,10
+037,DE KALB,Influenza and pneumonia,10
+037,DE KALB,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+037,DE KALB,COVID-19,*
+037,DE KALB,Pneumonitis due to solids and liquids,*
+037,DE KALB,Unknown (R99),*
+037,DE KALB,Nutritional deficiencies,*
+037,DE KALB,Aortic aneurysm and dissection,*
+037,DE KALB,Assault (homicide),*
+037,DE KALB,Essential hypertension and hypertensive renal disease (hypertension),*
+037,DE KALB,"Congenital malformations, deformations and chromosomal abnormalities",*
+037,DE KALB,Certain conditions originating in the perinatal period,*
+037,DE KALB,Atherosclerosis,*
+037,DE KALB,Cholelithiasis and other disorders of gallbladder,*
+037,DE KALB,Anemias,*
+037,DE KALB,Enterocolitis due to Clostridium difficile,*
+037,DE KALB,Peptic ulcer,*
+039,DE WITT,Malignant neoplasms (cancer),60
+039,DE WITT,Diseases of heart (heart disease),50
+039,DE WITT,All other causes,24
+039,DE WITT,Chronic lower respiratory diseases,18
+039,DE WITT,Alzheimer disease,17
+039,DE WITT,Cerebrovascular diseases (stroke),*
+039,DE WITT,Accidents (unintentional injuries),*
+039,DE WITT,Parkinson disease,*
+039,DE WITT,Septicemia,*
+039,DE WITT,Diabetes mellitus (diabetes),*
+039,DE WITT,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+039,DE WITT,Chronic liver disease and cirrhosis,*
+039,DE WITT,Anemias,*
+039,DE WITT,Pneumonitis due to solids and liquids,*
+039,DE WITT,Influenza and pneumonia,*
+039,DE WITT,Intentional self-harm (suicide),*
+039,DE WITT,Nutritional deficiencies,*
+039,DE WITT,Meningitis,*
+039,DE WITT,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+039,DE WITT,Essential hypertension and hypertensive renal disease (hypertension),*
+041,DOUGLAS,Malignant neoplasms (cancer),44
+041,DOUGLAS,Diseases of heart (heart disease),43
+041,DOUGLAS,All other causes,37
+041,DOUGLAS,Chronic lower respiratory diseases,19
+041,DOUGLAS,Alzheimer disease,15
+041,DOUGLAS,Accidents (unintentional injuries),12
+041,DOUGLAS,Cerebrovascular diseases (stroke),11
+041,DOUGLAS,Intentional self-harm (suicide),*
+041,DOUGLAS,Septicemia,*
+041,DOUGLAS,Diabetes mellitus (diabetes),*
+041,DOUGLAS,Nutritional deficiencies,*
+041,DOUGLAS,COVID-19,*
+041,DOUGLAS,Influenza and pneumonia,*
+041,DOUGLAS,Essential hypertension and hypertensive renal disease (hypertension),*
+041,DOUGLAS,Enterocolitis due to Clostridium difficile,*
+041,DOUGLAS,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+041,DOUGLAS,Chronic liver disease and cirrhosis,*
+041,DOUGLAS,Parkinson disease,*
+041,DOUGLAS,Cholelithiasis and other disorders of gallbladder,*
+041,DOUGLAS,Hernia,*
+041,DOUGLAS,"Congenital malformations, deformations and chromosomal abnormalities",*
+041,DOUGLAS,Certain conditions originating in the perinatal period,*
+041,DOUGLAS,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+043,DU PAGE,Malignant neoplasms (cancer),"1,495"
+043,DU PAGE,Diseases of heart (heart disease),"1,483"
+043,DU PAGE,All other causes,"1,187"
+043,DU PAGE,Cerebrovascular diseases (stroke),555
+043,DU PAGE,Accidents (unintentional injuries),300
+043,DU PAGE,Alzheimer disease,284
+043,DU PAGE,Chronic lower respiratory diseases,220
+043,DU PAGE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",174
+043,DU PAGE,Parkinson disease,132
+043,DU PAGE,Diabetes mellitus (diabetes),111
+043,DU PAGE,Influenza and pneumonia,98
+043,DU PAGE,Septicemia,92
+043,DU PAGE,Chronic liver disease and cirrhosis,86
+043,DU PAGE,Pneumonitis due to solids and liquids,79
+043,DU PAGE,Intentional self-harm (suicide),78
+043,DU PAGE,Nutritional deficiencies,76
+043,DU PAGE,COVID-19,73
+043,DU PAGE,Essential hypertension and hypertensive renal disease (hypertension),54
+043,DU PAGE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",34
+043,DU PAGE,Certain conditions originating in the perinatal period,25
+043,DU PAGE,Aortic aneurysm and dissection,17
+043,DU PAGE,"Congenital malformations, deformations and chromosomal abnormalities",14
+043,DU PAGE,Anemias,12
+043,DU PAGE,Cholelithiasis and other disorders of gallbladder,12
+043,DU PAGE,Assault (homicide),11
+043,DU PAGE,Atherosclerosis,*
+043,DU PAGE,Unknown (R99),*
+043,DU PAGE,Enterocolitis due to Clostridium difficile,*
+043,DU PAGE,Hernia,*
+043,DU PAGE,Peptic ulcer,*
+043,DU PAGE,Complications of medical and surgical care,*
+043,DU PAGE,Infections of kidney,*
+043,DU PAGE,Human immunodeficiency virus (HIV) disease,*
+043,DU PAGE,Viral hepatitis,*
+043,DU PAGE,Inflammatory diseases of female pelvic organs,*
+043,DU PAGE,,*
+043,DU PAGE,Tuberculosis,*
+043,DU PAGE,Acute bronchitis and bronchiolitis,*
+043,DU PAGE,Salmonella infections,*
+043,DU PAGE,Pneumoconioses and chemical effects,*
+043,DU PAGE,Meningitis,*
+043,DU PAGE,Hyperplasia of prostate,*
+043,DU PAGE,"Pregnancy, childbirth and the puerperium",*
+045,EDGAR,Diseases of heart (heart disease),67
+045,EDGAR,Malignant neoplasms (cancer),63
+045,EDGAR,All other causes,43
+045,EDGAR,Chronic lower respiratory diseases,14
+045,EDGAR,Accidents (unintentional injuries),12
+045,EDGAR,Cerebrovascular diseases (stroke),11
+045,EDGAR,Nutritional deficiencies,*
+045,EDGAR,Influenza and pneumonia,*
+045,EDGAR,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+045,EDGAR,Diabetes mellitus (diabetes),*
+045,EDGAR,Aortic aneurysm and dissection,*
+045,EDGAR,COVID-19,*
+045,EDGAR,Essential hypertension and hypertensive renal disease (hypertension),*
+045,EDGAR,Pneumonitis due to solids and liquids,*
+045,EDGAR,Septicemia,*
+045,EDGAR,Intentional self-harm (suicide),*
+045,EDGAR,Chronic liver disease and cirrhosis,*
+045,EDGAR,Alzheimer disease,*
+045,EDGAR,Certain conditions originating in the perinatal period,*
+045,EDGAR,Assault (homicide),*
+045,EDGAR,Anemias,*
+045,EDGAR,Parkinson disease,*
+045,EDGAR,Complications of medical and surgical care,*
+045,EDGAR,Unknown (R99),*
+045,EDGAR,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+047,EDWARDS,Diseases of heart (heart disease),19
+047,EDWARDS,All other causes,13
+047,EDWARDS,Malignant neoplasms (cancer),11
+047,EDWARDS,Chronic lower respiratory diseases,*
+047,EDWARDS,Diabetes mellitus (diabetes),*
+047,EDWARDS,Cerebrovascular diseases (stroke),*
+047,EDWARDS,Chronic liver disease and cirrhosis,*
+047,EDWARDS,Accidents (unintentional injuries),*
+047,EDWARDS,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+047,EDWARDS,Parkinson disease,*
+047,EDWARDS,Septicemia,*
+047,EDWARDS,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+047,EDWARDS,Alzheimer disease,*
+047,EDWARDS,COVID-19,*
+047,EDWARDS,Pneumonitis due to solids and liquids,*
+049,EFFINGHAM,Malignant neoplasms (cancer),68
+049,EFFINGHAM,Diseases of heart (heart disease),63
+049,EFFINGHAM,All other causes,55
+049,EFFINGHAM,Chronic lower respiratory diseases,19
+049,EFFINGHAM,Septicemia,18
+049,EFFINGHAM,Diabetes mellitus (diabetes),17
+049,EFFINGHAM,Essential hypertension and hypertensive renal disease (hypertension),15
+049,EFFINGHAM,Alzheimer disease,15
+049,EFFINGHAM,Accidents (unintentional injuries),13
+049,EFFINGHAM,Intentional self-harm (suicide),10
+049,EFFINGHAM,Nutritional deficiencies,10
+049,EFFINGHAM,Parkinson disease,10
+049,EFFINGHAM,Cerebrovascular diseases (stroke),10
+049,EFFINGHAM,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+049,EFFINGHAM,Influenza and pneumonia,*
+049,EFFINGHAM,COVID-19,*
+049,EFFINGHAM,Chronic liver disease and cirrhosis,*
+049,EFFINGHAM,Aortic aneurysm and dissection,*
+049,EFFINGHAM,Unknown (R99),*
+049,EFFINGHAM,"Congenital malformations, deformations and chromosomal abnormalities",*
+049,EFFINGHAM,Certain conditions originating in the perinatal period,*
+049,EFFINGHAM,Pneumonitis due to solids and liquids,*
+049,EFFINGHAM,Viral hepatitis,*
+049,EFFINGHAM,"Pregnancy, childbirth and the puerperium",*
+049,EFFINGHAM,,*
+049,EFFINGHAM,Cholelithiasis and other disorders of gallbladder,*
+051,FAYETTE,Diseases of heart (heart disease),49
+051,FAYETTE,Malignant neoplasms (cancer),48
+051,FAYETTE,All other causes,35
+051,FAYETTE,Accidents (unintentional injuries),26
+051,FAYETTE,Chronic lower respiratory diseases,18
+051,FAYETTE,Alzheimer disease,15
+051,FAYETTE,Diabetes mellitus (diabetes),14
+051,FAYETTE,COVID-19,10
+051,FAYETTE,Cerebrovascular diseases (stroke),*
+051,FAYETTE,Chronic liver disease and cirrhosis,*
+051,FAYETTE,Septicemia,*
+051,FAYETTE,Essential hypertension and hypertensive renal disease (hypertension),*
+051,FAYETTE,Influenza and pneumonia,*
+051,FAYETTE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+051,FAYETTE,Intentional self-harm (suicide),*
+051,FAYETTE,Parkinson disease,*
+051,FAYETTE,Anemias,*
+051,FAYETTE,Pneumonitis due to solids and liquids,*
+051,FAYETTE,Nutritional deficiencies,*
+051,FAYETTE,Inflammatory diseases of female pelvic organs,*
+053,FORD,Diseases of heart (heart disease),55
+053,FORD,All other causes,39
+053,FORD,Malignant neoplasms (cancer),37
+053,FORD,Cerebrovascular diseases (stroke),23
+053,FORD,Chronic lower respiratory diseases,12
+053,FORD,Alzheimer disease,11
+053,FORD,Accidents (unintentional injuries),10
+053,FORD,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+053,FORD,Nutritional deficiencies,*
+053,FORD,Diabetes mellitus (diabetes),*
+053,FORD,Pneumonitis due to solids and liquids,*
+053,FORD,Septicemia,*
+053,FORD,COVID-19,*
+053,FORD,Parkinson disease,*
+053,FORD,Intentional self-harm (suicide),*
+053,FORD,Influenza and pneumonia,*
+053,FORD,Aortic aneurysm and dissection,*
+053,FORD,Enterocolitis due to Clostridium difficile,*
+053,FORD,Cholelithiasis and other disorders of gallbladder,*
+053,FORD,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+053,FORD,Peptic ulcer,*
+055,FRANKLIN,Diseases of heart (heart disease),112
+055,FRANKLIN,Malignant neoplasms (cancer),104
+055,FRANKLIN,All other causes,81
+055,FRANKLIN,Chronic lower respiratory diseases,47
+055,FRANKLIN,Accidents (unintentional injuries),35
+055,FRANKLIN,Cerebrovascular diseases (stroke),33
+055,FRANKLIN,Diabetes mellitus (diabetes),23
+055,FRANKLIN,Alzheimer disease,18
+055,FRANKLIN,Influenza and pneumonia,14
+055,FRANKLIN,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",14
+055,FRANKLIN,Parkinson disease,13
+055,FRANKLIN,Chronic liver disease and cirrhosis,11
+055,FRANKLIN,Septicemia,10
+055,FRANKLIN,Essential hypertension and hypertensive renal disease (hypertension),10
+055,FRANKLIN,Intentional self-harm (suicide),*
+055,FRANKLIN,COVID-19,*
+055,FRANKLIN,Nutritional deficiencies,*
+055,FRANKLIN,Unknown (R99),*
+055,FRANKLIN,Pneumonitis due to solids and liquids,*
+055,FRANKLIN,Peptic ulcer,*
+055,FRANKLIN,Viral hepatitis,*
+055,FRANKLIN,Enterocolitis due to Clostridium difficile,*
+055,FRANKLIN,"Congenital malformations, deformations and chromosomal abnormalities",*
+055,FRANKLIN,Certain conditions originating in the perinatal period,*
+055,FRANKLIN,Acute bronchitis and bronchiolitis,*
+055,FRANKLIN,Aortic aneurysm and dissection,*
+055,FRANKLIN,Human immunodeficiency virus (HIV) disease,*
+057,FULTON,All other causes,105
+057,FULTON,Diseases of heart (heart disease),93
+057,FULTON,Malignant neoplasms (cancer),89
+057,FULTON,Chronic lower respiratory diseases,33
+057,FULTON,Cerebrovascular diseases (stroke),29
+057,FULTON,Accidents (unintentional injuries),26
+057,FULTON,Alzheimer disease,18
+057,FULTON,COVID-19,15
+057,FULTON,Influenza and pneumonia,13
+057,FULTON,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",10
+057,FULTON,Pneumonitis due to solids and liquids,10
+057,FULTON,Diabetes mellitus (diabetes),*
+057,FULTON,Septicemia,*
+057,FULTON,Intentional self-harm (suicide),*
+057,FULTON,Parkinson disease,*
+057,FULTON,"Congenital malformations, deformations and chromosomal abnormalities",*
+057,FULTON,Essential hypertension and hypertensive renal disease (hypertension),*
+057,FULTON,Aortic aneurysm and dissection,*
+057,FULTON,Nutritional deficiencies,*
+057,FULTON,Chronic liver disease and cirrhosis,*
+057,FULTON,Cholelithiasis and other disorders of gallbladder,*
+057,FULTON,Enterocolitis due to Clostridium difficile,*
+057,FULTON,Atherosclerosis,*
+057,FULTON,Assault (homicide),*
+057,FULTON,Anemias,*
+057,FULTON,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+059,GALLATIN,Diseases of heart (heart disease),18
+059,GALLATIN,All other causes,16
+059,GALLATIN,Malignant neoplasms (cancer),11
+059,GALLATIN,Accidents (unintentional injuries),*
+059,GALLATIN,Chronic lower respiratory diseases,*
+059,GALLATIN,Cerebrovascular diseases (stroke),*
+059,GALLATIN,Pneumonitis due to solids and liquids,*
+059,GALLATIN,Diabetes mellitus (diabetes),*
+059,GALLATIN,Septicemia,*
+059,GALLATIN,Parkinson disease,*
+059,GALLATIN,Influenza and pneumonia,*
+059,GALLATIN,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+059,GALLATIN,Essential hypertension and hypertensive renal disease (hypertension),*
+059,GALLATIN,Alzheimer disease,*
+059,GALLATIN,COVID-19,*
+059,GALLATIN,Hernia,*
+059,GALLATIN,Chronic liver disease and cirrhosis,*
+059,GALLATIN,Assault (homicide),*
+059,GALLATIN,Aortic aneurysm and dissection,*
+059,GALLATIN,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+061,GREENE,Malignant neoplasms (cancer),42
+061,GREENE,Diseases of heart (heart disease),36
+061,GREENE,All other causes,22
+061,GREENE,Chronic lower respiratory diseases,21
+061,GREENE,Accidents (unintentional injuries),13
+061,GREENE,Cerebrovascular diseases (stroke),*
+061,GREENE,Alzheimer disease,*
+061,GREENE,Chronic liver disease and cirrhosis,*
+061,GREENE,Septicemia,*
+061,GREENE,Influenza and pneumonia,*
+061,GREENE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+061,GREENE,Diabetes mellitus (diabetes),*
+061,GREENE,COVID-19,*
+061,GREENE,Parkinson disease,*
+061,GREENE,Pneumonitis due to solids and liquids,*
+061,GREENE,"Congenital malformations, deformations and chromosomal abnormalities",*
+061,GREENE,Essential hypertension and hypertensive renal disease (hypertension),*
+061,GREENE,Nutritional deficiencies,*
+063,GRUNDY,Malignant neoplasms (cancer),105
+063,GRUNDY,Diseases of heart (heart disease),104
+063,GRUNDY,All other causes,91
+063,GRUNDY,Accidents (unintentional injuries),29
+063,GRUNDY,Cerebrovascular diseases (stroke),28
+063,GRUNDY,Chronic lower respiratory diseases,25
+063,GRUNDY,Diabetes mellitus (diabetes),19
+063,GRUNDY,Alzheimer disease,13
+063,GRUNDY,Parkinson disease,*
+063,GRUNDY,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+063,GRUNDY,Septicemia,*
+063,GRUNDY,Chronic liver disease and cirrhosis,*
+063,GRUNDY,COVID-19,*
+063,GRUNDY,Intentional self-harm (suicide),*
+063,GRUNDY,Nutritional deficiencies,*
+063,GRUNDY,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+063,GRUNDY,Unknown (R99),*
+063,GRUNDY,Influenza and pneumonia,*
+063,GRUNDY,Essential hypertension and hypertensive renal disease (hypertension),*
+063,GRUNDY,Enterocolitis due to Clostridium difficile,*
+063,GRUNDY,Aortic aneurysm and dissection,*
+063,GRUNDY,Viral hepatitis,*
+063,GRUNDY,Meningitis,*
+063,GRUNDY,Assault (homicide),*
+063,GRUNDY,Legal intervention,*
+065,HAMILTON,Malignant neoplasms (cancer),23
+065,HAMILTON,Diseases of heart (heart disease),21
+065,HAMILTON,All other causes,11
+065,HAMILTON,Chronic lower respiratory diseases,*
+065,HAMILTON,Accidents (unintentional injuries),*
+065,HAMILTON,Septicemia,*
+065,HAMILTON,Alzheimer disease,*
+065,HAMILTON,Essential hypertension and hypertensive renal disease (hypertension),*
+065,HAMILTON,Diabetes mellitus (diabetes),*
+065,HAMILTON,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+065,HAMILTON,Cerebrovascular diseases (stroke),*
+065,HAMILTON,Peptic ulcer,*
+065,HAMILTON,Parkinson disease,*
+065,HAMILTON,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+065,HAMILTON,Unknown (R99),*
+065,HAMILTON,Pneumonitis due to solids and liquids,*
+065,HAMILTON,Infections of kidney,*
+065,HAMILTON,COVID-19,*
+065,HAMILTON,Cholelithiasis and other disorders of gallbladder,*
+065,HAMILTON,Aortic aneurysm and dissection,*
+065,HAMILTON,Nutritional deficiencies,*
+065,HAMILTON,Influenza and pneumonia,*
+067,HANCOCK,Diseases of heart (heart disease),63
+067,HANCOCK,Malignant neoplasms (cancer),50
+067,HANCOCK,All other causes,36
+067,HANCOCK,Accidents (unintentional injuries),19
+067,HANCOCK,Chronic lower respiratory diseases,17
+067,HANCOCK,Essential hypertension and hypertensive renal disease (hypertension),*
+067,HANCOCK,Cerebrovascular diseases (stroke),*
+067,HANCOCK,Septicemia,*
+067,HANCOCK,Alzheimer disease,*
+067,HANCOCK,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+067,HANCOCK,COVID-19,*
+067,HANCOCK,Diabetes mellitus (diabetes),*
+067,HANCOCK,Influenza and pneumonia,*
+067,HANCOCK,Intentional self-harm (suicide),*
+067,HANCOCK,Chronic liver disease and cirrhosis,*
+067,HANCOCK,Parkinson disease,*
+067,HANCOCK,Certain conditions originating in the perinatal period,*
+067,HANCOCK,Pneumonitis due to solids and liquids,*
+067,HANCOCK,Cholelithiasis and other disorders of gallbladder,*
+069,HARDIN,Malignant neoplasms (cancer),18
+069,HARDIN,Diseases of heart (heart disease),*
+069,HARDIN,All other causes,*
+069,HARDIN,Chronic lower respiratory diseases,*
+069,HARDIN,Diabetes mellitus (diabetes),*
+069,HARDIN,Alzheimer disease,*
+069,HARDIN,Accidents (unintentional injuries),*
+069,HARDIN,Cerebrovascular diseases (stroke),*
+069,HARDIN,Essential hypertension and hypertensive renal disease (hypertension),*
+069,HARDIN,Intentional self-harm (suicide),*
+069,HARDIN,Parkinson disease,*
+069,HARDIN,Septicemia,*
+071,HENDERSON,Malignant neoplasms (cancer),25
+071,HENDERSON,Diseases of heart (heart disease),22
+071,HENDERSON,All other causes,*
+071,HENDERSON,Accidents (unintentional injuries),*
+071,HENDERSON,Alzheimer disease,*
+071,HENDERSON,Cerebrovascular diseases (stroke),*
+071,HENDERSON,Chronic lower respiratory diseases,*
+071,HENDERSON,Chronic liver disease and cirrhosis,*
+071,HENDERSON,COVID-19,*
+071,HENDERSON,Diabetes mellitus (diabetes),*
+071,HENDERSON,Peptic ulcer,*
+071,HENDERSON,Influenza and pneumonia,*
+071,HENDERSON,Viral hepatitis,*
+073,HENRY,Diseases of heart (heart disease),161
+073,HENRY,Malignant neoplasms (cancer),126
+073,HENRY,All other causes,94
+073,HENRY,Chronic lower respiratory diseases,33
+073,HENRY,Accidents (unintentional injuries),27
+073,HENRY,Cerebrovascular diseases (stroke),23
+073,HENRY,Alzheimer disease,14
+073,HENRY,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",13
+073,HENRY,Septicemia,11
+073,HENRY,COVID-19,11
+073,HENRY,Parkinson disease,10
+073,HENRY,Essential hypertension and hypertensive renal disease (hypertension),*
+073,HENRY,Diabetes mellitus (diabetes),*
+073,HENRY,Influenza and pneumonia,*
+073,HENRY,Chronic liver disease and cirrhosis,*
+073,HENRY,Intentional self-harm (suicide),*
+073,HENRY,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+073,HENRY,Unknown (R99),*
+073,HENRY,Pneumonitis due to solids and liquids,*
+073,HENRY,Nutritional deficiencies,*
+073,HENRY,Certain conditions originating in the perinatal period,*
+073,HENRY,Aortic aneurysm and dissection,*
+073,HENRY,Meningitis,*
+073,HENRY,Hernia,*
+073,HENRY,Peptic ulcer,*
+073,HENRY,Assault (homicide),*
+073,HENRY,Anemias,*
+075,IROQUOIS,Diseases of heart (heart disease),90
+075,IROQUOIS,Malignant neoplasms (cancer),65
+075,IROQUOIS,All other causes,48
+075,IROQUOIS,Cerebrovascular diseases (stroke),24
+075,IROQUOIS,Chronic lower respiratory diseases,21
+075,IROQUOIS,Accidents (unintentional injuries),20
+075,IROQUOIS,Alzheimer disease,18
+075,IROQUOIS,Diabetes mellitus (diabetes),15
+075,IROQUOIS,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",10
+075,IROQUOIS,COVID-19,*
+075,IROQUOIS,Septicemia,*
+075,IROQUOIS,Intentional self-harm (suicide),*
+075,IROQUOIS,Influenza and pneumonia,*
+075,IROQUOIS,Parkinson disease,*
+075,IROQUOIS,Assault (homicide),*
+075,IROQUOIS,Pneumonitis due to solids and liquids,*
+075,IROQUOIS,Nutritional deficiencies,*
+075,IROQUOIS,Chronic liver disease and cirrhosis,*
+075,IROQUOIS,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+075,IROQUOIS,Essential hypertension and hypertensive renal disease (hypertension),*
+075,IROQUOIS,Aortic aneurysm and dissection,*
+075,IROQUOIS,Complications of medical and surgical care,*
+075,IROQUOIS,Certain conditions originating in the perinatal period,*
+075,IROQUOIS,Meningitis,*
+075,IROQUOIS,Diseases of appendix,*
+075,IROQUOIS,Anemias,*
+075,IROQUOIS,Unknown (R99),*
+077,JACKSON,Diseases of heart (heart disease),134
+077,JACKSON,Malignant neoplasms (cancer),102
+077,JACKSON,All other causes,85
+077,JACKSON,Cerebrovascular diseases (stroke),33
+077,JACKSON,Accidents (unintentional injuries),30
+077,JACKSON,Chronic lower respiratory diseases,25
+077,JACKSON,Diabetes mellitus (diabetes),21
+077,JACKSON,Septicemia,18
+077,JACKSON,Alzheimer disease,16
+077,JACKSON,Influenza and pneumonia,14
+077,JACKSON,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",12
+077,JACKSON,Chronic liver disease and cirrhosis,10
+077,JACKSON,COVID-19,*
+077,JACKSON,Essential hypertension and hypertensive renal disease (hypertension),*
+077,JACKSON,Intentional self-harm (suicide),*
+077,JACKSON,Certain conditions originating in the perinatal period,*
+077,JACKSON,Pneumonitis due to solids and liquids,*
+077,JACKSON,Assault (homicide),*
+077,JACKSON,Parkinson disease,*
+077,JACKSON,Viral hepatitis,*
+077,JACKSON,Aortic aneurysm and dissection,*
+077,JACKSON,Anemias,*
+077,JACKSON,,*
+077,JACKSON,"Congenital malformations, deformations and chromosomal abnormalities",*
+077,JACKSON,Cholelithiasis and other disorders of gallbladder,*
+077,JACKSON,Nutritional deficiencies,*
+077,JACKSON,Atherosclerosis,*
+077,JACKSON,Infections of kidney,*
+077,JACKSON,Unknown (R99),*
+079,JASPER,Diseases of heart (heart disease),31
+079,JASPER,Malignant neoplasms (cancer),31
+079,JASPER,All other causes,21
+079,JASPER,Cerebrovascular diseases (stroke),12
+079,JASPER,Chronic lower respiratory diseases,12
+079,JASPER,Accidents (unintentional injuries),*
+079,JASPER,Diabetes mellitus (diabetes),*
+079,JASPER,Alzheimer disease,*
+079,JASPER,Influenza and pneumonia,*
+079,JASPER,COVID-19,*
+079,JASPER,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+079,JASPER,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+079,JASPER,Nutritional deficiencies,*
+079,JASPER,Septicemia,*
+079,JASPER,Pneumonitis due to solids and liquids,*
+079,JASPER,"Congenital malformations, deformations and chromosomal abnormalities",*
+079,JASPER,Assault (homicide),*
+079,JASPER,Parkinson disease,*
+079,JASPER,Essential hypertension and hypertensive renal disease (hypertension),*
+081,JEFFERSON,Malignant neoplasms (cancer),107
+081,JEFFERSON,Diseases of heart (heart disease),103
+081,JEFFERSON,All other causes,51
+081,JEFFERSON,Chronic lower respiratory diseases,30
+081,JEFFERSON,Accidents (unintentional injuries),29
+081,JEFFERSON,Cerebrovascular diseases (stroke),23
+081,JEFFERSON,Alzheimer disease,23
+081,JEFFERSON,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",17
+081,JEFFERSON,Diabetes mellitus (diabetes),14
+081,JEFFERSON,Pneumonitis due to solids and liquids,10
+081,JEFFERSON,Intentional self-harm (suicide),10
+081,JEFFERSON,COVID-19,*
+081,JEFFERSON,Chronic liver disease and cirrhosis,*
+081,JEFFERSON,Septicemia,*
+081,JEFFERSON,Parkinson disease,*
+081,JEFFERSON,Essential hypertension and hypertensive renal disease (hypertension),*
+081,JEFFERSON,Peptic ulcer,*
+081,JEFFERSON,Influenza and pneumonia,*
+081,JEFFERSON,"Congenital malformations, deformations and chromosomal abnormalities",*
+081,JEFFERSON,Unknown (R99),*
+081,JEFFERSON,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+081,JEFFERSON,Enterocolitis due to Clostridium difficile,*
+081,JEFFERSON,Complications of medical and surgical care,*
+081,JEFFERSON,Cholelithiasis and other disorders of gallbladder,*
+083,JERSEY,Diseases of heart (heart disease),70
+083,JERSEY,Malignant neoplasms (cancer),56
+083,JERSEY,All other causes,36
+083,JERSEY,Diabetes mellitus (diabetes),16
+083,JERSEY,Accidents (unintentional injuries),14
+083,JERSEY,Alzheimer disease,13
+083,JERSEY,Chronic lower respiratory diseases,12
+083,JERSEY,Cerebrovascular diseases (stroke),11
+083,JERSEY,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+083,JERSEY,COVID-19,*
+083,JERSEY,Septicemia,*
+083,JERSEY,Essential hypertension and hypertensive renal disease (hypertension),*
+083,JERSEY,Parkinson disease,*
+083,JERSEY,Influenza and pneumonia,*
+083,JERSEY,,*
+083,JERSEY,Chronic liver disease and cirrhosis,*
+083,JERSEY,Nutritional deficiencies,*
+083,JERSEY,Intentional self-harm (suicide),*
+083,JERSEY,Anemias,*
+083,JERSEY,Enterocolitis due to Clostridium difficile,*
+083,JERSEY,"Congenital malformations, deformations and chromosomal abnormalities",*
+083,JERSEY,Peptic ulcer,*
+083,JERSEY,Pneumoconioses and chemical effects,*
+083,JERSEY,Pneumonitis due to solids and liquids,*
+083,JERSEY,Assault (homicide),*
+083,JERSEY,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+085,JO DAVIESS,Diseases of heart (heart disease),75
+085,JO DAVIESS,Malignant neoplasms (cancer),57
+085,JO DAVIESS,All other causes,38
+085,JO DAVIESS,Cerebrovascular diseases (stroke),17
+085,JO DAVIESS,Alzheimer disease,17
+085,JO DAVIESS,Accidents (unintentional injuries),14
+085,JO DAVIESS,Chronic lower respiratory diseases,11
+085,JO DAVIESS,COVID-19,*
+085,JO DAVIESS,Diabetes mellitus (diabetes),*
+085,JO DAVIESS,Parkinson disease,*
+085,JO DAVIESS,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+085,JO DAVIESS,Influenza and pneumonia,*
+085,JO DAVIESS,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+085,JO DAVIESS,Intentional self-harm (suicide),*
+085,JO DAVIESS,Essential hypertension and hypertensive renal disease (hypertension),*
+085,JO DAVIESS,Septicemia,*
+085,JO DAVIESS,Anemias,*
+085,JO DAVIESS,"Congenital malformations, deformations and chromosomal abnormalities",*
+085,JO DAVIESS,Chronic liver disease and cirrhosis,*
+085,JO DAVIESS,Certain conditions originating in the perinatal period,*
+085,JO DAVIESS,Pneumonitis due to solids and liquids,*
+087,JOHNSON,Diseases of heart (heart disease),26
+087,JOHNSON,Malignant neoplasms (cancer),22
+087,JOHNSON,All other causes,22
+087,JOHNSON,Chronic lower respiratory diseases,19
+087,JOHNSON,Cerebrovascular diseases (stroke),10
+087,JOHNSON,COVID-19,*
+087,JOHNSON,Accidents (unintentional injuries),*
+087,JOHNSON,Essential hypertension and hypertensive renal disease (hypertension),*
+087,JOHNSON,Intentional self-harm (suicide),*
+087,JOHNSON,Alzheimer disease,*
+087,JOHNSON,Parkinson disease,*
+087,JOHNSON,Diabetes mellitus (diabetes),*
+087,JOHNSON,Septicemia,*
+087,JOHNSON,Certain conditions originating in the perinatal period,*
+087,JOHNSON,Assault (homicide),*
+087,JOHNSON,Aortic aneurysm and dissection,*
+087,JOHNSON,,*
+087,JOHNSON,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+087,JOHNSON,Influenza and pneumonia,*
+087,JOHNSON,Chronic liver disease and cirrhosis,*
+089,KANE,Malignant neoplasms (cancer),838
+089,KANE,Diseases of heart (heart disease),752
+089,KANE,All other causes,639
+089,KANE,Cerebrovascular diseases (stroke),288
+089,KANE,Accidents (unintentional injuries),220
+089,KANE,Chronic lower respiratory diseases,132
+089,KANE,Alzheimer disease,119
+089,KANE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",84
+089,KANE,Diabetes mellitus (diabetes),81
+089,KANE,Chronic liver disease and cirrhosis,79
+089,KANE,Parkinson disease,64
+089,KANE,Influenza and pneumonia,60
+089,KANE,Septicemia,57
+089,KANE,COVID-19,48
+089,KANE,Intentional self-harm (suicide),42
+089,KANE,Essential hypertension and hypertensive renal disease (hypertension),40
+089,KANE,Pneumonitis due to solids and liquids,36
+089,KANE,Certain conditions originating in the perinatal period,27
+089,KANE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",24
+089,KANE,Atherosclerosis,23
+089,KANE,Nutritional deficiencies,22
+089,KANE,Assault (homicide),19
+089,KANE,"Congenital malformations, deformations and chromosomal abnormalities",18
+089,KANE,Aortic aneurysm and dissection,10
+089,KANE,Anemias,*
+089,KANE,Unknown (R99),*
+089,KANE,Peptic ulcer,*
+089,KANE,Enterocolitis due to Clostridium difficile,*
+089,KANE,Complications of medical and surgical care,*
+089,KANE,Hernia,*
+089,KANE,Viral hepatitis,*
+089,KANE,Human immunodeficiency virus (HIV) disease,*
+089,KANE,Infections of kidney,*
+089,KANE,Cholelithiasis and other disorders of gallbladder,*
+089,KANE,"Pregnancy, childbirth and the puerperium",*
+089,KANE,Pneumoconioses and chemical effects,*
+091,KANKAKEE,Diseases of heart (heart disease),305
+091,KANKAKEE,Malignant neoplasms (cancer),238
+091,KANKAKEE,All other causes,186
+091,KANKAKEE,Cerebrovascular diseases (stroke),77
+091,KANKAKEE,Chronic lower respiratory diseases,77
+091,KANKAKEE,Accidents (unintentional injuries),73
+091,KANKAKEE,Alzheimer disease,35
+091,KANKAKEE,Septicemia,28
+091,KANKAKEE,Diabetes mellitus (diabetes),28
+091,KANKAKEE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",26
+091,KANKAKEE,Influenza and pneumonia,22
+091,KANKAKEE,Pneumonitis due to solids and liquids,17
+091,KANKAKEE,Essential hypertension and hypertensive renal disease (hypertension),15
+091,KANKAKEE,Intentional self-harm (suicide),15
+091,KANKAKEE,Chronic liver disease and cirrhosis,14
+091,KANKAKEE,COVID-19,*
+091,KANKAKEE,Parkinson disease,*
+091,KANKAKEE,"Congenital malformations, deformations and chromosomal abnormalities",*
+091,KANKAKEE,Assault (homicide),*
+091,KANKAKEE,Certain conditions originating in the perinatal period,*
+091,KANKAKEE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+091,KANKAKEE,Nutritional deficiencies,*
+091,KANKAKEE,Aortic aneurysm and dissection,*
+091,KANKAKEE,Enterocolitis due to Clostridium difficile,*
+091,KANKAKEE,Anemias,*
+091,KANKAKEE,Human immunodeficiency virus (HIV) disease,*
+091,KANKAKEE,Peptic ulcer,*
+091,KANKAKEE,"Pregnancy, childbirth and the puerperium",*
+091,KANKAKEE,Unknown (R99),*
+093,KENDALL,Diseases of heart (heart disease),157
+093,KENDALL,Malignant neoplasms (cancer),149
+093,KENDALL,All other causes,102
+093,KENDALL,Cerebrovascular diseases (stroke),45
+093,KENDALL,Accidents (unintentional injuries),45
+093,KENDALL,Alzheimer disease,27
+093,KENDALL,Chronic lower respiratory diseases,21
+093,KENDALL,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",20
+093,KENDALL,Parkinson disease,13
+093,KENDALL,Septicemia,11
+093,KENDALL,Diabetes mellitus (diabetes),10
+093,KENDALL,COVID-19,10
+093,KENDALL,Intentional self-harm (suicide),10
+093,KENDALL,Chronic liver disease and cirrhosis,10
+093,KENDALL,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",10
+093,KENDALL,Influenza and pneumonia,*
+093,KENDALL,Pneumonitis due to solids and liquids,*
+093,KENDALL,Nutritional deficiencies,*
+093,KENDALL,Essential hypertension and hypertensive renal disease (hypertension),*
+093,KENDALL,Assault (homicide),*
+093,KENDALL,Unknown (R99),*
+093,KENDALL,Certain conditions originating in the perinatal period,*
+093,KENDALL,Peptic ulcer,*
+093,KENDALL,Hernia,*
+093,KENDALL,Aortic aneurysm and dissection,*
+093,KENDALL,Cholelithiasis and other disorders of gallbladder,*
+093,KENDALL,Complications of medical and surgical care,*
+093,KENDALL,"Congenital malformations, deformations and chromosomal abnormalities",*
+093,KENDALL,Enterocolitis due to Clostridium difficile,*
+093,KENDALL,Anemias,*
+095,KNOX,Malignant neoplasms (cancer),146
+095,KNOX,Diseases of heart (heart disease),130
+095,KNOX,All other causes,89
+095,KNOX,Chronic lower respiratory diseases,53
+095,KNOX,Accidents (unintentional injuries),41
+095,KNOX,Cerebrovascular diseases (stroke),39
+095,KNOX,Alzheimer disease,34
+095,KNOX,Diabetes mellitus (diabetes),20
+095,KNOX,COVID-19,16
+095,KNOX,Essential hypertension and hypertensive renal disease (hypertension),15
+095,KNOX,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",12
+095,KNOX,Pneumonitis due to solids and liquids,11
+095,KNOX,Septicemia,*
+095,KNOX,Nutritional deficiencies,*
+095,KNOX,Intentional self-harm (suicide),*
+095,KNOX,Parkinson disease,*
+095,KNOX,Chronic liver disease and cirrhosis,*
+095,KNOX,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+095,KNOX,Aortic aneurysm and dissection,*
+095,KNOX,Influenza and pneumonia,*
+095,KNOX,Anemias,*
+095,KNOX,Peptic ulcer,*
+095,KNOX,Complications of medical and surgical care,*
+095,KNOX,Enterocolitis due to Clostridium difficile,*
+095,KNOX,Hyperplasia of prostate,*
+095,KNOX,Assault (homicide),*
+095,KNOX,"Pregnancy, childbirth and the puerperium",*
+095,KNOX,Certain conditions originating in the perinatal period,*
+097,LAKE,Malignant neoplasms (cancer),"1,110"
+097,LAKE,Diseases of heart (heart disease),"1,052"
+097,LAKE,All other causes,919
+097,LAKE,Accidents (unintentional injuries),309
+097,LAKE,Cerebrovascular diseases (stroke),277
+097,LAKE,Alzheimer disease,202
+097,LAKE,Chronic lower respiratory diseases,174
+097,LAKE,Diabetes mellitus (diabetes),144
+097,LAKE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",129
+097,LAKE,COVID-19,93
+097,LAKE,Parkinson disease,92
+097,LAKE,Intentional self-harm (suicide),90
+097,LAKE,Septicemia,80
+097,LAKE,Influenza and pneumonia,66
+097,LAKE,Chronic liver disease and cirrhosis,65
+097,LAKE,Essential hypertension and hypertensive renal disease (hypertension),43
+097,LAKE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",43
+097,LAKE,Nutritional deficiencies,32
+097,LAKE,Pneumonitis due to solids and liquids,30
+097,LAKE,Assault (homicide),26
+097,LAKE,"Congenital malformations, deformations and chromosomal abnormalities",20
+097,LAKE,Aortic aneurysm and dissection,20
+097,LAKE,Certain conditions originating in the perinatal period,16
+097,LAKE,Unknown (R99),14
+097,LAKE,Anemias,14
+097,LAKE,Enterocolitis due to Clostridium difficile,10
+097,LAKE,Complications of medical and surgical care,*
+097,LAKE,Cholelithiasis and other disorders of gallbladder,*
+097,LAKE,Hernia,*
+097,LAKE,Legal intervention,*
+097,LAKE,Peptic ulcer,*
+097,LAKE,Infections of kidney,*
+097,LAKE,Viral hepatitis,*
+097,LAKE,Tuberculosis,*
+097,LAKE,,*
+097,LAKE,Pneumoconioses and chemical effects,*
+097,LAKE,Human immunodeficiency virus (HIV) disease,*
+099,LA SALLE,Diseases of heart (heart disease),332
+099,LA SALLE,Malignant neoplasms (cancer),305
+099,LA SALLE,All other causes,165
+099,LA SALLE,Alzheimer disease,75
+099,LA SALLE,Chronic lower respiratory diseases,68
+099,LA SALLE,Cerebrovascular diseases (stroke),65
+099,LA SALLE,Accidents (unintentional injuries),64
+099,LA SALLE,Diabetes mellitus (diabetes),37
+099,LA SALLE,Chronic liver disease and cirrhosis,27
+099,LA SALLE,COVID-19,22
+099,LA SALLE,Nutritional deficiencies,21
+099,LA SALLE,Intentional self-harm (suicide),21
+099,LA SALLE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",20
+099,LA SALLE,Septicemia,19
+099,LA SALLE,Essential hypertension and hypertensive renal disease (hypertension),19
+099,LA SALLE,Influenza and pneumonia,11
+099,LA SALLE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",11
+099,LA SALLE,Parkinson disease,*
+099,LA SALLE,Pneumonitis due to solids and liquids,*
+099,LA SALLE,Unknown (R99),*
+099,LA SALLE,Aortic aneurysm and dissection,*
+099,LA SALLE,Certain conditions originating in the perinatal period,*
+099,LA SALLE,Assault (homicide),*
+099,LA SALLE,"Congenital malformations, deformations and chromosomal abnormalities",*
+099,LA SALLE,Enterocolitis due to Clostridium difficile,*
+099,LA SALLE,Peptic ulcer,*
+099,LA SALLE,Hernia,*
+099,LA SALLE,Cholelithiasis and other disorders of gallbladder,*
+099,LA SALLE,Atherosclerosis,*
+099,LA SALLE,Infections of kidney,*
+101,LAWRENCE,Diseases of heart (heart disease),36
+101,LAWRENCE,Malignant neoplasms (cancer),30
+101,LAWRENCE,All other causes,19
+101,LAWRENCE,Cerebrovascular diseases (stroke),14
+101,LAWRENCE,Chronic lower respiratory diseases,10
+101,LAWRENCE,Diabetes mellitus (diabetes),*
+101,LAWRENCE,Accidents (unintentional injuries),*
+101,LAWRENCE,Alzheimer disease,*
+101,LAWRENCE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+101,LAWRENCE,Chronic liver disease and cirrhosis,*
+101,LAWRENCE,Influenza and pneumonia,*
+101,LAWRENCE,Pneumonitis due to solids and liquids,*
+101,LAWRENCE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+101,LAWRENCE,Nutritional deficiencies,*
+101,LAWRENCE,Parkinson disease,*
+101,LAWRENCE,Septicemia,*
+101,LAWRENCE,Essential hypertension and hypertensive renal disease (hypertension),*
+101,LAWRENCE,Aortic aneurysm and dissection,*
+101,LAWRENCE,Intentional self-harm (suicide),*
+101,LAWRENCE,Certain conditions originating in the perinatal period,*
+101,LAWRENCE,Anemias,*
+101,LAWRENCE,,*
+101,LAWRENCE,Unknown (R99),*
+103,LEE,Malignant neoplasms (cancer),99
+103,LEE,Diseases of heart (heart disease),80
+103,LEE,All other causes,63
+103,LEE,Cerebrovascular diseases (stroke),25
+103,LEE,Chronic lower respiratory diseases,22
+103,LEE,Accidents (unintentional injuries),20
+103,LEE,Alzheimer disease,14
+103,LEE,COVID-19,12
+103,LEE,Septicemia,*
+103,LEE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+103,LEE,Intentional self-harm (suicide),*
+103,LEE,Influenza and pneumonia,*
+103,LEE,Diabetes mellitus (diabetes),*
+103,LEE,Nutritional deficiencies,*
+103,LEE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+103,LEE,Chronic liver disease and cirrhosis,*
+103,LEE,Anemias,*
+103,LEE,Pneumonitis due to solids and liquids,*
+103,LEE,"Congenital malformations, deformations and chromosomal abnormalities",*
+103,LEE,Essential hypertension and hypertensive renal disease (hypertension),*
+103,LEE,Parkinson disease,*
+103,LEE,Unknown (R99),*
+103,LEE,Infections of kidney,*
+103,LEE,Aortic aneurysm and dissection,*
+103,LEE,Certain conditions originating in the perinatal period,*
+103,LEE,Assault (homicide),*
+103,LEE,Peptic ulcer,*
+105,LIVINGSTON,Diseases of heart (heart disease),105
+105,LIVINGSTON,Malignant neoplasms (cancer),73
+105,LIVINGSTON,All other causes,66
+105,LIVINGSTON,Alzheimer disease,36
+105,LIVINGSTON,Cerebrovascular diseases (stroke),35
+105,LIVINGSTON,Chronic lower respiratory diseases,30
+105,LIVINGSTON,Accidents (unintentional injuries),25
+105,LIVINGSTON,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",10
+105,LIVINGSTON,Chronic liver disease and cirrhosis,*
+105,LIVINGSTON,COVID-19,*
+105,LIVINGSTON,Diabetes mellitus (diabetes),*
+105,LIVINGSTON,Parkinson disease,*
+105,LIVINGSTON,Septicemia,*
+105,LIVINGSTON,Intentional self-harm (suicide),*
+105,LIVINGSTON,Influenza and pneumonia,*
+105,LIVINGSTON,Essential hypertension and hypertensive renal disease (hypertension),*
+105,LIVINGSTON,Pneumonitis due to solids and liquids,*
+105,LIVINGSTON,Nutritional deficiencies,*
+105,LIVINGSTON,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+105,LIVINGSTON,Unknown (R99),*
+105,LIVINGSTON,Viral hepatitis,*
+105,LIVINGSTON,Anemias,*
+105,LIVINGSTON,Meningococcal infection,*
+105,LIVINGSTON,"Congenital malformations, deformations and chromosomal abnormalities",*
+105,LIVINGSTON,Peptic ulcer,*
+107,LOGAN,Malignant neoplasms (cancer),84
+107,LOGAN,Diseases of heart (heart disease),78
+107,LOGAN,All other causes,63
+107,LOGAN,Chronic lower respiratory diseases,21
+107,LOGAN,Alzheimer disease,17
+107,LOGAN,Cerebrovascular diseases (stroke),15
+107,LOGAN,Accidents (unintentional injuries),14
+107,LOGAN,Septicemia,*
+107,LOGAN,COVID-19,*
+107,LOGAN,Chronic liver disease and cirrhosis,*
+107,LOGAN,Diabetes mellitus (diabetes),*
+107,LOGAN,Intentional self-harm (suicide),*
+107,LOGAN,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+107,LOGAN,Influenza and pneumonia,*
+107,LOGAN,"Congenital malformations, deformations and chromosomal abnormalities",*
+107,LOGAN,Parkinson disease,*
+107,LOGAN,Nutritional deficiencies,*
+107,LOGAN,Unknown (R99),*
+107,LOGAN,Enterocolitis due to Clostridium difficile,*
+107,LOGAN,Pneumonitis due to solids and liquids,*
+107,LOGAN,Essential hypertension and hypertensive renal disease (hypertension),*
+107,LOGAN,Atherosclerosis,*
+107,LOGAN,Assault (homicide),*
+107,LOGAN,Aortic aneurysm and dissection,*
+107,LOGAN,Human immunodeficiency virus (HIV) disease,*
+109,MCDONOUGH,Diseases of heart (heart disease),73
+109,MCDONOUGH,Malignant neoplasms (cancer),54
+109,MCDONOUGH,All other causes,47
+109,MCDONOUGH,Chronic lower respiratory diseases,20
+109,MCDONOUGH,Cerebrovascular diseases (stroke),18
+109,MCDONOUGH,Septicemia,17
+109,MCDONOUGH,Accidents (unintentional injuries),16
+109,MCDONOUGH,Essential hypertension and hypertensive renal disease (hypertension),15
+109,MCDONOUGH,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",14
+109,MCDONOUGH,Alzheimer disease,11
+109,MCDONOUGH,COVID-19,*
+109,MCDONOUGH,Intentional self-harm (suicide),*
+109,MCDONOUGH,Influenza and pneumonia,*
+109,MCDONOUGH,Assault (homicide),*
+109,MCDONOUGH,Chronic liver disease and cirrhosis,*
+109,MCDONOUGH,Diabetes mellitus (diabetes),*
+109,MCDONOUGH,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+109,MCDONOUGH,Parkinson disease,*
+109,MCDONOUGH,Anemias,*
+109,MCDONOUGH,Cholelithiasis and other disorders of gallbladder,*
+109,MCDONOUGH,Nutritional deficiencies,*
+109,MCDONOUGH,Pneumonitis due to solids and liquids,*
+109,MCDONOUGH,Viral hepatitis,*
+109,MCDONOUGH,Hernia,*
+109,MCDONOUGH,Aortic aneurysm and dissection,*
+111,MCHENRY,Malignant neoplasms (cancer),615
+111,MCHENRY,Diseases of heart (heart disease),551
+111,MCHENRY,All other causes,419
+111,MCHENRY,Cerebrovascular diseases (stroke),174
+111,MCHENRY,Accidents (unintentional injuries),125
+111,MCHENRY,Chronic lower respiratory diseases,109
+111,MCHENRY,Alzheimer disease,103
+111,MCHENRY,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",67
+111,MCHENRY,Diabetes mellitus (diabetes),52
+111,MCHENRY,Chronic liver disease and cirrhosis,40
+111,MCHENRY,Septicemia,40
+111,MCHENRY,Intentional self-harm (suicide),39
+111,MCHENRY,Influenza and pneumonia,38
+111,MCHENRY,Parkinson disease,32
+111,MCHENRY,COVID-19,26
+111,MCHENRY,Pneumonitis due to solids and liquids,25
+111,MCHENRY,Essential hypertension and hypertensive renal disease (hypertension),17
+111,MCHENRY,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",16
+111,MCHENRY,Nutritional deficiencies,12
+111,MCHENRY,Certain conditions originating in the perinatal period,10
+111,MCHENRY,Aortic aneurysm and dissection,*
+111,MCHENRY,Assault (homicide),*
+111,MCHENRY,Unknown (R99),*
+111,MCHENRY,Anemias,*
+111,MCHENRY,Enterocolitis due to Clostridium difficile,*
+111,MCHENRY,"Congenital malformations, deformations and chromosomal abnormalities",*
+111,MCHENRY,Atherosclerosis,*
+111,MCHENRY,Complications of medical and surgical care,*
+111,MCHENRY,Hernia,*
+111,MCHENRY,Cholelithiasis and other disorders of gallbladder,*
+111,MCHENRY,,*
+111,MCHENRY,Meningitis,*
+111,MCHENRY,Human immunodeficiency virus (HIV) disease,*
+111,MCHENRY,Infections of kidney,*
+111,MCHENRY,Tuberculosis,*
+113,MCLEAN,Diseases of heart (heart disease),330
+113,MCLEAN,Malignant neoplasms (cancer),260
+113,MCLEAN,All other causes,182
+113,MCLEAN,Accidents (unintentional injuries),88
+113,MCLEAN,Alzheimer disease,84
+113,MCLEAN,Cerebrovascular diseases (stroke),61
+113,MCLEAN,Chronic lower respiratory diseases,61
+113,MCLEAN,Intentional self-harm (suicide),26
+113,MCLEAN,Diabetes mellitus (diabetes),25
+113,MCLEAN,Chronic liver disease and cirrhosis,24
+113,MCLEAN,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",24
+113,MCLEAN,Septicemia,19
+113,MCLEAN,Influenza and pneumonia,16
+113,MCLEAN,COVID-19,15
+113,MCLEAN,Parkinson disease,15
+113,MCLEAN,Pneumonitis due to solids and liquids,13
+113,MCLEAN,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",11
+113,MCLEAN,Essential hypertension and hypertensive renal disease (hypertension),*
+113,MCLEAN,Anemias,*
+113,MCLEAN,Assault (homicide),*
+113,MCLEAN,Aortic aneurysm and dissection,*
+113,MCLEAN,Enterocolitis due to Clostridium difficile,*
+113,MCLEAN,Nutritional deficiencies,*
+113,MCLEAN,"Congenital malformations, deformations and chromosomal abnormalities",*
+113,MCLEAN,Certain conditions originating in the perinatal period,*
+113,MCLEAN,Human immunodeficiency virus (HIV) disease,*
+113,MCLEAN,Hernia,*
+113,MCLEAN,"Pregnancy, childbirth and the puerperium",*
+113,MCLEAN,Atherosclerosis,*
+113,MCLEAN,Unknown (R99),*
+113,MCLEAN,Viral hepatitis,*
+115,MACON,Diseases of heart (heart disease),299
+115,MACON,Malignant neoplasms (cancer),277
+115,MACON,All other causes,236
+115,MACON,Accidents (unintentional injuries),75
+115,MACON,Chronic lower respiratory diseases,64
+115,MACON,Cerebrovascular diseases (stroke),51
+115,MACON,Alzheimer disease,43
+115,MACON,Septicemia,34
+115,MACON,Influenza and pneumonia,32
+115,MACON,Diabetes mellitus (diabetes),28
+115,MACON,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",26
+115,MACON,Essential hypertension and hypertensive renal disease (hypertension),23
+115,MACON,Parkinson disease,22
+115,MACON,Nutritional deficiencies,20
+115,MACON,Assault (homicide),20
+115,MACON,Chronic liver disease and cirrhosis,20
+115,MACON,Pneumonitis due to solids and liquids,16
+115,MACON,Intentional self-harm (suicide),14
+115,MACON,COVID-19,14
+115,MACON,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+115,MACON,Aortic aneurysm and dissection,*
+115,MACON,Anemias,*
+115,MACON,Unknown (R99),*
+115,MACON,Enterocolitis due to Clostridium difficile,*
+115,MACON,"Congenital malformations, deformations and chromosomal abnormalities",*
+115,MACON,Peptic ulcer,*
+115,MACON,Pneumoconioses and chemical effects,*
+115,MACON,Diseases of appendix,*
+115,MACON,Certain conditions originating in the perinatal period,*
+115,MACON,Complications of medical and surgical care,*
+115,MACON,Cholelithiasis and other disorders of gallbladder,*
+117,MACOUPIN,Diseases of heart (heart disease),139
+117,MACOUPIN,All other causes,109
+117,MACOUPIN,Malignant neoplasms (cancer),109
+117,MACOUPIN,Accidents (unintentional injuries),37
+117,MACOUPIN,Chronic lower respiratory diseases,30
+117,MACOUPIN,Cerebrovascular diseases (stroke),28
+117,MACOUPIN,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",17
+117,MACOUPIN,Alzheimer disease,15
+117,MACOUPIN,Diabetes mellitus (diabetes),15
+117,MACOUPIN,Septicemia,12
+117,MACOUPIN,COVID-19,11
+117,MACOUPIN,Intentional self-harm (suicide),*
+117,MACOUPIN,Influenza and pneumonia,*
+117,MACOUPIN,Chronic liver disease and cirrhosis,*
+117,MACOUPIN,Essential hypertension and hypertensive renal disease (hypertension),*
+117,MACOUPIN,Parkinson disease,*
+117,MACOUPIN,Aortic aneurysm and dissection,*
+117,MACOUPIN,Nutritional deficiencies,*
+117,MACOUPIN,Assault (homicide),*
+117,MACOUPIN,Complications of medical and surgical care,*
+117,MACOUPIN,Pneumonitis due to solids and liquids,*
+117,MACOUPIN,Anemias,*
+117,MACOUPIN,Viral hepatitis,*
+117,MACOUPIN,Unknown (R99),*
+117,MACOUPIN,"Pregnancy, childbirth and the puerperium",*
+117,MACOUPIN,Human immunodeficiency virus (HIV) disease,*
+117,MACOUPIN,Hernia,*
+117,MACOUPIN,"Congenital malformations, deformations and chromosomal abnormalities",*
+117,MACOUPIN,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+119,MADISON,Diseases of heart (heart disease),710
+119,MADISON,Malignant neoplasms (cancer),578
+119,MADISON,All other causes,410
+119,MADISON,Cerebrovascular diseases (stroke),219
+119,MADISON,Accidents (unintentional injuries),209
+119,MADISON,Chronic lower respiratory diseases,148
+119,MADISON,Alzheimer disease,102
+119,MADISON,Septicemia,89
+119,MADISON,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",88
+119,MADISON,Diabetes mellitus (diabetes),66
+119,MADISON,COVID-19,50
+119,MADISON,Chronic liver disease and cirrhosis,48
+119,MADISON,Influenza and pneumonia,46
+119,MADISON,Intentional self-harm (suicide),45
+119,MADISON,Parkinson disease,34
+119,MADISON,Essential hypertension and hypertensive renal disease (hypertension),32
+119,MADISON,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",25
+119,MADISON,Nutritional deficiencies,22
+119,MADISON,Assault (homicide),21
+119,MADISON,Pneumonitis due to solids and liquids,21
+119,MADISON,Aortic aneurysm and dissection,13
+119,MADISON,Unknown (R99),11
+119,MADISON,Anemias,10
+119,MADISON,Certain conditions originating in the perinatal period,*
+119,MADISON,,*
+119,MADISON,"Congenital malformations, deformations and chromosomal abnormalities",*
+119,MADISON,Enterocolitis due to Clostridium difficile,*
+119,MADISON,Atherosclerosis,*
+119,MADISON,Cholelithiasis and other disorders of gallbladder,*
+119,MADISON,Peptic ulcer,*
+119,MADISON,"Pregnancy, childbirth and the puerperium",*
+119,MADISON,Human immunodeficiency virus (HIV) disease,*
+119,MADISON,Complications of medical and surgical care,*
+119,MADISON,Viral hepatitis,*
+119,MADISON,Hyperplasia of prostate,*
+119,MADISON,Hernia,*
+119,MADISON,Diseases of appendix,*
+119,MADISON,Inflammatory diseases of female pelvic organs,*
+121,MARION,Diseases of heart (heart disease),111
+121,MARION,Malignant neoplasms (cancer),107
+121,MARION,All other causes,64
+121,MARION,Chronic lower respiratory diseases,44
+121,MARION,Cerebrovascular diseases (stroke),33
+121,MARION,Accidents (unintentional injuries),22
+121,MARION,Alzheimer disease,20
+121,MARION,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",19
+121,MARION,Diabetes mellitus (diabetes),16
+121,MARION,Septicemia,*
+121,MARION,Chronic liver disease and cirrhosis,*
+121,MARION,Influenza and pneumonia,*
+121,MARION,Intentional self-harm (suicide),*
+121,MARION,Pneumonitis due to solids and liquids,*
+121,MARION,COVID-19,*
+121,MARION,Essential hypertension and hypertensive renal disease (hypertension),*
+121,MARION,Aortic aneurysm and dissection,*
+121,MARION,Parkinson disease,*
+121,MARION,"Congenital malformations, deformations and chromosomal abnormalities",*
+121,MARION,Cholelithiasis and other disorders of gallbladder,*
+121,MARION,Anemias,*
+121,MARION,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+121,MARION,Hernia,*
+121,MARION,Certain conditions originating in the perinatal period,*
+121,MARION,Enterocolitis due to Clostridium difficile,*
+121,MARION,Legal intervention,*
+121,MARION,Assault (homicide),*
+121,MARION,Unknown (R99),*
+123,MARSHALL,Diseases of heart (heart disease),57
+123,MARSHALL,Malignant neoplasms (cancer),33
+123,MARSHALL,All other causes,32
+123,MARSHALL,Chronic lower respiratory diseases,10
+123,MARSHALL,Cerebrovascular diseases (stroke),10
+123,MARSHALL,Accidents (unintentional injuries),10
+123,MARSHALL,Alzheimer disease,*
+123,MARSHALL,Septicemia,*
+123,MARSHALL,Nutritional deficiencies,*
+123,MARSHALL,Essential hypertension and hypertensive renal disease (hypertension),*
+123,MARSHALL,Certain conditions originating in the perinatal period,*
+123,MARSHALL,Diabetes mellitus (diabetes),*
+123,MARSHALL,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+123,MARSHALL,Influenza and pneumonia,*
+123,MARSHALL,Intentional self-harm (suicide),*
+123,MARSHALL,Pneumonitis due to solids and liquids,*
+123,MARSHALL,Parkinson disease,*
+123,MARSHALL,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+123,MARSHALL,"Congenital malformations, deformations and chromosomal abnormalities",*
+123,MARSHALL,Chronic liver disease and cirrhosis,*
+123,MARSHALL,Aortic aneurysm and dissection,*
+123,MARSHALL,COVID-19,*
+125,MASON,Diseases of heart (heart disease),46
+125,MASON,Malignant neoplasms (cancer),40
+125,MASON,All other causes,22
+125,MASON,Accidents (unintentional injuries),18
+125,MASON,Chronic lower respiratory diseases,15
+125,MASON,Diabetes mellitus (diabetes),11
+125,MASON,Cerebrovascular diseases (stroke),10
+125,MASON,Alzheimer disease,*
+125,MASON,COVID-19,*
+125,MASON,Pneumonitis due to solids and liquids,*
+125,MASON,Chronic liver disease and cirrhosis,*
+125,MASON,Essential hypertension and hypertensive renal disease (hypertension),*
+125,MASON,Septicemia,*
+125,MASON,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+125,MASON,Intentional self-harm (suicide),*
+125,MASON,Nutritional deficiencies,*
+125,MASON,Assault (homicide),*
+125,MASON,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+125,MASON,Influenza and pneumonia,*
+125,MASON,Enterocolitis due to Clostridium difficile,*
+125,MASON,Aortic aneurysm and dissection,*
+125,MASON,Certain conditions originating in the perinatal period,*
+125,MASON,Anemias,*
+125,MASON,Tuberculosis,*
+125,MASON,Parkinson disease,*
+127,MASSAC,Malignant neoplasms (cancer),45
+127,MASSAC,All other causes,33
+127,MASSAC,Diseases of heart (heart disease),27
+127,MASSAC,Chronic lower respiratory diseases,22
+127,MASSAC,Cerebrovascular diseases (stroke),18
+127,MASSAC,Alzheimer disease,11
+127,MASSAC,Essential hypertension and hypertensive renal disease (hypertension),*
+127,MASSAC,Diabetes mellitus (diabetes),*
+127,MASSAC,Accidents (unintentional injuries),*
+127,MASSAC,Septicemia,*
+127,MASSAC,Parkinson disease,*
+127,MASSAC,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+127,MASSAC,Chronic liver disease and cirrhosis,*
+127,MASSAC,Intentional self-harm (suicide),*
+127,MASSAC,COVID-19,*
+127,MASSAC,Pneumonitis due to solids and liquids,*
+127,MASSAC,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+127,MASSAC,Anemias,*
+127,MASSAC,"Congenital malformations, deformations and chromosomal abnormalities",*
+127,MASSAC,Nutritional deficiencies,*
+127,MASSAC,Hyperplasia of prostate,*
+127,MASSAC,Human immunodeficiency virus (HIV) disease,*
+127,MASSAC,Assault (homicide),*
+129,MENARD,All other causes,36
+129,MENARD,Diseases of heart (heart disease),36
+129,MENARD,Malignant neoplasms (cancer),25
+129,MENARD,Cerebrovascular diseases (stroke),*
+129,MENARD,Chronic lower respiratory diseases,*
+129,MENARD,Diabetes mellitus (diabetes),*
+129,MENARD,Intentional self-harm (suicide),*
+129,MENARD,Alzheimer disease,*
+129,MENARD,Chronic liver disease and cirrhosis,*
+129,MENARD,Influenza and pneumonia,*
+129,MENARD,Septicemia,*
+129,MENARD,COVID-19,*
+129,MENARD,Nutritional deficiencies,*
+129,MENARD,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+129,MENARD,Accidents (unintentional injuries),*
+129,MENARD,Aortic aneurysm and dissection,*
+129,MENARD,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+129,MENARD,Hyperplasia of prostate,*
+129,MENARD,Parkinson disease,*
+129,MENARD,Pneumonitis due to solids and liquids,*
+129,MENARD,Essential hypertension and hypertensive renal disease (hypertension),*
+131,MERCER,Malignant neoplasms (cancer),54
+131,MERCER,Diseases of heart (heart disease),49
+131,MERCER,All other causes,37
+131,MERCER,Chronic lower respiratory diseases,14
+131,MERCER,Accidents (unintentional injuries),*
+131,MERCER,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+131,MERCER,Cerebrovascular diseases (stroke),*
+131,MERCER,Intentional self-harm (suicide),*
+131,MERCER,Diabetes mellitus (diabetes),*
+131,MERCER,Essential hypertension and hypertensive renal disease (hypertension),*
+131,MERCER,Chronic liver disease and cirrhosis,*
+131,MERCER,Alzheimer disease,*
+131,MERCER,Influenza and pneumonia,*
+131,MERCER,Septicemia,*
+131,MERCER,Peptic ulcer,*
+131,MERCER,Nutritional deficiencies,*
+131,MERCER,Pneumonitis due to solids and liquids,*
+131,MERCER,Parkinson disease,*
+131,MERCER,COVID-19,*
+131,MERCER,Assault (homicide),*
+131,MERCER,Aortic aneurysm and dissection,*
+131,MERCER,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+131,MERCER,Cholelithiasis and other disorders of gallbladder,*
+133,MONROE,Diseases of heart (heart disease),83
+133,MONROE,All other causes,77
+133,MONROE,Malignant neoplasms (cancer),65
+133,MONROE,Cerebrovascular diseases (stroke),25
+133,MONROE,Accidents (unintentional injuries),22
+133,MONROE,Chronic lower respiratory diseases,20
+133,MONROE,Diabetes mellitus (diabetes),11
+133,MONROE,Parkinson disease,10
+133,MONROE,Chronic liver disease and cirrhosis,*
+133,MONROE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+133,MONROE,Alzheimer disease,*
+133,MONROE,COVID-19,*
+133,MONROE,Septicemia,*
+133,MONROE,Intentional self-harm (suicide),*
+133,MONROE,Essential hypertension and hypertensive renal disease (hypertension),*
+133,MONROE,Influenza and pneumonia,*
+133,MONROE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+133,MONROE,Nutritional deficiencies,*
+133,MONROE,Unknown (R99),*
+133,MONROE,Enterocolitis due to Clostridium difficile,*
+133,MONROE,Aortic aneurysm and dissection,*
+133,MONROE,Complications of medical and surgical care,*
+133,MONROE,Cholelithiasis and other disorders of gallbladder,*
+133,MONROE,Certain conditions originating in the perinatal period,*
+133,MONROE,"Pregnancy, childbirth and the puerperium",*
+133,MONROE,,*
+133,MONROE,Anemias,*
+133,MONROE,Hyperplasia of prostate,*
+135,MONTGOMERY,Malignant neoplasms (cancer),69
+135,MONTGOMERY,Diseases of heart (heart disease),67
+135,MONTGOMERY,All other causes,47
+135,MONTGOMERY,Cerebrovascular diseases (stroke),31
+135,MONTGOMERY,Chronic lower respiratory diseases,18
+135,MONTGOMERY,Accidents (unintentional injuries),12
+135,MONTGOMERY,Septicemia,11
+135,MONTGOMERY,Intentional self-harm (suicide),11
+135,MONTGOMERY,Influenza and pneumonia,10
+135,MONTGOMERY,Alzheimer disease,*
+135,MONTGOMERY,COVID-19,*
+135,MONTGOMERY,Diabetes mellitus (diabetes),*
+135,MONTGOMERY,Parkinson disease,*
+135,MONTGOMERY,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+135,MONTGOMERY,Essential hypertension and hypertensive renal disease (hypertension),*
+135,MONTGOMERY,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+135,MONTGOMERY,Chronic liver disease and cirrhosis,*
+135,MONTGOMERY,Pneumonitis due to solids and liquids,*
+135,MONTGOMERY,Unknown (R99),*
+135,MONTGOMERY,Meningitis,*
+135,MONTGOMERY,"Congenital malformations, deformations and chromosomal abnormalities",*
+135,MONTGOMERY,Salmonella infections,*
+135,MONTGOMERY,Cholelithiasis and other disorders of gallbladder,*
+135,MONTGOMERY,Aortic aneurysm and dissection,*
+135,MONTGOMERY,Human immunodeficiency virus (HIV) disease,*
+137,MORGAN,Diseases of heart (heart disease),93
+137,MORGAN,Malignant neoplasms (cancer),76
+137,MORGAN,All other causes,66
+137,MORGAN,Accidents (unintentional injuries),27
+137,MORGAN,Alzheimer disease,22
+137,MORGAN,Chronic lower respiratory diseases,21
+137,MORGAN,Cerebrovascular diseases (stroke),14
+137,MORGAN,Septicemia,13
+137,MORGAN,Influenza and pneumonia,11
+137,MORGAN,COVID-19,*
+137,MORGAN,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+137,MORGAN,Chronic liver disease and cirrhosis,*
+137,MORGAN,Parkinson disease,*
+137,MORGAN,Nutritional deficiencies,*
+137,MORGAN,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+137,MORGAN,Diabetes mellitus (diabetes),*
+137,MORGAN,Pneumonitis due to solids and liquids,*
+137,MORGAN,Intentional self-harm (suicide),*
+137,MORGAN,Cholelithiasis and other disorders of gallbladder,*
+137,MORGAN,Aortic aneurysm and dissection,*
+137,MORGAN,Certain conditions originating in the perinatal period,*
+137,MORGAN,Essential hypertension and hypertensive renal disease (hypertension),*
+137,MORGAN,Enterocolitis due to Clostridium difficile,*
+137,MORGAN,Unknown (R99),*
+137,MORGAN,Assault (homicide),*
+137,MORGAN,Human immunodeficiency virus (HIV) disease,*
+139,MOULTRIE,All other causes,42
+139,MOULTRIE,Malignant neoplasms (cancer),37
+139,MOULTRIE,Diseases of heart (heart disease),37
+139,MOULTRIE,Chronic lower respiratory diseases,15
+139,MOULTRIE,Accidents (unintentional injuries),*
+139,MOULTRIE,Diabetes mellitus (diabetes),*
+139,MOULTRIE,Cerebrovascular diseases (stroke),*
+139,MOULTRIE,Alzheimer disease,*
+139,MOULTRIE,Septicemia,*
+139,MOULTRIE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+139,MOULTRIE,Essential hypertension and hypertensive renal disease (hypertension),*
+139,MOULTRIE,Anemias,*
+139,MOULTRIE,Unknown (R99),*
+139,MOULTRIE,Pneumonitis due to solids and liquids,*
+139,MOULTRIE,Viral hepatitis,*
+139,MOULTRIE,Intentional self-harm (suicide),*
+139,MOULTRIE,Influenza and pneumonia,*
+139,MOULTRIE,Complications of medical and surgical care,*
+139,MOULTRIE,Nutritional deficiencies,*
+139,MOULTRIE,"Congenital malformations, deformations and chromosomal abnormalities",*
+141,OGLE,Diseases of heart (heart disease),124
+141,OGLE,Malignant neoplasms (cancer),123
+141,OGLE,All other causes,96
+141,OGLE,Accidents (unintentional injuries),42
+141,OGLE,Chronic lower respiratory diseases,31
+141,OGLE,Cerebrovascular diseases (stroke),27
+141,OGLE,Alzheimer disease,18
+141,OGLE,Diabetes mellitus (diabetes),16
+141,OGLE,Parkinson disease,15
+141,OGLE,COVID-19,14
+141,OGLE,Septicemia,12
+141,OGLE,Chronic liver disease and cirrhosis,*
+141,OGLE,Influenza and pneumonia,*
+141,OGLE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+141,OGLE,Intentional self-harm (suicide),*
+141,OGLE,Essential hypertension and hypertensive renal disease (hypertension),*
+141,OGLE,Aortic aneurysm and dissection,*
+141,OGLE,Pneumonitis due to solids and liquids,*
+141,OGLE,Nutritional deficiencies,*
+141,OGLE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+141,OGLE,Peptic ulcer,*
+141,OGLE,Human immunodeficiency virus (HIV) disease,*
+141,OGLE,Hernia,*
+141,OGLE,Cholelithiasis and other disorders of gallbladder,*
+141,OGLE,Unknown (R99),*
+141,OGLE,Atherosclerosis,*
+141,OGLE,Anemias,*
+143,PEORIA,Malignant neoplasms (cancer),428
+143,PEORIA,Diseases of heart (heart disease),375
+143,PEORIA,All other causes,284
+143,PEORIA,Accidents (unintentional injuries),144
+143,PEORIA,Cerebrovascular diseases (stroke),100
+143,PEORIA,Chronic lower respiratory diseases,98
+143,PEORIA,Alzheimer disease,71
+143,PEORIA,Diabetes mellitus (diabetes),49
+143,PEORIA,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",40
+143,PEORIA,Septicemia,36
+143,PEORIA,Intentional self-harm (suicide),35
+143,PEORIA,Assault (homicide),27
+143,PEORIA,Influenza and pneumonia,24
+143,PEORIA,Chronic liver disease and cirrhosis,23
+143,PEORIA,Parkinson disease,23
+143,PEORIA,Pneumonitis due to solids and liquids,20
+143,PEORIA,COVID-19,16
+143,PEORIA,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",11
+143,PEORIA,Certain conditions originating in the perinatal period,10
+143,PEORIA,Anemias,10
+143,PEORIA,Aortic aneurysm and dissection,*
+143,PEORIA,Essential hypertension and hypertensive renal disease (hypertension),*
+143,PEORIA,"Congenital malformations, deformations and chromosomal abnormalities",*
+143,PEORIA,Nutritional deficiencies,*
+143,PEORIA,Peptic ulcer,*
+143,PEORIA,Enterocolitis due to Clostridium difficile,*
+143,PEORIA,Unknown (R99),*
+143,PEORIA,Complications of medical and surgical care,*
+143,PEORIA,Inflammatory diseases of female pelvic organs,*
+143,PEORIA,Human immunodeficiency virus (HIV) disease,*
+143,PEORIA,"Pregnancy, childbirth and the puerperium",*
+143,PEORIA,Salmonella infections,*
+143,PEORIA,Acute bronchitis and bronchiolitis,*
+143,PEORIA,Cholelithiasis and other disorders of gallbladder,*
+145,PERRY,Malignant neoplasms (cancer),53
+145,PERRY,Diseases of heart (heart disease),51
+145,PERRY,All other causes,41
+145,PERRY,Cerebrovascular diseases (stroke),17
+145,PERRY,Chronic lower respiratory diseases,14
+145,PERRY,Accidents (unintentional injuries),*
+145,PERRY,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+145,PERRY,Diabetes mellitus (diabetes),*
+145,PERRY,Septicemia,*
+145,PERRY,Influenza and pneumonia,*
+145,PERRY,Alzheimer disease,*
+145,PERRY,COVID-19,*
+145,PERRY,Chronic liver disease and cirrhosis,*
+145,PERRY,Essential hypertension and hypertensive renal disease (hypertension),*
+145,PERRY,Intentional self-harm (suicide),*
+145,PERRY,"Congenital malformations, deformations and chromosomal abnormalities",*
+145,PERRY,Peptic ulcer,*
+145,PERRY,Pneumonitis due to solids and liquids,*
+145,PERRY,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+145,PERRY,Atherosclerosis,*
+147,PIATT,Diseases of heart (heart disease),51
+147,PIATT,All other causes,41
+147,PIATT,Malignant neoplasms (cancer),40
+147,PIATT,Cerebrovascular diseases (stroke),12
+147,PIATT,Accidents (unintentional injuries),12
+147,PIATT,Chronic lower respiratory diseases,*
+147,PIATT,Alzheimer disease,*
+147,PIATT,Septicemia,*
+147,PIATT,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+147,PIATT,Influenza and pneumonia,*
+147,PIATT,COVID-19,*
+147,PIATT,Parkinson disease,*
+147,PIATT,Intentional self-harm (suicide),*
+147,PIATT,Enterocolitis due to Clostridium difficile,*
+147,PIATT,Diabetes mellitus (diabetes),*
+147,PIATT,Essential hypertension and hypertensive renal disease (hypertension),*
+147,PIATT,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+147,PIATT,Complications of medical and surgical care,*
+147,PIATT,Chronic liver disease and cirrhosis,*
+147,PIATT,Certain conditions originating in the perinatal period,*
+147,PIATT,Hernia,*
+149,PIKE,Diseases of heart (heart disease),48
+149,PIKE,Malignant neoplasms (cancer),38
+149,PIKE,All other causes,33
+149,PIKE,Chronic lower respiratory diseases,11
+149,PIKE,Accidents (unintentional injuries),10
+149,PIKE,Essential hypertension and hypertensive renal disease (hypertension),*
+149,PIKE,Diabetes mellitus (diabetes),*
+149,PIKE,Cerebrovascular diseases (stroke),*
+149,PIKE,Septicemia,*
+149,PIKE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+149,PIKE,Influenza and pneumonia,*
+149,PIKE,Intentional self-harm (suicide),*
+149,PIKE,Chronic liver disease and cirrhosis,*
+149,PIKE,Aortic aneurysm and dissection,*
+149,PIKE,Nutritional deficiencies,*
+149,PIKE,Parkinson disease,*
+149,PIKE,Diseases of appendix,*
+149,PIKE,Complications of medical and surgical care,*
+149,PIKE,Cholelithiasis and other disorders of gallbladder,*
+149,PIKE,Certain conditions originating in the perinatal period,*
+149,PIKE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+149,PIKE,Enterocolitis due to Clostridium difficile,*
+149,PIKE,Alzheimer disease,*
+151,POPE,Diseases of heart (heart disease),13
+151,POPE,All other causes,11
+151,POPE,Malignant neoplasms (cancer),10
+151,POPE,Chronic lower respiratory diseases,*
+151,POPE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+151,POPE,Septicemia,*
+151,POPE,Accidents (unintentional injuries),*
+151,POPE,COVID-19,*
+151,POPE,Alzheimer disease,*
+151,POPE,Unknown (R99),*
+151,POPE,Chronic liver disease and cirrhosis,*
+151,POPE,Essential hypertension and hypertensive renal disease (hypertension),*
+151,POPE,Influenza and pneumonia,*
+153,PULASKI,Malignant neoplasms (cancer),17
+153,PULASKI,Diseases of heart (heart disease),16
+153,PULASKI,All other causes,15
+153,PULASKI,Chronic lower respiratory diseases,12
+153,PULASKI,Cerebrovascular diseases (stroke),*
+153,PULASKI,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+153,PULASKI,Septicemia,*
+153,PULASKI,Intentional self-harm (suicide),*
+153,PULASKI,Diabetes mellitus (diabetes),*
+153,PULASKI,Alzheimer disease,*
+153,PULASKI,Accidents (unintentional injuries),*
+153,PULASKI,COVID-19,*
+153,PULASKI,Nutritional deficiencies,*
+153,PULASKI,Influenza and pneumonia,*
+153,PULASKI,Essential hypertension and hypertensive renal disease (hypertension),*
+155,PUTNAM,Malignant neoplasms (cancer),16
+155,PUTNAM,Diseases of heart (heart disease),16
+155,PUTNAM,All other causes,13
+155,PUTNAM,Cerebrovascular diseases (stroke),*
+155,PUTNAM,Alzheimer disease,*
+155,PUTNAM,Accidents (unintentional injuries),*
+155,PUTNAM,Parkinson disease,*
+155,PUTNAM,Chronic lower respiratory diseases,*
+155,PUTNAM,Septicemia,*
+155,PUTNAM,Essential hypertension and hypertensive renal disease (hypertension),*
+155,PUTNAM,Intentional self-harm (suicide),*
+155,PUTNAM,Nutritional deficiencies,*
+155,PUTNAM,Diabetes mellitus (diabetes),*
+157,RANDOLPH,Diseases of heart (heart disease),86
+157,RANDOLPH,Malignant neoplasms (cancer),73
+157,RANDOLPH,All other causes,70
+157,RANDOLPH,Cerebrovascular diseases (stroke),29
+157,RANDOLPH,Chronic lower respiratory diseases,18
+157,RANDOLPH,Accidents (unintentional injuries),15
+157,RANDOLPH,Alzheimer disease,13
+157,RANDOLPH,Diabetes mellitus (diabetes),12
+157,RANDOLPH,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",10
+157,RANDOLPH,Septicemia,*
+157,RANDOLPH,Influenza and pneumonia,*
+157,RANDOLPH,Essential hypertension and hypertensive renal disease (hypertension),*
+157,RANDOLPH,Chronic liver disease and cirrhosis,*
+157,RANDOLPH,Intentional self-harm (suicide),*
+157,RANDOLPH,COVID-19,*
+157,RANDOLPH,Nutritional deficiencies,*
+157,RANDOLPH,,*
+157,RANDOLPH,Unknown (R99),*
+157,RANDOLPH,Parkinson disease,*
+157,RANDOLPH,Anemias,*
+157,RANDOLPH,Assault (homicide),*
+157,RANDOLPH,"Congenital malformations, deformations and chromosomal abnormalities",*
+157,RANDOLPH,Hyperplasia of prostate,*
+157,RANDOLPH,Pneumonitis due to solids and liquids,*
+159,RICHLAND,Diseases of heart (heart disease),51
+159,RICHLAND,Malignant neoplasms (cancer),40
+159,RICHLAND,All other causes,34
+159,RICHLAND,Chronic lower respiratory diseases,18
+159,RICHLAND,Cerebrovascular diseases (stroke),15
+159,RICHLAND,Diabetes mellitus (diabetes),10
+159,RICHLAND,Accidents (unintentional injuries),*
+159,RICHLAND,COVID-19,*
+159,RICHLAND,Alzheimer disease,*
+159,RICHLAND,Aortic aneurysm and dissection,*
+159,RICHLAND,Essential hypertension and hypertensive renal disease (hypertension),*
+159,RICHLAND,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+159,RICHLAND,Influenza and pneumonia,*
+159,RICHLAND,Chronic liver disease and cirrhosis,*
+159,RICHLAND,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+159,RICHLAND,Assault (homicide),*
+159,RICHLAND,Unknown (R99),*
+159,RICHLAND,Nutritional deficiencies,*
+159,RICHLAND,Anemias,*
+159,RICHLAND,Atherosclerosis,*
+159,RICHLAND,Intentional self-harm (suicide),*
+159,RICHLAND,Certain conditions originating in the perinatal period,*
+159,RICHLAND,Cholelithiasis and other disorders of gallbladder,*
+159,RICHLAND,Septicemia,*
+161,ROCK ISLAND,Diseases of heart (heart disease),360
+161,ROCK ISLAND,Malignant neoplasms (cancer),327
+161,ROCK ISLAND,All other causes,305
+161,ROCK ISLAND,Chronic lower respiratory diseases,114
+161,ROCK ISLAND,Accidents (unintentional injuries),91
+161,ROCK ISLAND,Cerebrovascular diseases (stroke),82
+161,ROCK ISLAND,Diabetes mellitus (diabetes),62
+161,ROCK ISLAND,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",42
+161,ROCK ISLAND,Essential hypertension and hypertensive renal disease (hypertension),39
+161,ROCK ISLAND,Parkinson disease,30
+161,ROCK ISLAND,Intentional self-harm (suicide),29
+161,ROCK ISLAND,Alzheimer disease,27
+161,ROCK ISLAND,Influenza and pneumonia,25
+161,ROCK ISLAND,Septicemia,25
+161,ROCK ISLAND,COVID-19,22
+161,ROCK ISLAND,Chronic liver disease and cirrhosis,22
+161,ROCK ISLAND,Nutritional deficiencies,21
+161,ROCK ISLAND,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",11
+161,ROCK ISLAND,Assault (homicide),10
+161,ROCK ISLAND,Pneumonitis due to solids and liquids,*
+161,ROCK ISLAND,Aortic aneurysm and dissection,*
+161,ROCK ISLAND,"Congenital malformations, deformations and chromosomal abnormalities",*
+161,ROCK ISLAND,Anemias,*
+161,ROCK ISLAND,Enterocolitis due to Clostridium difficile,*
+161,ROCK ISLAND,Atherosclerosis,*
+161,ROCK ISLAND,Complications of medical and surgical care,*
+161,ROCK ISLAND,Cholelithiasis and other disorders of gallbladder,*
+161,ROCK ISLAND,Unknown (R99),*
+161,ROCK ISLAND,Peptic ulcer,*
+161,ROCK ISLAND,Certain conditions originating in the perinatal period,*
+161,ROCK ISLAND,Human immunodeficiency virus (HIV) disease,*
+161,ROCK ISLAND,"Pregnancy, childbirth and the puerperium",*
+163,ST CLAIR,Diseases of heart (heart disease),579
+163,ST CLAIR,Malignant neoplasms (cancer),525
+163,ST CLAIR,All other causes,391
+163,ST CLAIR,Cerebrovascular diseases (stroke),171
+163,ST CLAIR,Accidents (unintentional injuries),152
+163,ST CLAIR,Chronic lower respiratory diseases,114
+163,ST CLAIR,Diabetes mellitus (diabetes),86
+163,ST CLAIR,Alzheimer disease,79
+163,ST CLAIR,Essential hypertension and hypertensive renal disease (hypertension),74
+163,ST CLAIR,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",69
+163,ST CLAIR,Assault (homicide),59
+163,ST CLAIR,Septicemia,50
+163,ST CLAIR,Chronic liver disease and cirrhosis,43
+163,ST CLAIR,Parkinson disease,41
+163,ST CLAIR,Intentional self-harm (suicide),38
+163,ST CLAIR,COVID-19,34
+163,ST CLAIR,Influenza and pneumonia,32
+163,ST CLAIR,,18
+163,ST CLAIR,Pneumonitis due to solids and liquids,18
+163,ST CLAIR,Unknown (R99),15
+163,ST CLAIR,"Congenital malformations, deformations and chromosomal abnormalities",14
+163,ST CLAIR,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",13
+163,ST CLAIR,Nutritional deficiencies,12
+163,ST CLAIR,Human immunodeficiency virus (HIV) disease,10
+163,ST CLAIR,Certain conditions originating in the perinatal period,10
+163,ST CLAIR,Aortic aneurysm and dissection,*
+163,ST CLAIR,Cholelithiasis and other disorders of gallbladder,*
+163,ST CLAIR,Hernia,*
+163,ST CLAIR,Anemias,*
+163,ST CLAIR,Peptic ulcer,*
+163,ST CLAIR,Inflammatory diseases of female pelvic organs,*
+163,ST CLAIR,Enterocolitis due to Clostridium difficile,*
+163,ST CLAIR,Complications of medical and surgical care,*
+163,ST CLAIR,Atherosclerosis,*
+163,ST CLAIR,Hyperplasia of prostate,*
+163,ST CLAIR,Viral hepatitis,*
+163,ST CLAIR,"Pregnancy, childbirth and the puerperium",*
+163,ST CLAIR,Infections of kidney,*
+165,SALINE,Diseases of heart (heart disease),79
+165,SALINE,Malignant neoplasms (cancer),73
+165,SALINE,All other causes,69
+165,SALINE,Chronic lower respiratory diseases,26
+165,SALINE,Accidents (unintentional injuries),25
+165,SALINE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",17
+165,SALINE,Diabetes mellitus (diabetes),14
+165,SALINE,Cerebrovascular diseases (stroke),10
+165,SALINE,Alzheimer disease,*
+165,SALINE,Influenza and pneumonia,*
+165,SALINE,Intentional self-harm (suicide),*
+165,SALINE,Parkinson disease,*
+165,SALINE,COVID-19,*
+165,SALINE,Septicemia,*
+165,SALINE,Essential hypertension and hypertensive renal disease (hypertension),*
+165,SALINE,Chronic liver disease and cirrhosis,*
+165,SALINE,Unknown (R99),*
+165,SALINE,Certain conditions originating in the perinatal period,*
+165,SALINE,"Congenital malformations, deformations and chromosomal abnormalities",*
+165,SALINE,Pneumonitis due to solids and liquids,*
+165,SALINE,Infections of kidney,*
+167,SANGAMON,Diseases of heart (heart disease),453
+167,SANGAMON,Malignant neoplasms (cancer),446
+167,SANGAMON,All other causes,353
+167,SANGAMON,Accidents (unintentional injuries),156
+167,SANGAMON,Cerebrovascular diseases (stroke),112
+167,SANGAMON,Chronic lower respiratory diseases,108
+167,SANGAMON,Septicemia,60
+167,SANGAMON,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",52
+167,SANGAMON,COVID-19,48
+167,SANGAMON,Alzheimer disease,46
+167,SANGAMON,Diabetes mellitus (diabetes),44
+167,SANGAMON,Intentional self-harm (suicide),40
+167,SANGAMON,Chronic liver disease and cirrhosis,33
+167,SANGAMON,Influenza and pneumonia,26
+167,SANGAMON,Essential hypertension and hypertensive renal disease (hypertension),26
+167,SANGAMON,Parkinson disease,25
+167,SANGAMON,Pneumonitis due to solids and liquids,17
+167,SANGAMON,Nutritional deficiencies,15
+167,SANGAMON,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",13
+167,SANGAMON,Anemias,12
+167,SANGAMON,Assault (homicide),*
+167,SANGAMON,Aortic aneurysm and dissection,*
+167,SANGAMON,Certain conditions originating in the perinatal period,*
+167,SANGAMON,Enterocolitis due to Clostridium difficile,*
+167,SANGAMON,Complications of medical and surgical care,*
+167,SANGAMON,Cholelithiasis and other disorders of gallbladder,*
+167,SANGAMON,"Congenital malformations, deformations and chromosomal abnormalities",*
+167,SANGAMON,Peptic ulcer,*
+167,SANGAMON,Diseases of appendix,*
+167,SANGAMON,Human immunodeficiency virus (HIV) disease,*
+167,SANGAMON,Unknown (R99),*
+167,SANGAMON,Hernia,*
+167,SANGAMON,Legal intervention,*
+167,SANGAMON,Viral hepatitis,*
+167,SANGAMON,Tuberculosis,*
+167,SANGAMON,Pneumoconioses and chemical effects,*
+169,SCHUYLER,Diseases of heart (heart disease),22
+169,SCHUYLER,All other causes,20
+169,SCHUYLER,Malignant neoplasms (cancer),16
+169,SCHUYLER,Chronic lower respiratory diseases,*
+169,SCHUYLER,Cerebrovascular diseases (stroke),*
+169,SCHUYLER,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+169,SCHUYLER,Diabetes mellitus (diabetes),*
+169,SCHUYLER,Accidents (unintentional injuries),*
+169,SCHUYLER,Essential hypertension and hypertensive renal disease (hypertension),*
+169,SCHUYLER,Pneumonitis due to solids and liquids,*
+169,SCHUYLER,Septicemia,*
+169,SCHUYLER,Alzheimer disease,*
+169,SCHUYLER,Chronic liver disease and cirrhosis,*
+169,SCHUYLER,"Congenital malformations, deformations and chromosomal abnormalities",*
+169,SCHUYLER,Aortic aneurysm and dissection,*
+169,SCHUYLER,Anemias,*
+169,SCHUYLER,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+169,SCHUYLER,Parkinson disease,*
+171,SCOTT,Diseases of heart (heart disease),21
+171,SCOTT,Malignant neoplasms (cancer),11
+171,SCOTT,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+171,SCOTT,All other causes,*
+171,SCOTT,Cerebrovascular diseases (stroke),*
+171,SCOTT,Parkinson disease,*
+171,SCOTT,Alzheimer disease,*
+171,SCOTT,Pneumonitis due to solids and liquids,*
+171,SCOTT,Accidents (unintentional injuries),*
+171,SCOTT,COVID-19,*
+171,SCOTT,"Congenital malformations, deformations and chromosomal abnormalities",*
+171,SCOTT,Chronic lower respiratory diseases,*
+173,SHELBY,Diseases of heart (heart disease),79
+173,SHELBY,Malignant neoplasms (cancer),53
+173,SHELBY,All other causes,53
+173,SHELBY,Chronic lower respiratory diseases,15
+173,SHELBY,Alzheimer disease,13
+173,SHELBY,Accidents (unintentional injuries),10
+173,SHELBY,Influenza and pneumonia,*
+173,SHELBY,Cerebrovascular diseases (stroke),*
+173,SHELBY,Septicemia,*
+173,SHELBY,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+173,SHELBY,Diabetes mellitus (diabetes),*
+173,SHELBY,COVID-19,*
+173,SHELBY,Intentional self-harm (suicide),*
+173,SHELBY,Chronic liver disease and cirrhosis,*
+173,SHELBY,Aortic aneurysm and dissection,*
+173,SHELBY,Nutritional deficiencies,*
+173,SHELBY,Parkinson disease,*
+173,SHELBY,Pneumonitis due to solids and liquids,*
+173,SHELBY,Unknown (R99),*
+173,SHELBY,Essential hypertension and hypertensive renal disease (hypertension),*
+175,STARK,Diseases of heart (heart disease),19
+175,STARK,Malignant neoplasms (cancer),18
+175,STARK,All other causes,*
+175,STARK,Cerebrovascular diseases (stroke),*
+175,STARK,Chronic lower respiratory diseases,*
+175,STARK,Alzheimer disease,*
+175,STARK,Atherosclerosis,*
+175,STARK,"Congenital malformations, deformations and chromosomal abnormalities",*
+175,STARK,Accidents (unintentional injuries),*
+175,STARK,Pneumonitis due to solids and liquids,*
+175,STARK,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+175,STARK,Legal intervention,*
+175,STARK,Septicemia,*
+175,STARK,Intentional self-harm (suicide),*
+175,STARK,Influenza and pneumonia,*
+175,STARK,Essential hypertension and hypertensive renal disease (hypertension),*
+175,STARK,COVID-19,*
+175,STARK,Chronic liver disease and cirrhosis,*
+175,STARK,Certain conditions originating in the perinatal period,*
+175,STARK,Aortic aneurysm and dissection,*
+175,STARK,Diabetes mellitus (diabetes),*
+177,STEPHENSON,Malignant neoplasms (cancer),122
+177,STEPHENSON,Diseases of heart (heart disease),110
+177,STEPHENSON,All other causes,102
+177,STEPHENSON,Accidents (unintentional injuries),52
+177,STEPHENSON,Chronic lower respiratory diseases,37
+177,STEPHENSON,Cerebrovascular diseases (stroke),32
+177,STEPHENSON,Diabetes mellitus (diabetes),23
+177,STEPHENSON,COVID-19,19
+177,STEPHENSON,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",18
+177,STEPHENSON,Alzheimer disease,16
+177,STEPHENSON,Influenza and pneumonia,11
+177,STEPHENSON,Septicemia,10
+177,STEPHENSON,Parkinson disease,*
+177,STEPHENSON,Chronic liver disease and cirrhosis,*
+177,STEPHENSON,Pneumonitis due to solids and liquids,*
+177,STEPHENSON,Unknown (R99),*
+177,STEPHENSON,Intentional self-harm (suicide),*
+177,STEPHENSON,Nutritional deficiencies,*
+177,STEPHENSON,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+177,STEPHENSON,Anemias,*
+177,STEPHENSON,Essential hypertension and hypertensive renal disease (hypertension),*
+177,STEPHENSON,Enterocolitis due to Clostridium difficile,*
+177,STEPHENSON,"Congenital malformations, deformations and chromosomal abnormalities",*
+177,STEPHENSON,Complications of medical and surgical care,*
+177,STEPHENSON,Cholelithiasis and other disorders of gallbladder,*
+177,STEPHENSON,Peptic ulcer,*
+177,STEPHENSON,Assault (homicide),*
+177,STEPHENSON,Aortic aneurysm and dissection,*
+177,STEPHENSON,Hernia,*
+177,STEPHENSON,Certain conditions originating in the perinatal period,*
+177,STEPHENSON,Infections of kidney,*
+177,STEPHENSON,Human immunodeficiency virus (HIV) disease,*
+179,TAZEWELL,Malignant neoplasms (cancer),339
+179,TAZEWELL,Diseases of heart (heart disease),337
+179,TAZEWELL,All other causes,228
+179,TAZEWELL,Cerebrovascular diseases (stroke),97
+179,TAZEWELL,Chronic lower respiratory diseases,96
+179,TAZEWELL,Accidents (unintentional injuries),96
+179,TAZEWELL,Alzheimer disease,62
+179,TAZEWELL,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",36
+179,TAZEWELL,Parkinson disease,30
+179,TAZEWELL,Diabetes mellitus (diabetes),30
+179,TAZEWELL,Influenza and pneumonia,27
+179,TAZEWELL,Chronic liver disease and cirrhosis,27
+179,TAZEWELL,Septicemia,27
+179,TAZEWELL,COVID-19,22
+179,TAZEWELL,Pneumonitis due to solids and liquids,14
+179,TAZEWELL,Nutritional deficiencies,12
+179,TAZEWELL,Intentional self-harm (suicide),10
+179,TAZEWELL,Essential hypertension and hypertensive renal disease (hypertension),10
+179,TAZEWELL,Aortic aneurysm and dissection,*
+179,TAZEWELL,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+179,TAZEWELL,"Congenital malformations, deformations and chromosomal abnormalities",*
+179,TAZEWELL,Certain conditions originating in the perinatal period,*
+179,TAZEWELL,Anemias,*
+179,TAZEWELL,Enterocolitis due to Clostridium difficile,*
+179,TAZEWELL,Unknown (R99),*
+179,TAZEWELL,Assault (homicide),*
+179,TAZEWELL,Cholelithiasis and other disorders of gallbladder,*
+179,TAZEWELL,Complications of medical and surgical care,*
+179,TAZEWELL,Infections of kidney,*
+179,TAZEWELL,Hernia,*
+179,TAZEWELL,Atherosclerosis,*
+181,UNION,Malignant neoplasms (cancer),59
+181,UNION,Diseases of heart (heart disease),58
+181,UNION,All other causes,31
+181,UNION,Chronic lower respiratory diseases,21
+181,UNION,Cerebrovascular diseases (stroke),20
+181,UNION,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",10
+181,UNION,Alzheimer disease,*
+181,UNION,Influenza and pneumonia,*
+181,UNION,Diabetes mellitus (diabetes),*
+181,UNION,Accidents (unintentional injuries),*
+181,UNION,Parkinson disease,*
+181,UNION,Chronic liver disease and cirrhosis,*
+181,UNION,COVID-19,*
+181,UNION,Septicemia,*
+181,UNION,Nutritional deficiencies,*
+181,UNION,Intentional self-harm (suicide),*
+181,UNION,Hernia,*
+181,UNION,Diseases of appendix,*
+181,UNION,"Congenital malformations, deformations and chromosomal abnormalities",*
+181,UNION,"Pregnancy, childbirth and the puerperium",*
+181,UNION,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+183,VERMILION,Malignant neoplasms (cancer),194
+183,VERMILION,Diseases of heart (heart disease),182
+183,VERMILION,All other causes,179
+183,VERMILION,Accidents (unintentional injuries),75
+183,VERMILION,Chronic lower respiratory diseases,71
+183,VERMILION,Cerebrovascular diseases (stroke),39
+183,VERMILION,Diabetes mellitus (diabetes),35
+183,VERMILION,Alzheimer disease,29
+183,VERMILION,Intentional self-harm (suicide),20
+183,VERMILION,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",19
+183,VERMILION,Chronic liver disease and cirrhosis,18
+183,VERMILION,Septicemia,17
+183,VERMILION,COVID-19,15
+183,VERMILION,Nutritional deficiencies,10
+183,VERMILION,Essential hypertension and hypertensive renal disease (hypertension),10
+183,VERMILION,Parkinson disease,*
+183,VERMILION,Influenza and pneumonia,*
+183,VERMILION,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+183,VERMILION,Pneumonitis due to solids and liquids,*
+183,VERMILION,Assault (homicide),*
+183,VERMILION,Anemias,*
+183,VERMILION,Unknown (R99),*
+183,VERMILION,Aortic aneurysm and dissection,*
+183,VERMILION,"Congenital malformations, deformations and chromosomal abnormalities",*
+183,VERMILION,Certain conditions originating in the perinatal period,*
+183,VERMILION,Hernia,*
+183,VERMILION,Peptic ulcer,*
+183,VERMILION,Enterocolitis due to Clostridium difficile,*
+183,VERMILION,Meningitis,*
+183,VERMILION,Infections of kidney,*
+183,VERMILION,Human immunodeficiency virus (HIV) disease,*
+183,VERMILION,Viral hepatitis,*
+185,WABASH,Malignant neoplasms (cancer),30
+185,WABASH,Diseases of heart (heart disease),28
+185,WABASH,All other causes,26
+185,WABASH,Chronic lower respiratory diseases,10
+185,WABASH,Alzheimer disease,*
+185,WABASH,Chronic liver disease and cirrhosis,*
+185,WABASH,Diabetes mellitus (diabetes),*
+185,WABASH,Cerebrovascular diseases (stroke),*
+185,WABASH,Accidents (unintentional injuries),*
+185,WABASH,Essential hypertension and hypertensive renal disease (hypertension),*
+185,WABASH,Septicemia,*
+185,WABASH,Parkinson disease,*
+185,WABASH,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+185,WABASH,Aortic aneurysm and dissection,*
+185,WABASH,Unknown (R99),*
+185,WABASH,Nutritional deficiencies,*
+185,WABASH,Anemias,*
+185,WABASH,Intentional self-harm (suicide),*
+185,WABASH,Influenza and pneumonia,*
+185,WABASH,Enterocolitis due to Clostridium difficile,*
+185,WABASH,"Congenital malformations, deformations and chromosomal abnormalities",*
+185,WABASH,Pneumonitis due to solids and liquids,*
+187,WARREN,Diseases of heart (heart disease),52
+187,WARREN,Malignant neoplasms (cancer),37
+187,WARREN,All other causes,27
+187,WARREN,Chronic lower respiratory diseases,14
+187,WARREN,Cerebrovascular diseases (stroke),11
+187,WARREN,Diabetes mellitus (diabetes),*
+187,WARREN,Accidents (unintentional injuries),*
+187,WARREN,Intentional self-harm (suicide),*
+187,WARREN,COVID-19,*
+187,WARREN,Alzheimer disease,*
+187,WARREN,Pneumonitis due to solids and liquids,*
+187,WARREN,Unknown (R99),*
+187,WARREN,Septicemia,*
+187,WARREN,Nutritional deficiencies,*
+187,WARREN,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+187,WARREN,Influenza and pneumonia,*
+187,WARREN,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+187,WARREN,"Congenital malformations, deformations and chromosomal abnormalities",*
+187,WARREN,Essential hypertension and hypertensive renal disease (hypertension),*
+187,WARREN,Parkinson disease,*
+189,WASHINGTON,Malignant neoplasms (cancer),30
+189,WASHINGTON,Diseases of heart (heart disease),28
+189,WASHINGTON,All other causes,19
+189,WASHINGTON,Chronic lower respiratory diseases,12
+189,WASHINGTON,Accidents (unintentional injuries),11
+189,WASHINGTON,Cerebrovascular diseases (stroke),*
+189,WASHINGTON,Alzheimer disease,*
+189,WASHINGTON,Diabetes mellitus (diabetes),*
+189,WASHINGTON,Influenza and pneumonia,*
+189,WASHINGTON,COVID-19,*
+189,WASHINGTON,"Congenital malformations, deformations and chromosomal abnormalities",*
+189,WASHINGTON,Nutritional deficiencies,*
+189,WASHINGTON,Septicemia,*
+189,WASHINGTON,Intentional self-harm (suicide),*
+189,WASHINGTON,Aortic aneurysm and dissection,*
+189,WASHINGTON,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+189,WASHINGTON,Chronic liver disease and cirrhosis,*
+189,WASHINGTON,Anemias,*
+189,WASHINGTON,Meningitis,*
+189,WASHINGTON,Pneumonitis due to solids and liquids,*
+189,WASHINGTON,Assault (homicide),*
+191,WAYNE,Malignant neoplasms (cancer),38
+191,WAYNE,Diseases of heart (heart disease),37
+191,WAYNE,All other causes,33
+191,WAYNE,Chronic lower respiratory diseases,24
+191,WAYNE,Alzheimer disease,18
+191,WAYNE,Cerebrovascular diseases (stroke),12
+191,WAYNE,Accidents (unintentional injuries),11
+191,WAYNE,Diabetes mellitus (diabetes),*
+191,WAYNE,Essential hypertension and hypertensive renal disease (hypertension),*
+191,WAYNE,COVID-19,*
+191,WAYNE,Septicemia,*
+191,WAYNE,Influenza and pneumonia,*
+191,WAYNE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+191,WAYNE,Aortic aneurysm and dissection,*
+191,WAYNE,Intentional self-harm (suicide),*
+191,WAYNE,Peptic ulcer,*
+191,WAYNE,Nutritional deficiencies,*
+191,WAYNE,Parkinson disease,*
+191,WAYNE,Pneumoconioses and chemical effects,*
+191,WAYNE,Enterocolitis due to Clostridium difficile,*
+191,WAYNE,Complications of medical and surgical care,*
+191,WAYNE,Chronic liver disease and cirrhosis,*
+191,WAYNE,Cholelithiasis and other disorders of gallbladder,*
+191,WAYNE,Certain conditions originating in the perinatal period,*
+191,WAYNE,Assault (homicide),*
+191,WAYNE,Anemias,*
+191,WAYNE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+193,WHITE,Diseases of heart (heart disease),50
+193,WHITE,Malignant neoplasms (cancer),40
+193,WHITE,All other causes,33
+193,WHITE,Chronic lower respiratory diseases,17
+193,WHITE,Alzheimer disease,15
+193,WHITE,Cerebrovascular diseases (stroke),10
+193,WHITE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+193,WHITE,Diabetes mellitus (diabetes),*
+193,WHITE,Accidents (unintentional injuries),*
+193,WHITE,Chronic liver disease and cirrhosis,*
+193,WHITE,Intentional self-harm (suicide),*
+193,WHITE,COVID-19,*
+193,WHITE,Influenza and pneumonia,*
+193,WHITE,Nutritional deficiencies,*
+193,WHITE,Septicemia,*
+193,WHITE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+193,WHITE,Pneumonitis due to solids and liquids,*
+193,WHITE,Parkinson disease,*
+193,WHITE,Complications of medical and surgical care,*
+193,WHITE,Certain conditions originating in the perinatal period,*
+193,WHITE,Assault (homicide),*
+193,WHITE,Infections of kidney,*
+193,WHITE,Essential hypertension and hypertensive renal disease (hypertension),*
+195,WHITESIDE,Diseases of heart (heart disease),161
+195,WHITESIDE,Malignant neoplasms (cancer),153
+195,WHITESIDE,All other causes,129
+195,WHITESIDE,Cerebrovascular diseases (stroke),43
+195,WHITESIDE,Chronic lower respiratory diseases,35
+195,WHITESIDE,Accidents (unintentional injuries),30
+195,WHITESIDE,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",23
+195,WHITESIDE,Parkinson disease,17
+195,WHITESIDE,COVID-19,17
+195,WHITESIDE,Influenza and pneumonia,16
+195,WHITESIDE,Essential hypertension and hypertensive renal disease (hypertension),15
+195,WHITESIDE,Diabetes mellitus (diabetes),15
+195,WHITESIDE,Septicemia,13
+195,WHITESIDE,Chronic liver disease and cirrhosis,13
+195,WHITESIDE,Intentional self-harm (suicide),12
+195,WHITESIDE,Pneumonitis due to solids and liquids,10
+195,WHITESIDE,Nutritional deficiencies,*
+195,WHITESIDE,Alzheimer disease,*
+195,WHITESIDE,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+195,WHITESIDE,"Congenital malformations, deformations and chromosomal abnormalities",*
+195,WHITESIDE,Certain conditions originating in the perinatal period,*
+195,WHITESIDE,Infections of kidney,*
+195,WHITESIDE,Assault (homicide),*
+195,WHITESIDE,Hyperplasia of prostate,*
+195,WHITESIDE,Enterocolitis due to Clostridium difficile,*
+195,WHITESIDE,Unknown (R99),*
+195,WHITESIDE,Anemias,*
+197,WILL,Diseases of heart (heart disease),"1,176"
+197,WILL,Malignant neoplasms (cancer),"1,157"
+197,WILL,All other causes,774
+197,WILL,Cerebrovascular diseases (stroke),349
+197,WILL,Accidents (unintentional injuries),277
+197,WILL,Chronic lower respiratory diseases,207
+197,WILL,Alzheimer disease,170
+197,WILL,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",131
+197,WILL,Diabetes mellitus (diabetes),126
+197,WILL,Chronic liver disease and cirrhosis,92
+197,WILL,Intentional self-harm (suicide),81
+197,WILL,COVID-19,80
+197,WILL,Parkinson disease,78
+197,WILL,Influenza and pneumonia,76
+197,WILL,Septicemia,58
+197,WILL,Essential hypertension and hypertensive renal disease (hypertension),46
+197,WILL,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",43
+197,WILL,Nutritional deficiencies,34
+197,WILL,Assault (homicide),34
+197,WILL,Pneumonitis due to solids and liquids,27
+197,WILL,Certain conditions originating in the perinatal period,23
+197,WILL,Aortic aneurysm and dissection,18
+197,WILL,"Congenital malformations, deformations and chromosomal abnormalities",14
+197,WILL,Anemias,*
+197,WILL,Unknown (R99),*
+197,WILL,Complications of medical and surgical care,*
+197,WILL,Enterocolitis due to Clostridium difficile,*
+197,WILL,Peptic ulcer,*
+197,WILL,Cholelithiasis and other disorders of gallbladder,*
+197,WILL,Infections of kidney,*
+197,WILL,Human immunodeficiency virus (HIV) disease,*
+197,WILL,Legal intervention,*
+197,WILL,Atherosclerosis,*
+197,WILL,Hernia,*
+197,WILL,"Pregnancy, childbirth and the puerperium",*
+197,WILL,,*
+197,WILL,Inflammatory diseases of female pelvic organs,*
+197,WILL,Viral hepatitis,*
+199,WILLIAMSON,Diseases of heart (heart disease),171
+199,WILLIAMSON,Malignant neoplasms (cancer),163
+199,WILLIAMSON,All other causes,140
+199,WILLIAMSON,Chronic lower respiratory diseases,52
+199,WILLIAMSON,Cerebrovascular diseases (stroke),37
+199,WILLIAMSON,Septicemia,29
+199,WILLIAMSON,Accidents (unintentional injuries),26
+199,WILLIAMSON,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",23
+199,WILLIAMSON,Alzheimer disease,18
+199,WILLIAMSON,COVID-19,16
+199,WILLIAMSON,Diabetes mellitus (diabetes),15
+199,WILLIAMSON,Intentional self-harm (suicide),14
+199,WILLIAMSON,Chronic liver disease and cirrhosis,13
+199,WILLIAMSON,Essential hypertension and hypertensive renal disease (hypertension),12
+199,WILLIAMSON,Parkinson disease,10
+199,WILLIAMSON,Influenza and pneumonia,*
+199,WILLIAMSON,Pneumonitis due to solids and liquids,*
+199,WILLIAMSON,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",*
+199,WILLIAMSON,Nutritional deficiencies,*
+199,WILLIAMSON,"Congenital malformations, deformations and chromosomal abnormalities",*
+199,WILLIAMSON,Certain conditions originating in the perinatal period,*
+199,WILLIAMSON,Peptic ulcer,*
+199,WILLIAMSON,Unknown (R99),*
+199,WILLIAMSON,Infections of kidney,*
+199,WILLIAMSON,Hernia,*
+199,WILLIAMSON,Enterocolitis due to Clostridium difficile,*
+199,WILLIAMSON,Complications of medical and surgical care,*
+199,WILLIAMSON,Aortic aneurysm and dissection,*
+199,WILLIAMSON,Pneumoconioses and chemical effects,*
+201,WINNEBAGO,Diseases of heart (heart disease),713
+201,WINNEBAGO,Malignant neoplasms (cancer),591
+201,WINNEBAGO,All other causes,460
+201,WINNEBAGO,Accidents (unintentional injuries),240
+201,WINNEBAGO,Cerebrovascular diseases (stroke),163
+201,WINNEBAGO,Chronic lower respiratory diseases,161
+201,WINNEBAGO,Diabetes mellitus (diabetes),108
+201,WINNEBAGO,Alzheimer disease,106
+201,WINNEBAGO,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",88
+201,WINNEBAGO,Parkinson disease,56
+201,WINNEBAGO,Chronic liver disease and cirrhosis,55
+201,WINNEBAGO,Septicemia,50
+201,WINNEBAGO,Influenza and pneumonia,48
+201,WINNEBAGO,Essential hypertension and hypertensive renal disease (hypertension),41
+201,WINNEBAGO,Intentional self-harm (suicide),41
+201,WINNEBAGO,COVID-19,39
+201,WINNEBAGO,Nutritional deficiencies,26
+201,WINNEBAGO,Assault (homicide),25
+201,WINNEBAGO,"In situ neoplasms, benign neoplasms and neoplasms of uncertain or unknown behavior",21
+201,WINNEBAGO,Pneumonitis due to solids and liquids,16
+201,WINNEBAGO,Certain conditions originating in the perinatal period,16
+201,WINNEBAGO,Unknown (R99),11
+201,WINNEBAGO,Aortic aneurysm and dissection,10
+201,WINNEBAGO,Enterocolitis due to Clostridium difficile,*
+201,WINNEBAGO,Anemias,*
+201,WINNEBAGO,Cholelithiasis and other disorders of gallbladder,*
+201,WINNEBAGO,"Congenital malformations, deformations and chromosomal abnormalities",*
+201,WINNEBAGO,Human immunodeficiency virus (HIV) disease,*
+201,WINNEBAGO,Complications of medical and surgical care,*
+201,WINNEBAGO,Meningitis,*
+201,WINNEBAGO,Hernia,*
+201,WINNEBAGO,Legal intervention,*
+201,WINNEBAGO,Infections of kidney,*
+201,WINNEBAGO,Atherosclerosis,*
+201,WINNEBAGO,,*
+201,WINNEBAGO,Viral hepatitis,*
+201,WINNEBAGO,Peptic ulcer,*
+203,WOODFORD,Diseases of heart (heart disease),97
+203,WOODFORD,Malignant neoplasms (cancer),82
+203,WOODFORD,All other causes,50
+203,WOODFORD,Alzheimer disease,31
+203,WOODFORD,Cerebrovascular diseases (stroke),28
+203,WOODFORD,Chronic lower respiratory diseases,17
+203,WOODFORD,Accidents (unintentional injuries),17
+203,WOODFORD,Parkinson disease,*
+203,WOODFORD,Septicemia,*
+203,WOODFORD,Intentional self-harm (suicide),*
+203,WOODFORD,Diabetes mellitus (diabetes),*
+203,WOODFORD,Pneumonitis due to solids and liquids,*
+203,WOODFORD,Influenza and pneumonia,*
+203,WOODFORD,COVID-19,*
+203,WOODFORD,"Nephritis, nephrotic syndrome and nephrosis (kidney disease)",*
+203,WOODFORD,Nutritional deficiencies,*
+203,WOODFORD,Essential hypertension and hypertensive renal disease (hypertension),*
+203,WOODFORD,Cholelithiasis and other disorders of gallbladder,*
+203,WOODFORD,Unknown (R99),*
+203,WOODFORD,Viral hepatitis,*
+203,WOODFORD,Chronic liver disease and cirrhosis,*
+203,WOODFORD,Certain conditions originating in the perinatal period,*
+203,WOODFORD,Aortic aneurysm and dissection,*
+203,WOODFORD,"Congenital malformations, deformations and chromosomal abnormalities",*
+999,UNKNOWN,Accidents (unintentional injuries),36
+999,UNKNOWN,Diseases of heart (heart disease),19
+999,UNKNOWN,Unknown (R99),*
+999,UNKNOWN,All other causes,*
+999,UNKNOWN,Assault (homicide),*
+999,UNKNOWN,Intentional self-harm (suicide),*
+999,UNKNOWN,Influenza and pneumonia,*
+999,UNKNOWN,Chronic liver disease and cirrhosis,*
+999,UNKNOWN,Pneumonitis due to solids and liquids,*
+999,UNKNOWN,Septicemia,*
