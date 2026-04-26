@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, CircularProgress, Alert, FormControl, InputLabel, Select, MenuItem,
+  Box, Typography, CircularProgress, Alert, FormControl, InputLabel, Select, MenuItem, Slider,
 } from '@mui/material';
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -14,12 +14,15 @@ interface DeathRate { County: string; [key: string]: number | string; }
 
 interface CountyPoint {
   county: string;
-  x: number;  // ratio vs state avg (latest year)
-  y: number;  // slope 2015–2022 (annualised)
+  x: number;
+  y: number;
   rate: number;
   stateRate: number;
 }
 
+const YEAR_MIN = 2009;
+const YEAR_MAX = 2022;
+const YEAR_MARKS = [2009, 2013, 2017, 2022].map(y => ({ value: y, label: String(y) }));
 
 function dotColor(x: number, y: number): string {
   const high = x > 1.0;
@@ -43,7 +46,7 @@ const CustomDot = (props: any) => {
   );
 };
 
-const CustomTooltip = ({ active, payload }: any) => {
+const CustomTooltip = ({ active, payload, selectedYear }: any) => {
   if (!active || !payload?.length) return null;
   const d: CountyPoint = payload[0].payload;
   const pctVsState = ((d.x - 1) * 100).toFixed(1);
@@ -58,21 +61,21 @@ const CustomTooltip = ({ active, payload }: any) => {
         {d.county} County
       </Typography>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
-        <Typography sx={{ fontSize: 12, color: '#546E7A' }}>Rate vs state</Typography>
+        <Typography sx={{ fontSize: 12, color: '#546E7A' }}>Rate vs state ({selectedYear})</Typography>
         <Typography sx={{ fontSize: 12, fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace",
           color: Number(pctVsState) > 0 ? '#C62828' : '#2E7D32' }}>
           {Number(pctVsState) > 0 ? '+' : ''}{pctVsState}%
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
-        <Typography sx={{ fontSize: 12, color: '#546E7A' }}>Annual trend</Typography>
+        <Typography sx={{ fontSize: 12, color: '#546E7A' }}>Trend slope (2009–{selectedYear})</Typography>
         <Typography sx={{ fontSize: 12, fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace",
           color: d.y > 0 ? '#C62828' : '#2E7D32' }}>
           {slopeSign}{d.y.toFixed(2)}/yr
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Typography sx={{ fontSize: 12, color: '#546E7A' }}>Current rate</Typography>
+        <Typography sx={{ fontSize: 12, color: '#546E7A' }}>Rate ({selectedYear})</Typography>
         <Typography sx={{ fontSize: 12, fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace" }}>
           {d.rate.toFixed(1)}<span style={{ fontSize: 10, color: '#90A4AE' }}> /100k</span>
         </Typography>
@@ -87,6 +90,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 const PriorityMatrix = () => {
   const navigate = useNavigate();
   const [selectedCause, setSelectedCause] = useState('Diseases_of_Heart');
+  const [selectedYear, setSelectedYear] = useState<number>(YEAR_MAX);
   const [deathData, setDeathData] = useState<DeathRate[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,16 +108,16 @@ const PriorityMatrix = () => {
     if (!deathData.length) return [];
     const stateRow = deathData.find(d => d.County === 'ILLINOIS');
     if (!stateRow) return [];
-    const latestYear = Object.keys(stateRow).filter(k => k !== 'County' && k !== '2008').sort().pop() ?? '2022';
-    const stateRate = Number(stateRow[latestYear]);
+    const yearKey = selectedYear.toString();
+    const stateRate = Number(stateRow[yearKey]);
     if (!stateRate) return [];
 
     return deathData
       .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
       .map(d => {
-        const countyRate = Number(d[latestYear]);
+        const countyRate = Number(d[yearKey]);
         if (!countyRate) return null;
-        const slope = calcSlope(d as Record<string, number | string>, 2015, 2022);
+        const slope = calcSlope(d as Record<string, number | string>, YEAR_MIN, selectedYear);
         return {
           county: d.County,
           x: countyRate / stateRate,
@@ -123,7 +127,7 @@ const PriorityMatrix = () => {
         };
       })
       .filter(Boolean) as CountyPoint[];
-  }, [deathData]);
+  }, [deathData, selectedYear]);
 
   const priorityCount = useMemo(() => points.filter(p => p.x > 1.2 && p.y > 0).length, [points]);
 
@@ -131,11 +135,11 @@ const PriorityMatrix = () => {
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header */}
       <Box sx={{ px: 3, py: 2.5, borderBottom: '1px solid #D6E4EF', bgcolor: 'white', flexShrink: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 3, mb: 2 }}>
           <Box>
             <Typography sx={{ fontSize: 20, fontWeight: 600, color: '#0D1B2A' }}>Priority Matrix</Typography>
             <Typography sx={{ fontSize: 12, color: '#546E7A', mt: 0.25 }}>
-              X: rate vs. state average · Y: trend slope 2015–2022 · top-right = highest intervention priority
+              X: rate vs. state avg ({selectedYear}) · Y: slope 2009–{selectedYear} · top-right = highest intervention priority
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
@@ -164,24 +168,48 @@ const PriorityMatrix = () => {
             </Box>
           </Box>
         </Box>
+
+        {/* Year slider */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Box sx={{ flex: 1, maxWidth: 380 }}>
+            <Typography sx={{ fontSize: 10, color: '#546E7A', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.08em', mb: 0.5 }}>
+              REFERENCE YEAR
+            </Typography>
+            <Slider
+              value={selectedYear}
+              min={YEAR_MIN}
+              max={YEAR_MAX}
+              step={1}
+              marks={YEAR_MARKS}
+              onChange={(_, v) => setSelectedYear(v as number)}
+              valueLabelDisplay="auto"
+              sx={{
+                color: '#1565C0',
+                '& .MuiSlider-markLabel': { fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: '#90A4AE' },
+                '& .MuiSlider-thumb': { width: 13, height: 13 },
+                '& .MuiSlider-rail': { opacity: 0.3 },
+              }}
+            />
+          </Box>
+
+          {/* Quadrant legend */}
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            {[
+              { color: '#EF5350', label: 'High & Worsening' },
+              { color: '#FFA726', label: 'Low & Worsening' },
+              { color: '#64B5F6', label: 'High & Improving' },
+              { color: '#66BB6A', label: 'Low & Improving' },
+            ].map(({ color, label }) => (
+              <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color }} />
+                <Typography sx={{ fontSize: 11, color: '#546E7A' }}>{label}</Typography>
+              </Box>
+            ))}
+          </Box>
+        </Box>
       </Box>
 
       {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
-
-      {/* Quadrant legend */}
-      <Box sx={{ px: 3, pt: 1.5, pb: 0, flexShrink: 0, display: 'flex', gap: 3 }}>
-        {[
-          { color: '#EF5350', label: 'High & Worsening — intervene now' },
-          { color: '#FFA726', label: 'Low & Worsening — monitor' },
-          { color: '#64B5F6', label: 'High & Improving — sustain effort' },
-          { color: '#66BB6A', label: 'Low & Improving — on track' },
-        ].map(({ color, label }) => (
-          <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color }} />
-            <Typography sx={{ fontSize: 11, color: '#546E7A' }}>{label}</Typography>
-          </Box>
-        ))}
-      </Box>
 
       {/* Chart */}
       <Box sx={{ flex: 1, p: 2, position: 'relative' }}>
@@ -199,7 +227,7 @@ const PriorityMatrix = () => {
                 name="Rate vs. State"
                 domain={['auto', 'auto']}
                 tickFormatter={v => `${((v - 1) * 100).toFixed(0)}%`}
-                label={{ value: 'Rate vs. State Average', position: 'insideBottom', offset: -20, fontSize: 12, fill: '#546E7A' }}
+                label={{ value: `Rate vs. State Average (${selectedYear})`, position: 'insideBottom', offset: -20, fontSize: 12, fill: '#546E7A' }}
                 tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }}
               />
               <YAxis
@@ -207,12 +235,12 @@ const PriorityMatrix = () => {
                 dataKey="y"
                 name="Annual Trend"
                 tickFormatter={v => `${v > 0 ? '+' : ''}${v.toFixed(1)}`}
-                label={{ value: 'Annual Rate Change (per 100k/yr)', angle: -90, position: 'insideLeft', offset: 10, fontSize: 12, fill: '#546E7A' }}
+                label={{ value: `Annual Rate Change 2009–${selectedYear} (per 100k/yr)`, angle: -90, position: 'insideLeft', offset: 10, fontSize: 12, fill: '#546E7A' }}
                 tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }}
               />
               <ReferenceLine x={1} stroke="#546E7A" strokeDasharray="6 4" strokeWidth={1.5} />
               <ReferenceLine y={0} stroke="#546E7A" strokeDasharray="6 4" strokeWidth={1.5} />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<CustomTooltip selectedYear={selectedYear} />} />
               <Scatter
                 data={points}
                 shape={<CustomDot />}
