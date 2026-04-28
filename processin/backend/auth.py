@@ -1,18 +1,51 @@
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
-import json
-import os
 import hashlib
+import logging
+import os
 import secrets
+import time
+from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
 
 from jose import JWTError, jwt
 
-SECRET_KEY = os.environ.get("JWT_SECRET", "idph-analytics-key-2024-change-in-prod")
+logger = logging.getLogger(__name__)
+
+SECRET_KEY = os.environ.get("JWT_SECRET", "")
+if not SECRET_KEY:
+    logger.warning(
+        "JWT_SECRET env var is not set — using an insecure default. "
+        "Set JWT_SECRET in production."
+    )
+    SECRET_KEY = "idph-dev-key-not-for-production"
+
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 8
+MIN_PASSWORD_LENGTH = 8
 
 DATA_DIR = os.path.dirname(os.path.abspath(__file__))
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
+
+# In-memory login rate limit: max 5 failures per username per 5-minute window
+_login_failures: Dict[str, list] = defaultdict(list)
+_RATE_WINDOW = 300   # seconds
+_MAX_FAILURES = 5
+
+
+def is_rate_limited(username: str) -> bool:
+    now = time.time()
+    attempts = _login_failures[username]
+    # Drop attempts outside the window
+    _login_failures[username] = [t for t in attempts if now - t < _RATE_WINDOW]
+    return len(_login_failures[username]) >= _MAX_FAILURES
+
+
+def record_failure(username: str) -> None:
+    _login_failures[username].append(time.time())
+
+
+def clear_failures(username: str) -> None:
+    _login_failures.pop(username, None)
 
 
 def hash_password(password: str, salt: Optional[str] = None) -> str:
@@ -25,12 +58,14 @@ def hash_password(password: str, salt: Optional[str] = None) -> str:
 def verify_password(password: str, stored: str) -> bool:
     try:
         salt = stored.split(":", 1)[0]
-        return hash_password(password, salt) == stored
+        return secrets.compare_digest(hash_password(password, salt), stored)
     except Exception:
         return False
 
 
-def load_users() -> list:
+def _load_users_raw() -> list:
+    import json
+
     if not os.path.exists(USERS_FILE):
         initial = [
             {
@@ -57,15 +92,25 @@ def load_users() -> list:
         return json.load(f)
 
 
+def load_users() -> list:
+    return _load_users_raw()
+
+
 def save_users(users: list) -> None:
+    import json
+
     with open(USERS_FILE, "w") as f:
         json.dump(users, f, indent=2)
 
 
 def authenticate_user(username: str, password: str) -> Optional[Dict[str, Any]]:
+    if is_rate_limited(username):
+        return None
     user = next((u for u in load_users() if u["username"] == username), None)
     if not user or not verify_password(password, user["password_hash"]):
+        record_failure(username)
         return None
+    clear_failures(username)
     return {k: v for k, v in user.items() if k != "password_hash"}
 
 
