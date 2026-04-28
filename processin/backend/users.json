@@ -1,0 +1,18 @@
+[
+  {
+    "id": "1",
+    "username": "admin",
+    "password_hash": "99418f55cce659ab961de58acb509ba9:cc8de08a899f0306f61cfc3db4cef4c971d631837c030c98f6c2c99defde8ec1",
+    "role": "admin",
+    "name": "IDPH Admin",
+    "created_at": "2026-04-27T23:24:26.765172Z"
+  },
+  {
+    "id": "2",
+    "username": "viewer",
+    "password_hash": "a2045b4c7553167b4e6631f3c2bada49:6635e29276d6902c839a149148632b61cec855bd4a2e3fb2b44b704786938c74",
+    "role": "viewer",
+    "name": "Read-Only User",
+    "created_at": "2026-04-27T23:24:26.765251Z"
+  }
+]

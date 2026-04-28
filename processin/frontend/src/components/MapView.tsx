@@ -9,6 +9,15 @@ import type { FeatureCollection, Feature } from 'geojson';
 import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, calcSlope, IDPH_DISTRICTS } from '../data/constants';
 import type { SharedState } from '../App';
 
+interface Annotation {
+  id: string;
+  county: string;
+  cause: string | null;
+  text: string;
+  type: string;
+  created_by: string;
+}
+
 interface DeathRate { County: string; [key: string]: number | string; }
 interface MapViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
 
@@ -45,6 +54,12 @@ function FitBounds({ geojson }: { geojson: FeatureCollection | null }) {
   return null;
 }
 
+const ANNOT_COLORS: Record<string, string> = {
+  info: '#1F5C5A',
+  warning: '#8B5A1A',
+  intervention: '#4F7A4D',
+};
+
 const MapView = ({ shared, setShared }: MapViewProps) => {
   const navigate = useNavigate();
   const { selectedCause, selectedYear, selectedDistrict, searchTarget } = shared;
@@ -53,11 +68,15 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
   const [geoData, setGeoData] = useState<FeatureCollection | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
 
   useEffect(() => {
     axios.get(`${API_BASE}/geojson`)
       .then(r => setGeoData(r.data))
       .catch(() => setError('Failed to load map geometry.'));
+    axios.get(`${API_BASE}/annotations`)
+      .then(r => setAnnotations(r.data))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -355,6 +374,44 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
               </div>
             )}
           </div>
+
+          {/* Annotations for current cause */}
+          {(() => {
+            const relevant = annotations.filter(
+              a => a.cause === selectedCause || a.cause === null
+            );
+            if (!relevant.length) return null;
+            return (
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 10 }}>
+                  Annotations
+                  <span style={{ marginLeft: 6, fontFamily: 'var(--mono)', fontSize: 10,
+                    padding: '1px 6px', background: 'var(--accent-tint)', color: 'var(--accent)' }}>
+                    {relevant.length}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                  {relevant.map(a => (
+                    <div key={a.id}
+                      className={`annotation-pill ${a.type}`}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => navigate(`/county/${encodeURIComponent(a.county)}`)}>
+                      <div>
+                        <div style={{ fontWeight: 500, fontSize: 12.5, color: 'var(--ink)', marginBottom: 2 }}>
+                          {a.county}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: 'var(--ink-3)', lineHeight: 1.4 }}>{a.text}</div>
+                        <div style={{ marginTop: 3, fontSize: 10, fontFamily: 'var(--mono)',
+                          color: ANNOT_COLORS[a.type] ?? 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          {a.type}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           <div style={{ marginTop: 'auto' }}>
             <span className="tiny">Source · IDPH Vital Statistics · Age-adjusted rates per 100,000</span>

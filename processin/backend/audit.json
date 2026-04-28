@@ -1,0 +1,11 @@
+[
+  {
+    "id": "ebe2df12-f021-4e51-b21b-18b3754cf147",
+    "user": "admin",
+    "action": "login",
+    "resource": "auth",
+    "detail": "Successful login",
+    "timestamp": "2026-04-27T23:24:26.771818Z",
+    "ip": "127.0.0.1"
+  }
+]
