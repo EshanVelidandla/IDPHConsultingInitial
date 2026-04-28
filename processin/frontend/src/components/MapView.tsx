@@ -22,11 +22,11 @@ interface DeathRate { County: string; [key: string]: number | string; }
 interface MapViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
 
 const D_HIGH = '#B23A2E';
-const D_HIGH_TINT = '#F2E4E1';
-const D_MID_TINT = '#F5ECDD';
+const D_HIGH_TINT = '#EDCAC5';
+const D_MID_TINT = '#EBD6B0';
 const D_LOW = '#4F7A4D';
-const D_LOW_TINT = '#E4ECDF';
-const D_NULL_TINT = '#EFEDE7';
+const D_LOW_TINT = '#C2D9B0';
+const D_NULL_TINT = '#E0DDD5';
 const INK = '#1C1B18';
 const INK_4 = '#9A968C';
 const RULE = '#E6E3DC';
@@ -70,6 +70,9 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
   const [error, setError] = useState<string | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
 
+  // Tracks all rendered {feature, layer} pairs for hover-dim behaviour
+  const layerStore = useRef<Map<string, { layer: L.Path; feature: Feature }>>(new Map());
+
   useEffect(() => {
     axios.get(`${API_BASE}/geojson`)
       .then(r => setGeoData(r.data))
@@ -87,6 +90,11 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
       .catch(() => setError('Failed to load data. Ensure the backend is running at port 8000.'))
       .finally(() => setLoading(false));
   }, [selectedCause]);
+
+  // Clear stale layer store entries on GeoJSON key change
+  useEffect(() => {
+    layerStore.current.clear();
+  }, [selectedCause, selectedYear, searchTarget]);
 
   const stateRate = useMemo(() => {
     const row = countyData.find(d => d.County === 'ILLINOIS');
@@ -207,12 +215,28 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
     }
 
     const path = layer as L.Path;
+
+    // Register in store for cross-layer hover dimming
+    layerStore.current.set(key, { layer: path, feature });
+
     path.on('mouseover', () => {
       path.setStyle({ weight: 2, fillOpacity: 1 });
       path.bringToFront();
+      // Dim all other counties
+      layerStore.current.forEach((v, k) => {
+        if (k !== key) {
+          try { v.layer.setStyle({ fillOpacity: 0.25 }); } catch { /* detached layer */ }
+        }
+      });
     });
     path.on('mouseout', () => {
       path.setStyle(getStyle(feature));
+      // Restore all other counties to their proper style
+      layerStore.current.forEach((v, k) => {
+        if (k !== key) {
+          try { v.layer.setStyle(getStyle(v.feature)); } catch { /* detached layer */ }
+        }
+      });
     });
     (layer as L.Path).on('click', () => {
       navigate(`/county/${encodeURIComponent(titleName.replace(/[^a-zA-Z0-9 .\-']/g, ''))}`);
@@ -329,7 +353,7 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
             <div className="eyebrow" style={{ marginBottom: 10 }}>Scale</div>
             {[
               { c: D_HIGH_TINT, border: D_HIGH, label: 'High', sub: '> 20% above state' },
-              { c: '#F5ECDD', border: '#C68B3C', label: 'Near average', sub: '± 20% of state' },
+              { c: '#EBD6B0', border: '#C68B3C', label: 'Near average', sub: '± 20% of state' },
               { c: D_LOW_TINT, border: D_LOW, label: 'Low', sub: '> 20% below state' },
               { c: D_NULL_TINT, border: '#C4C0B6', label: 'Suppressed', sub: 'Count < 5 / no data' },
             ].map(({ c, border, label, sub }) => (

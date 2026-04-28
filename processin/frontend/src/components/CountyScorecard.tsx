@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, calcSlope } from '../data/constants';
 import type { SharedState } from '../App';
@@ -19,7 +19,6 @@ const SHORT: Record<string, string> = {
   All_Other_Causes: 'Other',
 };
 
-// Design tokens
 const D_HIGH = '#B23A2E';
 const D_HIGH_TINT = '#F2E4E1';
 const D_MID = '#C68B3C';
@@ -65,6 +64,7 @@ function TrendArrow({ slope }: { slope: number }) {
 
 const CountyScorecard = ({ shared, setShared }: ViewProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { selectedYear } = shared;
   const [allData, setAllData] = useState<AllData>({});
   const [loading, setLoading] = useState(true);
@@ -72,6 +72,13 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
   const [sortCol, setSortCol] = useState('county');
   const [sortAsc, setSortAsc] = useState(true);
   const [search, setSearch] = useState('');
+
+  // Auto-filter to highlighted county when arriving from multi-county chart
+  useEffect(() => {
+    const highlight = (location.state as { highlightCounty?: string } | null)?.highlightCounty;
+    if (highlight) setSearch(highlight);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -116,6 +123,15 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
     });
   }, [allData, selectedYear]);
 
+  // Causes with no statewide data for the selected year
+  const missingCauses = useMemo(() => {
+    if (!Object.keys(allData).length) return [];
+    return causes.filter(c => {
+      const stateRate = Number((allData[c] ?? []).find(d => d.County === 'ILLINOIS')?.[selectedYear.toString()]) || 0;
+      return stateRate === 0;
+    });
+  }, [allData, selectedYear]);
+
   const sorted = useMemo(() => {
     const filtered = tableData.filter(r =>
       (r.county as string).toLowerCase().includes(search.toLowerCase())
@@ -126,6 +142,10 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
         return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
       }
       const av = a[sortCol] as number, bv = b[sortCol] as number;
+      // Zero/suppressed rows always at bottom regardless of sort direction
+      if (av === 0 && bv === 0) return 0;
+      if (av === 0) return 1;
+      if (bv === 0) return -1;
       return sortAsc ? av - bv : bv - av;
     });
   }, [tableData, sortCol, sortAsc, search]);
@@ -151,7 +171,7 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
           <div className="eyebrow eyebrow-ink">County Scorecard</div>
           <h1 className="h-display" style={{ marginTop: 8 }}>102 counties × {causes.length} causes</h1>
           <p className="body" style={{ marginTop: 12, maxWidth: 540, color: 'var(--ink-3)' }}>
-            Each cell shows a county's age-adjusted death rate as a ratio to the statewide average. Sortable by any column.
+            Each cell shows a county's age-adjusted death rate as a ratio to the statewide average. Click a cause cell to open that county's drilldown with the cause pre-selected.
           </p>
         </div>
         <div className="ix">
@@ -180,6 +200,25 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
         </div>
       </div>
 
+      {/* Missing data banner */}
+      {missingCauses.length > 0 && (
+        <div style={{
+          margin: '0 40px 0',
+          padding: '10px 16px',
+          background: '#FDF6EE',
+          borderLeft: `3px solid ${D_MID}`,
+          fontSize: 12,
+          color: '#6B4A1A',
+          fontFamily: 'var(--mono)',
+          flexShrink: 0,
+        }}>
+          <strong style={{ textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.06em' }}>Missing data for {selectedYear}</strong>
+          <span style={{ marginLeft: 8 }}>
+            {missingCauses.map(c => causeLabels[c]).join(' · ')}
+          </span>
+        </div>
+      )}
+
       {/* Legend strip */}
       <div style={{ padding: '12px 40px', display: 'flex', alignItems: 'center', gap: 24, borderBottom: '1px solid var(--rule)', background: 'var(--paper)', flexShrink: 0, flexWrap: 'wrap' }}>
         <span className="eyebrow">Cell scale · ratio to state avg</span>
@@ -206,12 +245,12 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
         <table className="tbl">
           <thead>
             <tr>
-              <th className="col-left" onClick={() => handleSort('county')} style={{ textAlign: 'left', paddingLeft: 24 }}>
+              <th className="col-left" onClick={() => handleSort('county')} style={{ textAlign: 'left', paddingLeft: 24, cursor: 'pointer' }}>
                 County {sortCol === 'county' ? (sortAsc ? '↑' : '↓') : <span style={{ opacity: 0.25 }}>⇅</span>}
               </th>
               {causes.map(c => (
                 <th key={c} title={causeLabels[c]} onClick={() => handleSort(c)}
-                  style={{ color: sortCol === c ? INK : undefined }}>
+                  style={{ color: sortCol === c ? INK : undefined, cursor: 'pointer' }}>
                   {SHORT[c]} {sortCol === c ? (sortAsc ? '↑' : '↓') : <span style={{ opacity: 0.2 }}>⇅</span>}
                 </th>
               ))}
@@ -222,14 +261,28 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
             {sorted.map(row => {
               const county = row.county as string;
               return (
-                <tr key={county} onClick={() => navigate(`/county/${encodeURIComponent(county)}`)}>
-                  <td className="col-left">{county}</td>
+                <tr key={county}>
+                  {/* County name cell: navigate without pre-selected cause */}
+                  <td
+                    className="col-left"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/county/${encodeURIComponent(county)}`, { state: { fromScorecard: true } })}
+                  >
+                    {county}
+                  </td>
                   {causes.map(c => {
                     const ratio = row[c] as number;
                     const pct = ratio > 0 ? ((ratio - 1) * 100) : null;
                     return (
-                      <td key={c} title={`${causeLabels[c]} (${selectedYear}): ${pct != null ? `${pct > 0 ? '+' : ''}${pct.toFixed(0)}% vs IL avg` : 'No data'}`}
-                        style={{ background: heatBg(ratio) }}>
+                      <td
+                        key={c}
+                        title={`${causeLabels[c]} (${selectedYear}): ${pct != null ? `${pct > 0 ? '+' : ''}${pct.toFixed(0)}% vs IL avg` : 'No data'}`}
+                        style={{ background: heatBg(ratio), cursor: 'pointer' }}
+                        onClick={e => {
+                          e.stopPropagation();
+                          navigate(`/county/${encodeURIComponent(county)}`, { state: { fromScorecard: true, selectedCause: c } });
+                        }}
+                      >
                         <div className="h-fill" style={{ color: heatColor(ratio) }}>
                           {pct != null ? (
                             <span>{pct > 0 ? '+' : ''}{pct.toFixed(0)}%
