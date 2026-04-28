@@ -43,5 +43,14 @@
     "detail": "Successful login",
     "timestamp": "2026-04-28T17:14:32.054569Z",
     "ip": "127.0.0.1"
+  },
+  {
+    "id": "4aa08bec-80cd-46bf-a507-312b23669704",
+    "user": "admin",
+    "action": "login",
+    "resource": "auth",
+    "detail": "Successful login",
+    "timestamp": "2026-04-28T19:17:59.058043Z",
+    "ip": "127.0.0.1"
   }
 ]

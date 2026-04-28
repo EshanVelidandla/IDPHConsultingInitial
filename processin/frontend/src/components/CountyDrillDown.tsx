@@ -62,22 +62,33 @@ const CountyDrillDown = (_props: ViewProps) => {
       .finally(() => setLoading(false));
   }, []);
 
-  const getLatestYear = (data: DeathRate[]) =>
+  const getDataYears = (data: DeathRate[]) =>
     Object.keys(data.find(d => d.County === 'ILLINOIS') ?? {})
-      .filter(k => k !== 'County' && k !== '2008').sort().pop() ?? '2022';
+      .filter(k => k !== 'County' && k !== '2008').sort();
+
+  const getLatestNonZeroYear = (row: DeathRate | undefined, years: string[]) => {
+    if (!row) return null;
+    for (const y of [...years].reverse()) {
+      if (Number(row[y]) > 0) return y;
+    }
+    return null;
+  };
 
   // All 15 causes — include even those with no county data (show placeholder)
   const causeSummary = causes.map(cause => {
     const data = allData[cause] ?? [];
-    const latestYear = getLatestYear(data);
+    const years = getDataYears(data);
+    const latestYear = years[years.length - 1] ?? '2022';
     const stateRow = data.find(d => d.County === 'ILLINOIS');
     const countyRow = data.find(d => d.County === decoded);
-    const stateRate = Number(stateRow?.[latestYear]) || 0;
-    const countyRate = Number(countyRow?.[latestYear]) || 0;
+    // Use latest year where county has non-zero data; fall back to state's latest year
+    const countyYear = getLatestNonZeroYear(countyRow, years) ?? latestYear;
+    const stateRate = Number(stateRow?.[countyYear]) || 0;
+    const countyRate = Number(countyRow?.[countyYear]) || 0;
     const ratio = stateRate > 0 && countyRate > 0 ? countyRate / stateRate : 0;
     const slope = countyRow ? calcSlope(countyRow as Record<string, number | string>, 2015, 2022) : 0;
     const hasData = countyRate > 0;
-    return { cause, countyRate, stateRate, ratio, slope, latestYear, hasData };
+    return { cause, countyRate, stateRate, ratio, slope, latestYear: countyYear, hasData };
   }).filter(d => d.stateRate > 0); // keep causes that have any statewide data
 
   // Sort for bar chart: selected first, then by ratio desc, zero-data at bottom
