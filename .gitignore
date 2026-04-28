@@ -23,3 +23,12 @@ dist/
 
 # OS
 Thumbs.db
+
+# Backend runtime data (instance state — not source)
+processin/backend/audit.json
+processin/backend/annotations.json
+processin/backend/thresholds.json
+processin/backend/presets.json
+
+# users.json contains hashed credentials — exclude from version control
+processin/backend/users.json

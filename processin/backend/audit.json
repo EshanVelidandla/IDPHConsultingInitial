@@ -7,5 +7,23 @@
     "detail": "Successful login",
     "timestamp": "2026-04-27T23:24:26.771818Z",
     "ip": "127.0.0.1"
+  },
+  {
+    "id": "92d06441-e6a5-4c91-a34c-276153e33f12",
+    "user": "admin",
+    "action": "login",
+    "resource": "auth",
+    "detail": "Successful login",
+    "timestamp": "2026-04-28T03:17:49.821138Z",
+    "ip": "127.0.0.1"
+  },
+  {
+    "id": "963fe285-f2c2-4254-9aff-2fb561eac7c8",
+    "user": "admin",
+    "action": "login",
+    "resource": "auth",
+    "detail": "Successful login",
+    "timestamp": "2026-04-28T03:33:56.849699Z",
+    "ip": "127.0.0.1"
   }
 ]

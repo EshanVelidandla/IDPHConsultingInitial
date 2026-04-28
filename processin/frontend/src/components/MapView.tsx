@@ -153,9 +153,13 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
     };
   }, [rateMap, stateRate, selectedCause, priorityCounties, districtSet]);
 
+  const escHtml = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
   const onEachFeature = useCallback((feature: Feature, layer: L.Layer) => {
     const key = ((feature.properties?.COUNTY_NAM as string) || '').toLowerCase();
     const titleName = nameMap[key] || (feature.properties?.COUNTY_NAM as string) || '';
+    const safeTitle = escHtml(titleName);
     const rate = rateMap[key] || 0;
     const ratio = rate && stateRate ? rate / stateRate : 0;
     const isPriority = priorityCounties.has(key);
@@ -172,7 +176,7 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
 
     const tooltipHtml = `
       <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;min-width:186px;${isPriority ? `border-top:3px solid ${D_HIGH};` : ''}">
-        <div style="font-family:'Inter Tight',sans-serif;font-size:13px;font-weight:500;color:${INK};margin-bottom:8px;letter-spacing:-0.01em;">${titleName} County</div>
+        <div style="font-family:'Inter Tight',sans-serif;font-size:13px;font-weight:500;color:${INK};margin-bottom:8px;letter-spacing:-0.01em;">${safeTitle} County</div>
         ${selectedCause ? `
           <div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:4px;">
             <span style="color:${INK_4}">Rate&nbsp;/&nbsp;100k</span>
@@ -211,7 +215,7 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
       path.setStyle(getStyle(feature));
     });
     (layer as L.Path).on('click', () => {
-      navigate(`/county/${encodeURIComponent(titleName)}`);
+      navigate(`/county/${encodeURIComponent(titleName.replace(/[^a-zA-Z0-9 .\-']/g, ''))}`);
     });
   }, [rateMap, stateRate, nameMap, priorityCounties, selectedCause, selectedYear, countyData, searchTarget, navigate, getStyle]);
 
