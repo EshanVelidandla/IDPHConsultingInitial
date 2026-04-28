@@ -153,6 +153,12 @@ function PresetsPopover({
 function Sidebar() {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Scorecard should appear active when on DrillDown only if we arrived from Scorecard
+  const onCountyRoute = location.pathname.startsWith('/county/');
+  const fromScorecard = onCountyRoute &&
+    !!(location.state as { fromScorecard?: boolean } | null)?.fromScorecard;
 
   return (
     <aside className="rail">
@@ -169,7 +175,10 @@ function Sidebar() {
             key={path}
             to={path}
             end={exact}
-            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+            className={({ isActive }) => {
+              const extraActive = path === '/scorecard' && !isActive && fromScorecard;
+              return `nav-item${isActive || extraActive ? ' active' : ''}`;
+            }}
           >
             <span className="nav-num">{num}</span>
             <Icon />

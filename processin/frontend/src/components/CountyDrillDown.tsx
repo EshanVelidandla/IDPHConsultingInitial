@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, LineChart, Line, Legend,
+  ResponsiveContainer, Cell, LineChart, Line, Legend, LabelList,
 } from 'recharts';
 import axios from 'axios';
 import { causeLabels, causes, API_BASE, calcSlope } from '../data/constants';
@@ -22,6 +22,8 @@ const INK = '#1C1B18';
 const INK_3 = '#6B675F';
 const INK_4 = '#9A968C';
 const RULE = '#E6E3DC';
+const GREY_BAR = '#C8C5BC';
+const NO_DATA_BAR = '#E8E5DE';
 
 const TIP_STYLE = {
   fontSize: 11,
@@ -35,12 +37,16 @@ const TIP_STYLE = {
 const CountyDrillDown = (_props: ViewProps) => {
   const { countyName } = useParams<{ countyName: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const decoded = decodeURIComponent(countyName ?? '');
+
+  // Pre-select cause if navigated from Scorecard cell click
+  const incomingCause = (location.state as { selectedCause?: string } | null)?.selectedCause ?? null;
 
   const [allData, setAllData] = useState<AllData>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCause, setSelectedCause] = useState<string | null>(null);
+  const [selectedCause, setSelectedCause] = useState<string | null>(incomingCause);
 
   useEffect(() => {
     setLoading(true);
@@ -60,6 +66,7 @@ const CountyDrillDown = (_props: ViewProps) => {
     Object.keys(data.find(d => d.County === 'ILLINOIS') ?? {})
       .filter(k => k !== 'County' && k !== '2008').sort().pop() ?? '2022';
 
+  // All 15 causes — include even those with no county data (show placeholder)
   const causeSummary = causes.map(cause => {
     const data = allData[cause] ?? [];
     const latestYear = getLatestYear(data);
@@ -69,8 +76,30 @@ const CountyDrillDown = (_props: ViewProps) => {
     const countyRate = Number(countyRow?.[latestYear]) || 0;
     const ratio = stateRate > 0 && countyRate > 0 ? countyRate / stateRate : 0;
     const slope = countyRow ? calcSlope(countyRow as Record<string, number | string>, 2015, 2022) : 0;
-    return { cause, countyRate, stateRate, ratio, slope, latestYear };
-  }).filter(d => d.countyRate > 0 || d.stateRate > 0);
+    const hasData = countyRate > 0;
+    return { cause, countyRate, stateRate, ratio, slope, latestYear, hasData };
+  }).filter(d => d.stateRate > 0); // keep causes that have any statewide data
+
+  // Sort for bar chart: selected first, then by ratio desc, zero-data at bottom
+  const barChartData = [...causeSummary]
+    .sort((a, b) => {
+      if (a.cause === selectedCause) return -1;
+      if (b.cause === selectedCause) return 1;
+      if (!a.hasData && b.hasData) return 1;
+      if (a.hasData && !b.hasData) return -1;
+      return b.ratio - a.ratio;
+    })
+    .map(d => ({
+      cause: causeLabels[d.cause]
+        .replace(' (Cancer)', '')
+        .replace(' (Suicide)', '')
+        .replace(' (Unintentional Injuries)', ''),
+      causeKey: d.cause,
+      County: d.hasData ? d.countyRate : null,
+      State: d.stateRate,
+      ratio: d.ratio,
+      hasData: d.hasData,
+    }));
 
   const trendData = (() => {
     if (!selectedCause) return [];
@@ -87,7 +116,7 @@ const CountyDrillDown = (_props: ViewProps) => {
   })();
 
   const pop = countyPop2020[decoded];
-  const topCauses = [...causeSummary].sort((a, b) => b.ratio - a.ratio).slice(0, 3);
+  const topCauses = [...causeSummary].filter(d => d.hasData).sort((a, b) => b.ratio - a.ratio).slice(0, 3);
 
   const totalRow = causeSummary.find(d => d.cause === 'Total_Deaths');
   const excessDeaths = (() => {
@@ -98,6 +127,26 @@ const CountyDrillDown = (_props: ViewProps) => {
   const trendSlope = selectedCause
     ? calcSlope(allData[selectedCause]?.find(d => d.County === decoded) as Record<string, number | string> ?? {}, 2015, 2022)
     : 0;
+
+  // Custom label for zero-data bars
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const renderNoDataLabel = (props: any) => {
+    const { x = 0, y = 0, height = 0, index = 0 } = props as { x: number; y: number; height: number; index: number };
+    const d = barChartData[index];
+    if (!d || d.hasData) return null;
+    return (
+      <text
+        key={`nolabel-${index}`}
+        x={Number(x) + 6}
+        y={Number(y) + Number(height) / 2 + 4}
+        fontSize={9.5}
+        fill={INK_4}
+        fontFamily="'IBM Plex Mono',monospace"
+      >
+        no data
+      </text>
+    );
+  };
 
   if (loading) return <div className="loading-center"><div className="spinner" /><span>Loading county data…</span></div>;
   if (error) return <div className="error-banner" style={{ margin: 32 }}>{error}</div>;
@@ -190,32 +239,38 @@ const CountyDrillDown = (_props: ViewProps) => {
               <div className="eyebrow">Cause breakdown</div>
               <div className="h3">{decoded} vs. Illinois — all causes</div>
             </div>
-            <span className="caption">Click bar to see trend below</span>
+            <span className="caption">
+              {selectedCause
+                ? <span style={{ color: D_HIGH, fontSize: 11 }}>Selected · {causeLabels[selectedCause]?.split('(')[0].trim()}</span>
+                : 'Click bar to see trend below'}
+            </span>
           </div>
           <div className="panel-body">
-            <div style={{ height: Math.max(280, causeSummary.length * 28) }}>
+            <div style={{ height: Math.max(320, barChartData.length * 30) }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={causeSummary.map(d => ({
-                    cause: causeLabels[d.cause].replace(' (Cancer)', '').replace(' (Suicide)', '').replace(' (Unintentional Injuries)', ''),
-                    causeKey: d.cause,
-                    County: d.countyRate,
-                    State: d.stateRate,
-                    ratio: d.ratio,
-                  }))}
+                  data={barChartData}
                   layout="vertical"
                   margin={{ top: 0, right: 48, left: 0, bottom: 0 }}
                   onClick={(data) => data?.activePayload?.[0] && setSelectedCause(data.activePayload[0].payload.causeKey)}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke={RULE} horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
-                  <YAxis dataKey="cause" type="category" tick={{ fontSize: 11, fill: INK_3 }} width={160} />
+                  <YAxis dataKey="cause" type="category" tick={{ fontSize: 10.5, fill: INK_3 }} width={158} />
                   <Tooltip contentStyle={TIP_STYLE}
                     formatter={(v: unknown, name: string) => [`${Number(v).toFixed(1)} /100k`, name === 'County' ? decoded : 'IL avg']} />
                   <Bar dataKey="County" name="County" radius={[0, 2, 2, 0]} style={{ cursor: 'pointer' }}>
-                    {causeSummary.map((d, i) => (
-                      <Cell key={i} fill={d.cause === selectedCause ? INK : d.ratio > 1.2 ? D_HIGH : d.ratio < 0.8 ? D_LOW : D_MID} />
+                    {barChartData.map((d, i) => (
+                      <Cell
+                        key={i}
+                        fill={
+                          d.causeKey === selectedCause ? INK :
+                          !d.hasData ? NO_DATA_BAR :
+                          GREY_BAR
+                        }
+                      />
                     ))}
+                    <LabelList content={renderNoDataLabel} />
                   </Bar>
                   <Bar dataKey="State" name="IL avg" fill={RULE} radius={[0, 2, 2, 0]} />
                   <Legend wrapperStyle={{ fontSize: 11, fontFamily: "'Inter Tight',sans-serif" }}
@@ -284,7 +339,7 @@ const CountyDrillDown = (_props: ViewProps) => {
           </div>
         )}
 
-        {/* Cause table */}
+        {/* Cause table — all causes */}
         <div className="panel">
           <div className="panel-head">
             <div className="titles">
@@ -305,12 +360,16 @@ const CountyDrillDown = (_props: ViewProps) => {
               </thead>
               <tbody>
                 {causeSummary
-                  .filter(d => d.countyRate > 0)
-                  .sort((a, b) => b.ratio - a.ratio)
+                  .sort((a, b) => {
+                    if (!a.hasData && b.hasData) return 1;
+                    if (a.hasData && !b.hasData) return -1;
+                    return b.ratio - a.ratio;
+                  })
                   .map(d => (
-                    <tr key={d.cause} onClick={() => setSelectedCause(d.cause)} style={{ cursor: 'pointer' }}>
+                    <tr key={d.cause} onClick={() => d.hasData && setSelectedCause(d.cause)}
+                      style={{ cursor: d.hasData ? 'pointer' : 'default', opacity: d.hasData ? 1 : 0.5 }}>
                       <td className="col-left">{causeLabels[d.cause]}</td>
-                      <td>{d.countyRate.toFixed(1)}</td>
+                      <td>{d.countyRate > 0 ? d.countyRate.toFixed(1) : '—'}</td>
                       <td style={{ color: INK_4 }}>{d.stateRate.toFixed(1)}</td>
                       <td style={{ color: d.ratio > 1.2 ? D_HIGH : d.ratio < 0.8 ? D_LOW : D_MID }}>
                         {d.ratio > 0 ? `${d.ratio > 1 ? '+' : ''}${((d.ratio - 1) * 100).toFixed(0)}%` : '—'}
