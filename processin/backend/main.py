@@ -34,6 +34,14 @@ VALID_CAUSES = frozenset([
     "Chronic_Liver_Disease_Cirrhosis", "All_Other_Causes",
 ])
 
+VALID_PROVIDER_METRICS = frozenset([
+    "total_active_mds_per_100k",
+    "primary_care_physicians_per_100k",
+    "hospital_beds_per_100k",
+    "hpsa_primary_care_designation",
+    "psychiatry_mds_per_100k",
+])
+
 UPLOAD_MAX_BYTES = 20 * 1024 * 1024  # 20 MB
 
 # ── App setup ─────────────────────────────────────────────────
@@ -67,7 +75,9 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 data_dir = os.path.join(os.path.dirname(__file__), "static")
 death_rates_dir = os.path.join(data_dir, "death_rate_tables")
+provider_dir = os.path.join(data_dir, "provider_tables")
 os.makedirs(death_rates_dir, exist_ok=True)
+os.makedirs(provider_dir, exist_ok=True)
 
 # ── Auth helpers ──────────────────────────────────────────────
 
@@ -290,6 +300,21 @@ def get_death_rates(cause: str, user=Depends(get_current_user)):
         return JSONResponse(content=df.fillna(0).to_dict(orient="records"))
     except Exception as e:
         logger.error("Error reading %s: %s", cause, e)
+        raise HTTPException(status_code=500, detail="Failed to read data")
+
+
+@app.get("/provider_data")
+def get_provider_data(metric: str, user=Depends(get_current_user)):
+    if metric not in VALID_PROVIDER_METRICS:
+        raise HTTPException(status_code=400, detail=f"Unknown metric: {metric}")
+    file_path = os.path.join(provider_dir, f"{metric}_by_county_year.csv")
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail=f"Data not found for metric: {metric}")
+    try:
+        df = pd.read_csv(file_path, na_values=["", " "])
+        return JSONResponse(content=df.fillna(0).to_dict(orient="records"))
+    except Exception as e:
+        logger.error("Error reading provider metric %s: %s", metric, e)
         raise HTTPException(status_code=500, detail="Failed to read data")
 
 

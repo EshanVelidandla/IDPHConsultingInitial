@@ -2,11 +2,25 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine, Cell,
+  ScatterChart, Scatter,
 } from 'recharts';
 import axios from 'axios';
-import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE } from '../data/constants';
+import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, providerMetricLabels, providerMetrics, providerMetricInverted } from '../data/constants';
 import { countyPop2020 } from '../data/population';
 import type { SharedState } from '../App';
+
+interface ProviderRow { County: string; [year: string]: number | string; }
+
+function pearsonR(xs: number[], ys: number[]): number {
+  const n = xs.length;
+  if (n < 3) return 0;
+  const sx = xs.reduce((s, x) => s + x, 0), sy = ys.reduce((s, y) => s + y, 0);
+  const sxy = xs.reduce((s, x, i) => s + x * ys[i], 0);
+  const sx2 = xs.reduce((s, x) => s + x * x, 0), sy2 = ys.reduce((s, y) => s + y * y, 0);
+  const num = n * sxy - sx * sy;
+  const den = Math.sqrt((n * sx2 - sx * sx) * (n * sy2 - sy * sy));
+  return den === 0 ? 0 : +(num / den).toFixed(3);
+}
 
 interface DeathRate { County: string; [key: string]: number | string; }
 
@@ -52,6 +66,9 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
   const [error, setError] = useState<string | null>(null);
   const [deathData, setDeathData] = useState<DeathRate[]>([]);
   const [showBottom, setShowBottom] = useState(false);
+  const [corrMetric, setCorrMetric] = useState('primary_care_physicians_per_100k');
+  const [providerData, setProviderData] = useState<ProviderRow[]>([]);
+  const [providerLoading, setProviderLoading] = useState(false);
 
   useEffect(() => {
     if (!selectedCause) return;
@@ -61,6 +78,14 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
       .catch(() => setError('Failed to load data. Ensure the backend is running.'))
       .finally(() => setLoading(false));
   }, [selectedCause]);
+
+  useEffect(() => {
+    setProviderLoading(true);
+    axios.get(`${API_BASE}/provider_data?metric=${corrMetric}`)
+      .then(r => setProviderData(r.data))
+      .catch(() => {})
+      .finally(() => setProviderLoading(false));
+  }, [corrMetric]);
 
   const latestYear = (() => {
     const row = deathData.find(d => d.County === 'ILLINOIS');
@@ -216,6 +241,30 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
       .slice(0, 12);
   }, [deathData]);
 
+  const corrScatter = useMemo(() => {
+    if (!deathData.length || !providerData.length) return [];
+    const yrStr = selectedYear.toString();
+    return deathData
+      .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
+      .map(d => {
+        const x = Number(providerData.find(p => p.County === d.County)?.[yrStr]) || 0;
+        const y = Number(d[yrStr]) || 0;
+        return x > 0 && y > 0 ? { county: d.County, x, y } : null;
+      })
+      .filter(Boolean) as { county: string; x: number; y: number }[];
+  }, [deathData, providerData, selectedYear]);
+
+  const corrR = useMemo(() => {
+    if (corrScatter.length < 3) return null;
+    return pearsonR(corrScatter.map(p => p.x), corrScatter.map(p => p.y));
+  }, [corrScatter]);
+
+  const inverted = providerMetricInverted[corrMetric] ?? false;
+  const stateProvVal = useMemo(
+    () => Number(providerData.find(d => d.County === 'ILLINOIS')?.[selectedYear.toString()]) || 0,
+    [providerData, selectedYear]
+  );
+
   const hasData = selectedCause && deathData.length > 0;
 
   return (
@@ -309,6 +358,66 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
+              </div>
+            </div>
+
+            {/* Provider correlation scatter */}
+            <div className="panel">
+              <div className="panel-head">
+                <div className="titles">
+                  <div className="eyebrow">Access correlation · {selectedYear}</div>
+                  <div className="h3">Provider density vs. {causeLabels[selectedCause] ?? 'mortality'} rate</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <select className="sel" style={{ width: 240, fontSize: 12 }}
+                    value={corrMetric} onChange={e => setCorrMetric(e.target.value)}>
+                    {providerMetrics.map(m => <option key={m} value={m}>{providerMetricLabels[m]}</option>)}
+                  </select>
+                  {corrR !== null && (
+                    <span className="num" style={{ fontSize: 12, color: Math.abs(corrR) > 0.4 ? (corrR < 0 ? D_LOW : D_HIGH) : D_MID, whiteSpace: 'nowrap' }}>
+                      r = {corrR > 0 ? '+' : ''}{corrR.toFixed(3)}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="panel-body">
+                {providerLoading ? (
+                  <div className="loading-center"><div className="spinner" /></div>
+                ) : (
+                  <div style={{ height: 260 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 8, right: 24, bottom: 40, left: 40 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={RULE} />
+                        <XAxis type="number" dataKey="x" name={providerMetricLabels[corrMetric]}
+                          domain={['auto', 'auto']}
+                          label={{ value: providerMetricLabels[corrMetric], position: 'insideBottom', offset: -26, fontSize: 10, fill: INK_4 }}
+                          tick={{ fontSize: 9, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
+                        <YAxis type="number" dataKey="y" name="Death rate /100k"
+                          label={{ value: '/100k', angle: -90, position: 'insideLeft', offset: 8, fontSize: 10, fill: INK_4 }}
+                          tick={{ fontSize: 9, fill: INK_4 }} />
+                        {stateRate > 0 && <ReferenceLine y={stateRate} stroke={INK_4} strokeDasharray="4 3" strokeWidth={1} />}
+                        {stateProvVal > 0 && <ReferenceLine x={stateProvVal} stroke={INK_4} strokeDasharray="4 3" strokeWidth={1} />}
+                        <Tooltip contentStyle={TIP_STYLE}
+                          formatter={(v: unknown, name: unknown) => [
+                            `${Number(v).toFixed(1)}`,
+                            name === 'x' ? providerMetricLabels[corrMetric] : 'Mortality /100k',
+                          ]}
+                          labelFormatter={() => ''} />
+                        <Scatter data={corrScatter} name="counties">
+                          {corrScatter.map((d, i) => {
+                            const goodAccess = inverted ? d.x < stateProvVal : d.x > stateProvVal;
+                            const highMort = d.y > stateRate;
+                            const fill = highMort && !goodAccess ? D_HIGH : highMort ? D_MID : goodAccess ? D_LOW : INK_3;
+                            return <Cell key={i} fill={fill} fillOpacity={0.8} />;
+                          })}
+                        </Scatter>
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+                <p className="tiny" style={{ marginTop: 6 }}>
+                  Dashed lines = statewide averages. {corrR !== null ? `r = ${corrR.toFixed(3)} (${corrScatter.length} counties).` : ''} Visit the Access × Mortality tab for full regression analysis.
+                </p>
               </div>
             </div>
 

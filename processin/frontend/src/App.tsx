@@ -7,6 +7,8 @@ import CountyScorecard from './components/CountyScorecard';
 import PriorityMatrix from './components/PriorityMatrix';
 import CountyDrillDown from './components/CountyDrillDown';
 import PulseView from './components/PulseView';
+import ProvidersView from './components/ProvidersView';
+import AccessMortalityView from './components/AccessMortalityView';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import AdminPanel from './pages/AdminPanel';
@@ -62,6 +64,23 @@ const IconAdmin = () => (
     <path d="M13 9.5v1M13 12.5v.5M11.5 11h.5M14 11h.5M12 9.8l.4.4M14.5 12.2l-.4-.4M12 12.2l.4-.4M14.5 9.8l-.4.4"/>
   </svg>
 );
+const IconProviders = () => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
+    <circle cx="6" cy="5" r="2.5"/>
+    <path d="M1 13c0-2.5 2-4 5-4s5 1.5 5 4"/>
+    <path d="M11 7h4M13 5v4"/>
+  </svg>
+);
+const IconCorrelation = () => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
+    <path d="M2 14V2M2 14h12"/>
+    <circle cx="4" cy="11" r="1.2" fill="currentColor"/>
+    <circle cx="7" cy="8"  r="1.2" fill="currentColor"/>
+    <circle cx="9" cy="10" r="1.2" fill="currentColor"/>
+    <circle cx="12" cy="5" r="1.2" fill="currentColor"/>
+    <path d="M3 12.5l10-9" strokeDasharray="3 2"/>
+  </svg>
+);
 const IconFilter = () => (
   <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
     <path d="M2 3h12L9.5 8.5V13L6.5 14V8.5L2 3z"/>
@@ -86,6 +105,8 @@ const NAV_ITEMS = [
   { path: '/scorecard', label: 'Scorecard', num: '03', Icon: IconTable, exact: false, sub: 'Heatmap table' },
   { path: '/priority', label: 'Priority', num: '04', Icon: IconScatter, exact: false, sub: 'Quadrant matrix' },
   { path: '/pulse', label: 'Pulse', num: '05', Icon: IconPulse, exact: false, sub: 'Annotated timeline' },
+  { path: '/providers', label: 'Providers', num: '06', Icon: IconProviders, exact: false, sub: 'Access density' },
+  { path: '/access', label: 'Access × Mortality', num: '07', Icon: IconCorrelation, exact: false, sub: 'Correlation analysis' },
 ];
 
 // ── Presets flyout ───────────────────────────────────────────
@@ -296,6 +317,8 @@ function AppShell() {
           <Route path="/scorecard" element={<ProtectedRoute><CountyScorecard {...props} /></ProtectedRoute>} />
           <Route path="/priority" element={<ProtectedRoute><PriorityMatrix {...props} /></ProtectedRoute>} />
           <Route path="/pulse" element={<ProtectedRoute><PulseView {...props} /></ProtectedRoute>} />
+          <Route path="/providers" element={<ProtectedRoute><ProvidersView {...props} /></ProtectedRoute>} />
+          <Route path="/access" element={<ProtectedRoute><AccessMortalityView {...props} /></ProtectedRoute>} />
           <Route path="/county/:countyName" element={<ProtectedRoute><CountyDrillDown {...props} /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminPanel /></ProtectedRoute>} />
         </Routes>

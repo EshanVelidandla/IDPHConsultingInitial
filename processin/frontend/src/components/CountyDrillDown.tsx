@@ -5,11 +5,12 @@ import {
   ResponsiveContainer, Cell, LineChart, Line, Legend, LabelList,
 } from 'recharts';
 import axios from 'axios';
-import { causeLabels, causes, API_BASE, calcSlope } from '../data/constants';
+import { causeLabels, causes, API_BASE, calcSlope, providerMetricLabels, providerMetrics, providerMetricInverted } from '../data/constants';
 import { countyPop2020 } from '../data/population';
 import type { SharedState } from '../App';
 
-interface DeathRate { County: string; [key: string]: number | string; }
+interface DeathRate  { County: string; [key: string]: number | string; }
+interface ProvRow    { County: string; [year: string]: number | string; }
 type AllData = Record<string, DeathRate[]>;
 interface ViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
 
@@ -47,6 +48,8 @@ const CountyDrillDown = (_props: ViewProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCause, setSelectedCause] = useState<string | null>(incomingCause);
+  const [providerRows, setProviderRows] = useState<Record<string, ProvRow[]>>({});
+  const [provLoading, setProvLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -60,6 +63,20 @@ const CountyDrillDown = (_props: ViewProps) => {
       setAllData(map);
     }).catch(() => setError('Failed to load county data.'))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    setProvLoading(true);
+    Promise.all(
+      providerMetrics.map(m =>
+        axios.get(`${API_BASE}/provider_data?metric=${m}`).then(r => ({ m, data: r.data as ProvRow[] }))
+      )
+    ).then(results => {
+      const map: Record<string, ProvRow[]> = {};
+      results.forEach(({ m, data }) => { map[m] = data; });
+      setProviderRows(map);
+    }).catch(() => {})
+      .finally(() => setProvLoading(false));
   }, []);
 
   const getDataYears = (data: DeathRate[]) =>
@@ -349,6 +366,66 @@ const CountyDrillDown = (_props: ViewProps) => {
             </div>
           </div>
         )}
+
+        {/* Provider access panel */}
+        <div className="panel">
+          <div className="panel-head">
+            <div className="titles">
+              <div className="eyebrow">Healthcare access</div>
+              <div className="h3">{decoded} vs. Illinois · latest year</div>
+            </div>
+            {!provLoading && (() => {
+              const hpsaRows = providerRows['hpsa_primary_care_designation'] ?? [];
+              const hpsaVal = Number(hpsaRows.find(r => r.County === decoded)?.['2022']) || 0;
+              if (!hpsaVal) return null;
+              return (
+                <span style={{ fontSize: 11, fontFamily: 'var(--mono)', padding: '3px 8px',
+                  background: D_HIGH_TINT, color: D_HIGH, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  {hpsaVal === 1 ? 'HPSA · Whole county' : 'HPSA · Partial'}
+                </span>
+              );
+            })()}
+          </div>
+          <div className="panel-body-flat">
+            {provLoading ? (
+              <div className="loading-center" style={{ minHeight: 80 }}><div className="spinner" /></div>
+            ) : (
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th className="col-left">Metric</th>
+                    <th style={{ textAlign: 'right' }}>{decoded}</th>
+                    <th style={{ textAlign: 'right' }}>IL avg</th>
+                    <th style={{ textAlign: 'right' }}>vs. state</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {providerMetrics.filter(m => m !== 'hpsa_primary_care_designation').map(m => {
+                    const rows = providerRows[m] ?? [];
+                    const yr = '2022';
+                    const countyVal = Number(rows.find(r => r.County === decoded)?.[yr]) || 0;
+                    const stateVal  = Number(rows.find(r => r.County === 'ILLINOIS')?.[yr]) || 0;
+                    const inverted  = providerMetricInverted[m] ?? false;
+                    const ratio     = stateVal > 0 && countyVal > 0 ? countyVal / stateVal : 0;
+                    const good      = inverted ? ratio < 1 : ratio > 1;
+                    const neutral   = ratio >= 0.9 && ratio <= 1.1;
+                    const color     = neutral ? INK_4 : good ? D_LOW : D_HIGH;
+                    return (
+                      <tr key={m}>
+                        <td className="col-left">{providerMetricLabels[m]}</td>
+                        <td>{countyVal > 0 ? countyVal.toFixed(1) : '—'}</td>
+                        <td style={{ color: INK_4 }}>{stateVal > 0 ? stateVal.toFixed(1) : '—'}</td>
+                        <td style={{ color }}>
+                          {ratio > 0 ? `${ratio > 1 ? '+' : ''}${((ratio - 1) * 100).toFixed(0)}%` : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
 
         {/* Cause table — all causes */}
         <div className="panel">

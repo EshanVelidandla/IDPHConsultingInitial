@@ -5,11 +5,12 @@ import {
   ResponsiveContainer, ReferenceLine, Cell,
 } from 'recharts';
 import axios from 'axios';
-import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, calcSlope } from '../data/constants';
+import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, calcSlope, providerMetricLabels, providerMetrics, providerMetricInverted } from '../data/constants';
 import type { SharedState } from '../App';
 
-interface DeathRate { County: string; [key: string]: number | string; }
-interface CountyPoint { county: string; x: number; y: number; rate: number; stateRate: number; }
+interface DeathRate   { County: string; [key: string]: number | string; }
+interface ProviderRow { County: string; [year: string]: number | string; }
+interface CountyPoint { county: string; x: number; y: number; rate: number; stateRate: number; provRatio: number; }
 
 interface ViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
 
@@ -29,19 +30,23 @@ function dotColor(x: number, y: number): string {
   return D_LOW;
 }
 
-const CustomDot = (props: { cx?: number; cy?: number; payload?: CountyPoint }) => {
-  const { cx = 0, cy = 0, payload } = props;
+const CustomDot = (props: { cx?: number; cy?: number; payload?: CountyPoint; hasProvider?: boolean }) => {
+  const { cx = 0, cy = 0, payload, hasProvider } = props;
   if (!payload) return null;
   const color = dotColor(payload.x, payload.y);
+  // When provider metric active: larger dot = less access (inverted ratio)
+  const r = hasProvider && payload.provRatio > 0
+    ? Math.max(3, Math.min(14, 8 / payload.provRatio))
+    : 5;
   return (
-    <circle cx={cx} cy={cy} r={5}
-      fill={color} fillOpacity={0.85}
+    <circle cx={cx} cy={cy} r={r}
+      fill={color} fillOpacity={0.75}
       stroke="#FFFFFF" strokeWidth={1.2}
       style={{ cursor: 'pointer' }} />
   );
 };
 
-const CustomTooltip = ({ active, payload, selectedYear }: { active?: boolean; payload?: { payload: CountyPoint }[]; selectedYear: number }) => {
+const CustomTooltip = ({ active, payload, selectedYear, providerMetric }: { active?: boolean; payload?: { payload: CountyPoint }[]; selectedYear: number; providerMetric?: string }) => {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   const pct = ((d.x - 1) * 100).toFixed(1);
@@ -72,6 +77,14 @@ const CustomTooltip = ({ active, payload, selectedYear }: { active?: boolean; pa
         <span style={{ color: INK_3 }}>Rate ({selectedYear})</span>
         <span style={{ color: INK }}>{d.rate.toFixed(1)} /100k</span>
       </div>
+      {providerMetric && d.provRatio > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 4 }}>
+          <span style={{ color: INK_3 }}>Access (vs state)</span>
+          <span style={{ color: d.provRatio < 0.8 ? D_HIGH : d.provRatio > 1.2 ? D_LOW : INK }}>
+            {d.provRatio > 0 ? `${((d.provRatio - 1) * 100) > 0 ? '+' : ''}${((d.provRatio - 1) * 100).toFixed(0)}%` : '—'}
+          </span>
+        </div>
+      )}
       <div style={{ marginTop: 8, color: INK_4, fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
         Click to drill in →
       </div>
@@ -85,6 +98,8 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
   const [deathData, setDeathData] = useState<DeathRate[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [providerMetric, setProviderMetric] = useState('');
+  const [providerData, setProviderData] = useState<ProviderRow[]>([]);
 
   const cause = selectedCause || 'Diseases_of_Heart';
 
@@ -96,22 +111,37 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
       .finally(() => setLoading(false));
   }, [cause]);
 
+  useEffect(() => {
+    if (!providerMetric) { setProviderData([]); return; }
+    axios.get(`${API_BASE}/provider_data?metric=${providerMetric}`)
+      .then(r => setProviderData(r.data))
+      .catch(() => setProviderData([]));
+  }, [providerMetric]);
+
   const points = useMemo<CountyPoint[]>(() => {
     if (!deathData.length) return [];
+    const yrStr = selectedYear.toString();
     const stateRow = deathData.find(d => d.County === 'ILLINOIS');
     if (!stateRow) return [];
-    const stateRate = Number(stateRow[selectedYear.toString()]);
+    const stateRate = Number(stateRow[yrStr]);
     if (!stateRate) return [];
+    const stateProvVal = Number(providerData.find(d => d.County === 'ILLINOIS')?.[yrStr]) || 0;
+    const inverted = providerMetricInverted[providerMetric] ?? false;
     return deathData
       .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
       .map(d => {
-        const countyRate = Number(d[selectedYear.toString()]);
+        const countyRate = Number(d[yrStr]);
         if (!countyRate) return null;
         const slope = calcSlope(d as Record<string, number | string>, 2009, selectedYear);
-        return { county: d.County, x: countyRate / stateRate, y: slope, rate: countyRate, stateRate };
+        const countyProvVal = Number(providerData.find(p => p.County === d.County)?.[yrStr]) || 0;
+        // provRatio: >1 = better access, <1 = worse. For inverted metrics flip it.
+        const provRatio = stateProvVal > 0 && countyProvVal > 0
+          ? (inverted ? stateProvVal / countyProvVal : countyProvVal / stateProvVal)
+          : 0;
+        return { county: d.County, x: countyRate / stateRate, y: slope, rate: countyRate, stateRate, provRatio };
       })
       .filter(Boolean) as CountyPoint[];
-  }, [deathData, selectedYear]);
+  }, [deathData, selectedYear, providerData, providerMetric]);
 
   const priorityCount = useMemo(() => points.filter(p => p.x > 1.2 && p.y > 0).length, [points]);
 
@@ -146,6 +176,15 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--ink-4)' }}>
               {[2009, 2012, 2015, 2018, 2022].map(y => <span key={y}>{y}</span>)}
             </div>
+          </div>
+          <div className="field">
+            <div className="field-label">Bubble size</div>
+            <select className="sel" style={{ width: 220 }}
+              value={providerMetric}
+              onChange={e => setProviderMetric(e.target.value)}>
+              <option value="">— None —</option>
+              {providerMetrics.map(m => <option key={m} value={m}>{providerMetricLabels[m]}</option>)}
+            </select>
           </div>
           {priorityCount > 0 && !loading && (
             <div className="chip priority" style={{ alignSelf: 'flex-end', marginBottom: 2 }}>
@@ -195,8 +234,8 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
                     tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
                   <ReferenceLine x={1} stroke={INK_4} strokeDasharray="6 4" strokeWidth={1} />
                   <ReferenceLine y={0} stroke={INK_4} strokeDasharray="6 4" strokeWidth={1} />
-                  <Tooltip content={<CustomTooltip selectedYear={selectedYear} />} cursor={{ fill: 'transparent' }} />
-                  <Scatter data={points} shape={<CustomDot />}
+                  <Tooltip content={<CustomTooltip selectedYear={selectedYear} providerMetric={providerMetric} />} cursor={{ fill: 'transparent' }} />
+                  <Scatter data={points} shape={<CustomDot hasProvider={!!providerMetric} />}
                     onClick={(d: unknown) => navigate(`/county/${encodeURIComponent((d as CountyPoint).county)}`)}>
                     {points.map((p, i) => <Cell key={i} fill={dotColor(p.x, p.y)} />)}
                   </Scatter>

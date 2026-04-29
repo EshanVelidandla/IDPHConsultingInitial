@@ -63,6 +63,33 @@ export const IDPH_DISTRICTS: Record<number, { name: string; counties: string[] }
 
 export const API_BASE = 'http://127.0.0.1:8000';
 
+export const providerMetricLabels: Record<string, string> = {
+  total_active_mds_per_100k: 'Total Active MDs /100k',
+  primary_care_physicians_per_100k: 'Primary Care Physicians /100k',
+  hospital_beds_per_100k: 'Hospital Beds /100k',
+  hpsa_primary_care_designation: 'HPSA Designation',
+  psychiatry_mds_per_100k: 'Psychiatry MDs /100k',
+};
+
+export const providerMetrics = Object.keys(providerMetricLabels);
+
+export const providerMetricShort: Record<string, string> = {
+  total_active_mds_per_100k: 'Total MDs',
+  primary_care_physicians_per_100k: 'PCP',
+  hospital_beds_per_100k: 'Beds',
+  hpsa_primary_care_designation: 'HPSA',
+  psychiatry_mds_per_100k: 'Psychiatry',
+};
+
+// Higher value = better access for all metrics except HPSA (where higher = worse)
+export const providerMetricInverted: Record<string, boolean> = {
+  total_active_mds_per_100k: false,
+  primary_care_physicians_per_100k: false,
+  hospital_beds_per_100k: false,
+  hpsa_primary_care_designation: true,
+  psychiatry_mds_per_100k: false,
+};
+
 export const MONO: React.CSSProperties = { fontFamily: "'IBM Plex Mono', monospace" };
 
 /** Linear regression slope over a series of [year, rate] points. */

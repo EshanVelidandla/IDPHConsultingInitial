@@ -6,11 +6,12 @@ import {
 } from 'recharts';
 import type { TooltipProps } from 'recharts';
 import axios from 'axios';
-import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, IDPH_DISTRICTS } from '../data/constants';
+import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, IDPH_DISTRICTS, providerMetricLabels, providerMetrics } from '../data/constants';
 import { IL_GRID } from '../data/ilGrid';
 import type { SharedState } from '../App';
 
 interface DeathRate { County: string; [key: string]: number | string; }
+interface ProviderRow { County: string; [year: string]: number | string; }
 interface ViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
 
 const D_HIGH = '#B23A2E';
@@ -75,6 +76,8 @@ const PulseView = (_props: ViewProps) => {
   const [multiData, setMultiData] = useState<DeathRate[]>([]);
   const [multiLoading, setMultiLoading] = useState(false);
   const [hoveredCounty, setHoveredCounty] = useState<string | null>(null);
+  const [providerMetric, setProviderMetric] = useState('');
+  const [providerData, setProviderData] = useState<ProviderRow[]>([]);
 
   // Load Total Deaths for mini-map and fixed trend chart
   useEffect(() => {
@@ -93,6 +96,13 @@ const PulseView = (_props: ViewProps) => {
       .catch(() => {})
       .finally(() => setMultiLoading(false));
   }, [multiCause]);
+
+  useEffect(() => {
+    if (!providerMetric) { setProviderData([]); return; }
+    axios.get(`${API_BASE}/provider_data?metric=${providerMetric}`)
+      .then(r => setProviderData(r.data))
+      .catch(() => setProviderData([]));
+  }, [providerMetric]);
 
   const statewideTrend = useMemo(() => {
     const row = deathData.find(d => d.County === 'ILLINOIS');
@@ -165,14 +175,20 @@ const PulseView = (_props: ViewProps) => {
       return true;
     });
     return ALL_YEARS.map(yr => {
-      const point: Record<string, string | number | null> = { year: yr.toString() };
+      const yrStr = yr.toString();
+      const point: Record<string, string | number | null> = { year: yrStr };
       visibleRows.forEach(row => {
-        const val = Number(row[yr.toString()]);
+        const val = Number(row[yrStr]);
         point[row.County] = val > 0 ? val : null;
+        if (providerData.length) {
+          const provRow = providerData.find(p => p.County === row.County);
+          const pVal = provRow ? Number(provRow[yrStr]) : 0;
+          point[`${row.County}__prov`] = pVal > 0 ? pVal : null;
+        }
       });
       return point;
     });
-  }, [multiData, multiDistrict]);
+  }, [multiData, multiDistrict, providerData]);
 
   const handleLineEnter = useCallback((county: string) => setHoveredCounty(county), []);
   const handleLineLeave = useCallback(() => setHoveredCounty(null), []);
@@ -181,20 +197,25 @@ const PulseView = (_props: ViewProps) => {
   const MultiCountyTooltip = useCallback((props: TooltipProps<number, string>) => {
     const { active, payload, label } = props;
     if (!active || !payload?.length) return null;
-    const hovered = hoveredCounty
-      ? payload.find(p => p.name === hoveredCounty)
-      : payload[0];
+    const mortKey = hoveredCounty ?? payload.find(p => p.name && !String(p.name).endsWith('__prov'))?.name;
+    const hovered = mortKey ? payload.find(p => p.name === mortKey) : null;
     if (!hovered || hovered.value == null) return null;
+    const provEntry = providerMetric ? payload.find(p => p.name === `${mortKey}__prov`) : null;
     return (
       <div style={{ ...TIP_STYLE, padding: '8px 12px' }}>
-        <div style={{ fontWeight: 500, marginBottom: 4, fontSize: 12 }}>{hovered.name}</div>
+        <div style={{ fontWeight: 500, marginBottom: 4, fontSize: 12 }}>{mortKey}</div>
         <div style={{ color: INK_4 }}>{label} · {Number(hovered.value).toFixed(1)} /100k</div>
+        {provEntry?.value != null && (
+          <div style={{ color: INK_4, marginTop: 2 }}>
+            {providerMetricLabels[providerMetric]}: {Number(provEntry.value).toFixed(1)}
+          </div>
+        )}
         <div style={{ marginTop: 6, fontSize: 9, color: INK_4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           Click dot → Scorecard
         </div>
       </div>
     );
-  }, [hoveredCounty]);
+  }, [hoveredCounty, providerMetric]);
 
   return (
     <div className="view fade-in" style={{ overflowY: 'auto' }}>
@@ -384,6 +405,15 @@ const PulseView = (_props: ViewProps) => {
                 ))}
               </select>
             </div>
+            <div className="field">
+              <div className="field-label">Provider overlay</div>
+              <select className="sel" style={{ width: 220 }}
+                value={providerMetric}
+                onChange={e => setProviderMetric(e.target.value)}>
+                <option value="">— None —</option>
+                {providerMetrics.map(m => <option key={m} value={m}>{providerMetricLabels[m]}</option>)}
+              </select>
+            </div>
           </div>
         </div>
         <div style={{ height: 320 }}>
@@ -391,15 +421,20 @@ const PulseView = (_props: ViewProps) => {
             <div className="loading-center"><div className="spinner" /></div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={multiChartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+              <LineChart data={multiChartData} margin={{ top: 4, right: providerMetric ? 48 : 16, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={RULE} />
                 <XAxis dataKey="year" tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
-                <YAxis tick={{ fontSize: 10, fill: INK_4 }}
+                <YAxis yAxisId="mort" tick={{ fontSize: 10, fill: INK_4 }}
                   label={{ value: '/100k', angle: -90, position: 'insideLeft', fontSize: 10, fill: INK_4, dx: 4 }} />
+                {providerMetric && (
+                  <YAxis yAxisId="prov" orientation="right" tick={{ fontSize: 9, fill: INK_4 }}
+                    label={{ value: providerMetricLabels[providerMetric], angle: 90, position: 'insideRight', fontSize: 9, fill: INK_4, dx: -4 }} />
+                )}
                 <Tooltip content={MultiCountyTooltip} />
                 {countyLines.map((county, idx) => (
                   <Line
                     key={county}
+                    yAxisId="mort"
                     type="monotone"
                     dataKey={county}
                     name={county}
@@ -415,6 +450,22 @@ const PulseView = (_props: ViewProps) => {
                       cursor: 'pointer',
                       onClick: () => navigate('/scorecard', { state: { highlightCounty: county } }),
                     }}
+                  />
+                ))}
+                {providerMetric && countyLines.map((county, idx) => (
+                  <Line
+                    key={`${county}__prov`}
+                    yAxisId="prov"
+                    type="monotone"
+                    dataKey={`${county}__prov`}
+                    name={`${county}__prov`}
+                    stroke={MULTI_PALETTE[idx % MULTI_PALETTE.length]}
+                    strokeDasharray="5 3"
+                    strokeWidth={1}
+                    opacity={hoveredCounty === null || hoveredCounty === county ? 0.65 : 0.06}
+                    dot={false}
+                    connectNulls={false}
+                    legendType="none"
                   />
                 ))}
               </LineChart>

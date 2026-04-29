@@ -70,5 +70,32 @@
     "detail": "Successful login",
     "timestamp": "2026-04-29T02:30:08.124687Z",
     "ip": "127.0.0.1"
+  },
+  {
+    "id": "ec3ea1d0-da7a-4ebe-8e4c-7c4f6a3b3ccd",
+    "user": "admin",
+    "action": "login",
+    "resource": "auth",
+    "detail": "Successful login",
+    "timestamp": "2026-04-29T03:51:08.069759Z",
+    "ip": "127.0.0.1"
+  },
+  {
+    "id": "9a1c0212-de0a-43f3-87ef-e6e735f9025e",
+    "user": "admin",
+    "action": "login",
+    "resource": "auth",
+    "detail": "Successful login",
+    "timestamp": "2026-04-29T03:51:44.678651Z",
+    "ip": "127.0.0.1"
+  },
+  {
+    "id": "6dbc6bdc-62e9-45af-9f38-408441869508",
+    "user": "admin",
+    "action": "login",
+    "resource": "auth",
+    "detail": "Successful login",
+    "timestamp": "2026-04-29T19:53:56.618778Z",
+    "ip": "127.0.0.1"
   }
 ]

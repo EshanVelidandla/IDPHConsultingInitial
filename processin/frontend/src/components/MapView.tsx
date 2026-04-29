@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import './MapView.css';
 import axios from 'axios';
 import type { FeatureCollection, Feature } from 'geojson';
-import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, calcSlope, IDPH_DISTRICTS } from '../data/constants';
+import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, calcSlope, IDPH_DISTRICTS, providerMetricLabels, providerMetrics, providerMetricShort, providerMetricInverted } from '../data/constants';
 import type { SharedState } from '../App';
 
 interface Annotation {
@@ -18,7 +18,8 @@ interface Annotation {
   created_by: string;
 }
 
-interface DeathRate { County: string; [key: string]: number | string; }
+interface DeathRate   { County: string; [key: string]: number | string; }
+interface ProviderRow { County: string; [year: string]: number | string; }
 interface MapViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
 
 const D_HIGH = '#B23A2E';
@@ -37,6 +38,28 @@ function tileColor(rate: number, stateRate: number): string {
   if (r > 1.2) return D_HIGH_TINT;
   if (r < 0.8) return D_LOW_TINT;
   return D_MID_TINT;
+}
+
+// Bivariate 2×2: axis A = mortality (above/below state avg), axis B = access (above/below state avg)
+// High mort + low access → red; High mort + high access → amber; Low mort + low access → blue; Low mort + high access → green
+const BV_HIGH_LOW  = '#D4605A'; // high mort, low access — worst
+const BV_HIGH_HIGH = '#D4A55A'; // high mort, high access — mortality issue, not access
+const BV_LOW_LOW   = '#5A8BBF'; // low mort, low access — access shortage, resilient
+const BV_LOW_HIGH  = '#5A9A68'; // low mort, high access — best
+
+function bivariateColor(
+  rate: number, stateRate: number,
+  provVal: number, stateProvVal: number,
+  inverted: boolean,
+): string {
+  if (!rate || !stateRate || !provVal || !stateProvVal) return D_NULL_TINT;
+  const highMort = rate / stateRate > 1.0;
+  // For inverted metrics (HPSA), higher value = worse access
+  const goodAccess = inverted ? provVal / stateProvVal < 1.0 : provVal / stateProvVal > 1.0;
+  if (highMort && !goodAccess) return BV_HIGH_LOW;
+  if (highMort && goodAccess)  return BV_HIGH_HIGH;
+  if (!highMort && !goodAccess) return BV_LOW_LOW;
+  return BV_LOW_HIGH;
 }
 
 function FitBounds({ geojson }: { geojson: FeatureCollection | null }) {
@@ -69,6 +92,8 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [providerOverlay, setProviderOverlay] = useState('');
+  const [providerData, setProviderData] = useState<ProviderRow[]>([]);
 
   // Tracks all rendered {feature, layer} pairs for hover-dim behaviour
   const layerStore = useRef<Map<string, { layer: L.Path; feature: Feature }>>(new Map());
@@ -83,6 +108,13 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
   }, []);
 
   useEffect(() => {
+    if (!providerOverlay) { setProviderData([]); return; }
+    axios.get(`${API_BASE}/provider_data?metric=${providerOverlay}`)
+      .then(r => setProviderData(r.data))
+      .catch(() => setProviderData([]));
+  }, [providerOverlay]);
+
+  useEffect(() => {
     if (!selectedCause) return;
     setLoading(true);
     axios.get(`${API_BASE}/death_rates?cause=${selectedCause}`)
@@ -91,15 +123,28 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
       .finally(() => setLoading(false));
   }, [selectedCause]);
 
-  // Clear stale layer store entries on GeoJSON key change
   useEffect(() => {
     layerStore.current.clear();
-  }, [selectedCause, selectedYear, searchTarget]);
+  }, [selectedCause, selectedYear, searchTarget, providerOverlay]);
 
   const stateRate = useMemo(() => {
     const row = countyData.find(d => d.County === 'ILLINOIS');
     return Number(row?.[selectedYear.toString()]) || 0;
   }, [countyData, selectedYear]);
+
+  const stateProvVal = useMemo(() => {
+    const row = providerData.find(d => d.County === 'ILLINOIS');
+    return Number(row?.[selectedYear.toString()]) || 0;
+  }, [providerData, selectedYear]);
+
+  const providerMap = useMemo<Record<string, number>>(() => {
+    const m: Record<string, number> = {};
+    providerData.forEach(d => {
+      if (!EXCLUDED_COUNTIES.includes(d.County))
+        m[d.County.toLowerCase()] = Number(d[selectedYear.toString()]) || 0;
+    });
+    return m;
+  }, [providerData, selectedYear]);
 
   const rateMap = useMemo<Record<string, number>>(() => {
     const m: Record<string, number> = {};
@@ -149,7 +194,14 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
     if (!feature) return {};
     const key = ((feature.properties?.COUNTY_NAM as string) || '').toLowerCase();
     const rate = rateMap[key] || 0;
-    const fill = selectedCause ? tileColor(rate, stateRate) : D_NULL_TINT;
+    let fill = D_NULL_TINT;
+    if (selectedCause) {
+      if (providerOverlay && providerMap[key] && stateProvVal) {
+        fill = bivariateColor(rate, stateRate, providerMap[key], stateProvVal, providerMetricInverted[providerOverlay] ?? false);
+      } else {
+        fill = tileColor(rate, stateRate);
+      }
+    }
     const isPriority = priorityCounties.has(key);
     const isDimmed = districtSet != null && !districtSet.has(key);
     return {
@@ -159,7 +211,7 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
       weight: isPriority ? 1.8 : 0.6,
       dashArray: isPriority ? '5 3' : undefined,
     };
-  }, [rateMap, stateRate, selectedCause, priorityCounties, districtSet]);
+  }, [rateMap, stateRate, selectedCause, priorityCounties, districtSet, providerOverlay, providerMap, stateProvVal]);
 
   const escHtml = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -174,6 +226,8 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
     const isSearch = searchTarget.length > 1 && titleName.toLowerCase().startsWith(searchTarget.toLowerCase());
     const row = countyData.find(d => d.County.toLowerCase() === key);
     const slope = row ? calcSlope(row as Record<string, number | string>, 2015, selectedYear) : 0;
+    const provVal = providerMap[key] || 0;
+    const provRatio = provVal && stateProvVal ? provVal / stateProvVal : 0;
 
     const pctStr = ratio > 0
       ? `${(ratio - 1) * 100 > 0 ? '+' : ''}${((ratio - 1) * 100).toFixed(0)}%`
@@ -199,6 +253,11 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
             <span style="color:${slopeColor}">${slopeStr}</span>
           </div>
           ${isPriority ? `<div style="margin-top:6px;padding:3px 7px;background:${D_HIGH_TINT};font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:${D_HIGH};">Priority county</div>` : ''}
+          ${providerOverlay && provVal > 0 ? `
+          <div style="display:flex;justify-content:space-between;gap:16px;margin-top:6px;padding-top:6px;border-top:1px solid ${RULE};">
+            <span style="color:${INK_4}">${escHtml(providerMetricShort[providerOverlay] ?? providerOverlay)}</span>
+            <span style="color:${provRatio > 1.1 ? D_LOW : provRatio < 0.9 ? D_HIGH : INK}">${provVal.toFixed(1)}</span>
+          </div>` : ''}
         ` : `<div style="color:${INK_4}">Select a cause to view data</div>`}
         <div style="margin-top:6px;font-size:9px;letter-spacing:0.06em;text-transform:uppercase;color:${INK_4};">Click to drill in &rarr;</div>
       </div>
@@ -241,7 +300,7 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
     (layer as L.Path).on('click', () => {
       navigate(`/county/${encodeURIComponent(titleName.replace(/[^a-zA-Z0-9 .\-']/g, ''))}`);
     });
-  }, [rateMap, stateRate, nameMap, priorityCounties, selectedCause, selectedYear, countyData, searchTarget, navigate, getStyle]);
+  }, [rateMap, stateRate, nameMap, priorityCounties, selectedCause, selectedYear, countyData, searchTarget, navigate, getStyle, providerMap, stateProvVal, providerOverlay]);
 
   return (
     <div className="view fade-in" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -262,6 +321,15 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
               onChange={e => setShared({ ...shared, selectedCause: e.target.value })}>
               <option value="">— Select cause —</option>
               {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <div className="field-label">Provider overlay</div>
+            <select className="sel" style={{ width: 240 }}
+              value={providerOverlay}
+              onChange={e => setProviderOverlay(e.target.value)}>
+              <option value="">— None (mortality only) —</option>
+              {providerMetrics.map(m => <option key={m} value={m}>{providerMetricLabels[m]}</option>)}
             </select>
           </div>
           <div className="field">
@@ -336,7 +404,7 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
           >
             {geoData && (
               <LeafletGeoJSON
-                key={`${selectedCause}-${selectedYear}-${searchTarget}`}
+                key={`${selectedCause}-${selectedYear}-${searchTarget}-${providerOverlay}`}
                 data={geoData}
                 style={getStyle as (feature?: Feature) => L.PathOptions}
                 onEachFeature={onEachFeature}
@@ -350,21 +418,46 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
         <div style={{ borderLeft: `1px solid ${RULE}`, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 28, overflowY: 'auto' }}>
 
           <div>
-            <div className="eyebrow" style={{ marginBottom: 10 }}>Scale</div>
-            {[
-              { c: D_HIGH_TINT, border: D_HIGH, label: 'High', sub: '> 20% above state' },
-              { c: '#EBD6B0', border: '#C68B3C', label: 'Near average', sub: '± 20% of state' },
-              { c: D_LOW_TINT, border: D_LOW, label: 'Low', sub: '> 20% below state' },
-              { c: D_NULL_TINT, border: '#C4C0B6', label: 'Suppressed', sub: 'Count < 5 / no data' },
-            ].map(({ c, border, label, sub }) => (
-              <div key={label} className="legend-row">
-                <span className="legend-swatch" style={{ background: c, borderLeft: `3px solid ${border}` }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'baseline' }}>
-                  <span style={{ color: 'var(--ink)', fontSize: 12.5 }}>{label}</span>
-                  <span className="num" style={{ fontSize: 10, color: 'var(--ink-4)' }}>{sub}</span>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>
+              {providerOverlay ? 'Bivariate scale' : 'Scale'}
+            </div>
+            {providerOverlay ? (
+              <>
+                {[
+                  { c: BV_HIGH_LOW,  label: 'High mort · Low access',  sub: 'Priority' },
+                  { c: BV_HIGH_HIGH, label: 'High mort · High access', sub: 'Mortality focus' },
+                  { c: BV_LOW_LOW,   label: 'Low mort · Low access',   sub: 'Resilient' },
+                  { c: BV_LOW_HIGH,  label: 'Low mort · High access',  sub: 'Well-served' },
+                  { c: D_NULL_TINT,  label: 'No data', sub: '' },
+                ].map(({ c, label, sub }) => (
+                  <div key={label} className="legend-row">
+                    <span className="legend-swatch" style={{ background: c, borderLeft: `3px solid ${c}` }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'baseline' }}>
+                      <span style={{ color: 'var(--ink)', fontSize: 11.5 }}>{label}</span>
+                      {sub && <span className="num" style={{ fontSize: 10, color: 'var(--ink-4)' }}>{sub}</span>}
+                    </div>
+                  </div>
+                ))}
+                <p className="caption" style={{ marginTop: 8, color: 'var(--ink-4)' }}>
+                  Relative to statewide average for both mortality and {providerMetricShort[providerOverlay]}.
+                </p>
+              </>
+            ) : (
+              [
+                { c: D_HIGH_TINT, border: D_HIGH, label: 'High', sub: '> 20% above state' },
+                { c: '#EBD6B0', border: '#C68B3C', label: 'Near average', sub: '± 20% of state' },
+                { c: D_LOW_TINT, border: D_LOW, label: 'Low', sub: '> 20% below state' },
+                { c: D_NULL_TINT, border: '#C4C0B6', label: 'Suppressed', sub: 'Count < 5 / no data' },
+              ].map(({ c, border, label, sub }) => (
+                <div key={label} className="legend-row">
+                  <span className="legend-swatch" style={{ background: c, borderLeft: `3px solid ${border}` }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'baseline' }}>
+                    <span style={{ color: 'var(--ink)', fontSize: 12.5 }}>{label}</span>
+                    <span className="num" style={{ fontSize: 10, color: 'var(--ink-4)' }}>{sub}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           <div>
