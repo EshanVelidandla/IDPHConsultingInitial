@@ -6,12 +6,32 @@ import {
 } from 'recharts';
 import axios from 'axios';
 import { causeLabels, causes, API_BASE, calcSlope } from '../data/constants';
+
+const CAUSE_SPECIALIST_DESC: Record<string, string> = {
+  Chronic_Lower_Respiratory_Diseases: 'Pulmonary & critical care specialists',
+  Diseases_of_Heart: 'Cardiologists & thoracic surgeons',
+  Malignant_Neoplasms: 'Oncologists (medical, radiation & surgical)',
+  Cerebrovascular_Diseases: 'Neurologists & vascular specialists',
+  Alzheimers_Disease: 'Neurologists & geriatric psychiatrists',
+  Diabetes_Mellitus: 'Endocrinologists',
+  Nephritis_Nephrotic_Syndrome_Nephrosis: 'Nephrologists',
+  Influenza_and_Pneumonia: 'Infectious disease & pulmonary specialists',
+  Septicemia: 'Infectious disease & critical care specialists',
+  COVID_19: 'Infectious disease, critical care & pulmonary specialists',
+  Chronic_Liver_Disease_Cirrhosis: 'Gastroenterologists & transplant surgeons',
+  Intentional_Self_Harm: 'Psychiatrists, psychologists & counselors',
+  Accidents: 'Emergency medicine & trauma surgeons',
+  Total_Deaths: 'Primary care physicians',
+  All_Other_Causes: 'Primary care physicians',
+};
 import { countyPop2020 } from '../data/population';
 import type { SharedState } from '../App';
 
 interface DeathRate { County: string; [key: string]: number | string; }
 type AllData = Record<string, DeathRate[]>;
 interface ViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
+
+const P_PROVIDER = '#1A5276';
 
 const D_HIGH = '#B23A2E';
 const D_HIGH_TINT = '#F2E4E1';
@@ -44,10 +64,12 @@ const CountyDrillDown = (_props: ViewProps) => {
   const incomingCause = (location.state as { selectedCause?: string } | null)?.selectedCause ?? null;
 
   const [allData, setAllData] = useState<AllData>({});
+  const [providerData, setProviderData] = useState<DeathRate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCause, setSelectedCause] = useState<string | null>(incomingCause);
 
+  // Fetch all death rates once
   useEffect(() => {
     setLoading(true);
     Promise.all(
@@ -58,9 +80,18 @@ const CountyDrillDown = (_props: ViewProps) => {
       const map: AllData = {};
       results.forEach(({ cause, data }) => { map[cause] = data; });
       setAllData(map);
-    }).catch(() => setError('Failed to load county data.'))
+    })
+      .catch(() => setError('Failed to load county data.'))
       .finally(() => setLoading(false));
   }, []);
+
+  // Re-fetch provider data whenever the selected cause changes
+  const providerCause = selectedCause ?? 'Chronic_Lower_Respiratory_Diseases';
+  useEffect(() => {
+    axios.get(`${API_BASE}/providers`, { params: { cause: providerCause } })
+      .then(r => setProviderData(r.data))
+      .catch(() => setProviderData([]));
+  }, [providerCause]);
 
   const getDataYears = (data: DeathRate[]) =>
     Object.keys(data.find(d => d.County === 'ILLINOIS') ?? {})
@@ -125,6 +156,28 @@ const CountyDrillDown = (_props: ViewProps) => {
       State: Number(stateRow?.[year]) > 0 ? Number(stateRow?.[year]) : null,
     }));
   })();
+
+  // Provider trend for this county
+  const providerCountyRow = providerData.find(d => d.County === decoded);
+  const providerStateRow  = providerData.find(d => d.County === 'ILLINOIS');
+  const providerTrendData = (() => {
+    if (!providerCountyRow) return [];
+    return Object.keys(providerCountyRow)
+      .filter(k => k !== 'County' && !isNaN(Number(k)))
+      .sort()
+      .map(year => ({
+        year,
+        County: Number(providerCountyRow[year]) > 0 ? Number(providerCountyRow[year]) : null,
+        State:  Number(providerStateRow?.[year]) > 0 ? Number(providerStateRow?.[year]) : null,
+      }));
+  })();
+  const latestProviderRate = providerTrendData.length
+    ? (providerTrendData[providerTrendData.length - 1].County ?? 0)
+    : 0;
+  const latestStateProviderRate = providerTrendData.length
+    ? (providerTrendData[providerTrendData.length - 1].State ?? 0)
+    : 0;
+  const providerRatio = latestStateProviderRate > 0 ? latestProviderRate / latestStateProviderRate : 0;
 
   const pop = countyPop2020[decoded];
   const topCauses = [...causeSummary].filter(d => d.hasData).sort((a, b) => b.ratio - a.ratio).slice(0, 3);
@@ -196,7 +249,7 @@ const CountyDrillDown = (_props: ViewProps) => {
       </div>
 
       {/* KPI strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: `1px solid ${RULE}` }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', borderBottom: `1px solid ${RULE}` }}>
         <div className="stat">
           <div className="stat-label">Population (2020)</div>
           <div className="stat-value num">{pop ? (pop / 1000).toFixed(0) + 'k' : '—'}</div>
@@ -221,6 +274,17 @@ const CountyDrillDown = (_props: ViewProps) => {
           </div>
           <div className="stat-meta" style={{ color: topCauses[0]?.ratio > 1.2 ? D_HIGH : D_LOW }}>
             {topCauses[0]?.ratio > 0 ? `${((topCauses[0].ratio - 1) * 100 > 0 ? '+' : '')}${((topCauses[0].ratio - 1) * 100).toFixed(0)}%` : ''}
+          </div>
+        </div>
+        <div className="stat">
+          <div className="stat-label">Specialists / 100k</div>
+          <div className="stat-value num" style={{ color: providerRatio < 0.5 ? D_HIGH : providerRatio >= 1.2 ? P_PROVIDER : undefined }}>
+            {latestProviderRate > 0 ? latestProviderRate.toFixed(1) : '—'}
+          </div>
+          <div className="stat-meta" style={{ color: providerRatio < 0.5 && latestProviderRate > 0 ? '#C0392B' : providerRatio >= 1.2 ? P_PROVIDER : undefined }}>
+            {providerRatio > 0
+              ? `${providerRatio >= 1 ? '+' : ''}${((providerRatio - 1) * 100).toFixed(0)}% vs state`
+              : 'NPI Registry · 2022'}
           </div>
         </div>
       </div>
@@ -322,6 +386,50 @@ const CountyDrillDown = (_props: ViewProps) => {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Provider density timeline */}
+        {providerTrendData.length > 0 && (
+          <div className="panel">
+            <div className="panel-head">
+              <div className="titles">
+                <div className="eyebrow">Specialist access trend · {causeLabels[providerCause]?.split('(')[0].trim()}</div>
+                <div className="h3">{CAUSE_SPECIALIST_DESC[providerCause] ?? 'Specialists'} per 100k — {decoded} vs. Illinois</div>
+              </div>
+              <span className="caption" style={{ color: providerRatio < 0.5 ? '#C0392B' : providerRatio >= 1.2 ? P_PROVIDER : INK_3 }}>
+                {latestProviderRate > 0
+                  ? `${latestProviderRate.toFixed(1)} / 100k in 2022${providerRatio > 0 ? ` · ${providerRatio >= 1 ? '+' : ''}${((providerRatio - 1) * 100).toFixed(0)}% vs state` : ''}`
+                  : 'No specialists recorded in NPI registry for this county'}
+              </span>
+            </div>
+            <div className="panel-body">
+              <div style={{ height: 220 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={providerTrendData} margin={{ top: 4, right: 20, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={RULE} />
+                    <XAxis dataKey="year" tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
+                    <YAxis tick={{ fontSize: 10, fill: INK_4 }}
+                      label={{ value: '/100k', angle: -90, position: 'insideLeft', fontSize: 10, fill: INK_4, dx: 4 }} />
+                    <Tooltip contentStyle={TIP_STYLE}
+                      formatter={(v: unknown, name: string) => [
+                        `${Number(v).toFixed(1)} /100k`,
+                        name === 'County' ? decoded : 'IL avg',
+                      ]} />
+                    <Legend wrapperStyle={{ fontSize: 11 }}
+                      formatter={(v: string) => v === 'County' ? decoded : 'IL avg'} />
+                    <Line type="monotone" dataKey="County" stroke={P_PROVIDER} strokeWidth={2.5}
+                      dot={{ r: 3, fill: P_PROVIDER }} activeDot={{ r: 5 }} connectNulls={false} />
+                    <Line type="monotone" dataKey="State" stroke={INK_4} strokeWidth={1.5}
+                      strokeDasharray="5 3" dot={false} connectNulls={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="caption" style={{ marginTop: 12, color: INK_4 }}>
+                Active {(CAUSE_SPECIALIST_DESC[providerCause] ?? 'specialists').toLowerCase()} per 100k residents (2020 Census). Source: CMS NPPES NPI Registry,
+                reconstructed from enrollment and deactivation dates. Single-snapshot limitation: location reflects Feb 2026 address.
+              </p>
             </div>
           </div>
         )}

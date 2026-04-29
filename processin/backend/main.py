@@ -67,7 +67,9 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 data_dir = os.path.join(os.path.dirname(__file__), "static")
 death_rates_dir = os.path.join(data_dir, "death_rate_tables")
+provider_tables_dir = os.path.join(data_dir, "provider_tables")
 os.makedirs(death_rates_dir, exist_ok=True)
+os.makedirs(provider_tables_dir, exist_ok=True)
 
 # ── Auth helpers ──────────────────────────────────────────────
 
@@ -291,6 +293,20 @@ def get_death_rates(cause: str, user=Depends(get_current_user)):
     except Exception as e:
         logger.error("Error reading %s: %s", cause, e)
         raise HTTPException(status_code=500, detail="Failed to read data")
+
+
+@app.get("/providers")
+def get_providers(cause: str, user=Depends(get_current_user)):
+    _validate_cause(cause)
+    file_path = os.path.join(provider_tables_dir, f"{cause}_provider_counts.csv")
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail=f"Provider data not found for cause: {cause}")
+    try:
+        df = pd.read_csv(file_path, na_values=["", " "])
+        return JSONResponse(content=df.fillna(0).to_dict(orient="records"))
+    except Exception as e:
+        logger.error("Error reading provider data for %s: %s", cause, e)
+        raise HTTPException(status_code=500, detail="Failed to read provider data")
 
 
 # ── Export ────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import CountyScorecard from './components/CountyScorecard';
 import PriorityMatrix from './components/PriorityMatrix';
 import CountyDrillDown from './components/CountyDrillDown';
 import PulseView from './components/PulseView';
+import ProviderView from './components/ProviderView';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import AdminPanel from './pages/AdminPanel';
@@ -54,6 +55,14 @@ const IconPulse = () => (
     <path d="M8 5v3l2 2"/>
   </svg>
 );
+const IconProviders = () => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
+    <circle cx="6" cy="5" r="2"/>
+    <path d="M2 13c0-2.2 1.8-3.5 4-3.5s4 1.3 4 3.5"/>
+    <circle cx="12" cy="5" r="1.5"/>
+    <path d="M10.5 13c0-1.4 0.7-2.5 1.5-2.5"/>
+  </svg>
+);
 const IconAdmin = () => (
   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
     <circle cx="8" cy="5" r="2.5"/>
@@ -86,6 +95,7 @@ const NAV_ITEMS = [
   { path: '/scorecard', label: 'Scorecard', num: '03', Icon: IconTable, exact: false, sub: 'Heatmap table' },
   { path: '/priority', label: 'Priority', num: '04', Icon: IconScatter, exact: false, sub: 'Quadrant matrix' },
   { path: '/pulse', label: 'Pulse', num: '05', Icon: IconPulse, exact: false, sub: 'Annotated timeline' },
+  { path: '/providers', label: 'Providers', num: '06', Icon: IconProviders, exact: false, sub: 'Specialist density' },
 ];
 
 // ── Presets flyout ───────────────────────────────────────────
@@ -190,7 +200,7 @@ function Sidebar() {
           <>
             <div className="nav-section-label" style={{ marginTop: 12 }}>Admin</div>
             <NavLink to="/admin" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-              <span className="nav-num">06</span>
+              <span className="nav-num">07</span>
               <IconAdmin />
               <span className="nav-label">Admin</span>
             </NavLink>
@@ -296,6 +306,7 @@ function AppShell() {
           <Route path="/scorecard" element={<ProtectedRoute><CountyScorecard {...props} /></ProtectedRoute>} />
           <Route path="/priority" element={<ProtectedRoute><PriorityMatrix {...props} /></ProtectedRoute>} />
           <Route path="/pulse" element={<ProtectedRoute><PulseView {...props} /></ProtectedRoute>} />
+          <Route path="/providers" element={<ProtectedRoute><ProviderView {...props} /></ProtectedRoute>} />
           <Route path="/county/:countyName" element={<ProtectedRoute><CountyDrillDown {...props} /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminPanel /></ProtectedRoute>} />
         </Routes>

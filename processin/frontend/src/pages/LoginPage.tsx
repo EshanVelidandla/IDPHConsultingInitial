@@ -86,7 +86,7 @@ export default function LoginPage() {
           <div className="eyebrow" style={{ marginBottom: 10 }}>Default credentials</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {[
-              { role: 'Admin', user: 'admin', pass: 'idph2024' },
+              { role: 'Admin', user: 'admin', pass: 'admin1234' },
               { role: 'Viewer', user: 'viewer', pass: 'viewer123' },
             ].map(({ role, user: u, pass }) => (
               <div key={role}

@@ -2,7 +2,7 @@
   {
     "id": "1",
     "username": "admin",
-    "password_hash": "99418f55cce659ab961de58acb509ba9:cc8de08a899f0306f61cfc3db4cef4c971d631837c030c98f6c2c99defde8ec1",
+    "password_hash": "9fa4e8dfc4d875a7e013eef157a85e93:33bb6a3e97f7efb23eaa3745bdf35966544d806a378492e7fbee60ecfc723977",
     "role": "admin",
     "name": "IDPH Admin",
     "created_at": "2026-04-27T23:24:26.765172Z"
