@@ -106,5 +106,50 @@
     "detail": "Successful login",
     "timestamp": "2026-04-30T21:17:55.430030Z",
     "ip": "127.0.0.1"
+  },
+  {
+    "id": "7501c069-b6ca-4714-b7be-46428604bbe9",
+    "user": "admin",
+    "action": "login",
+    "resource": "auth",
+    "detail": "Successful login",
+    "timestamp": "2026-04-30T22:09:45.056769Z",
+    "ip": "127.0.0.1"
+  },
+  {
+    "id": "560700ec-7247-4e7e-a837-d6bb408c9baf",
+    "user": "admin",
+    "action": "create",
+    "resource": "presets/f609e666-8fe7-4b83-86f4-d3074bcf65af",
+    "detail": "Created preset 'Heart'",
+    "timestamp": "2026-04-30T22:12:35.001773Z",
+    "ip": "127.0.0.1"
+  },
+  {
+    "id": "ee4be2d5-f46c-4b22-ae8a-c41726ea88a9",
+    "user": "admin",
+    "action": "create",
+    "resource": "annotations/07bbd12d-3d76-4d97-bc73-c1fef73b7bd9",
+    "detail": "Annotated Cook",
+    "timestamp": "2026-04-30T22:20:59.335407Z",
+    "ip": "127.0.0.1"
+  },
+  {
+    "id": "35810fa6-b674-4f25-bdf6-826c4dfebabf",
+    "user": "admin",
+    "action": "delete",
+    "resource": "presets/f609e666-8fe7-4b83-86f4-d3074bcf65af",
+    "detail": "Deleted preset 'Heart'",
+    "timestamp": "2026-04-30T22:21:39.349727Z",
+    "ip": "127.0.0.1"
+  },
+  {
+    "id": "f4794a37-f13b-4310-85d3-98438d4c5041",
+    "user": "admin",
+    "action": "login",
+    "resource": "auth",
+    "detail": "Successful login",
+    "timestamp": "2026-05-02T06:58:20.384286Z",
+    "ip": "127.0.0.1"
   }
 ]
