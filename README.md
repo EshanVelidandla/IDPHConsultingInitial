@@ -1,12 +1,12 @@
 # Illinois County Mortality Analytics
 
-A full-stack geospatial analytics platform surfacing cause-of-death trends across all 102 Illinois counties from 2009 to 2022. Built in collaboration with the Illinois Department of Public Health (IDPH) to inform statewide resource allocation decisions.
+A full-stack geospatial analytics platform surfacing cause-of-death trends and healthcare provider access across all 102 Illinois counties from 2008 to 2022. Built in collaboration with the Illinois Department of Public Health (IDPH) to inform statewide resource allocation decisions.
 
 ## Overview
 
-- **ETL pipeline**: Python scripts extract structured death data from IDPH annual PDF reports, normalize it across 15 disease categories, and output county-year pivot tables.
-- **Backend**: FastAPI server with JWT authentication, role-based access control, and endpoints for death rate data, annotations, thresholds, presets, and CSV export.
-- **Frontend**: React + TypeScript SPA with five analytical views, a county drill-down profile, shared global filters, and an admin panel.
+- **ETL pipeline**: Python scripts extract structured death data from IDPH annual PDF reports, normalize it across 15 disease categories, and output county-year pivot tables. A separate HRSA pipeline processes Area Health Resource Files (AHRF) into 5 provider-density metrics.
+- **Backend**: FastAPI server with JWT authentication, role-based access control, and endpoints for death rate data, provider metrics, annotations, thresholds, presets, and CSV export.
+- **Frontend**: React + TypeScript SPA with seven analytical views, a county drill-down profile, shared global filters, and an admin panel.
 
 ## Views
 
@@ -14,11 +14,13 @@ A full-stack geospatial analytics platform surfacing cause-of-death trends acros
 |---|---|---|
 | 01 | Map | Leaflet choropleth across 102 counties; click county to open drill-down |
 | 02 | Insights | Statewide trend chart, county distribution, top/bottom county rankings |
-| 03 | Scorecard | Heatmap table — all counties × all causes, sortable by ratio vs. state |
+| 03 | Scorecard | Heatmap table -- all counties x all causes, sortable by ratio vs. state |
 | 04 | Priority | Scatter quadrant matrix (rate vs. trend slope) for prioritization |
 | 05 | Pulse | Annotated timeline with intervention markers and threshold alerts |
-| — | County Profile | Per-county drill-down: cause breakdown bar chart, trend overlay, excess deaths, full cause table |
-| 06 | Admin | Dataset upload/management, user management, audit log (admin only) |
+| 06 | Providers | County choropleth and rankings for 5 healthcare access metrics |
+| 07 | Access x Mortality | Scatter correlation analysis between provider density and death rates, with Pearson r and regression fit |
+| -- | County Profile | Per-county drill-down: cause breakdown bar chart, trend overlay, excess deaths, full cause table |
+| -- | Admin | Dataset upload/management, user management, audit log (admin only) |
 
 ## Disease Categories
 
@@ -40,6 +42,16 @@ A full-stack geospatial analytics platform surfacing cause-of-death trends acros
 | Chronic Liver Disease & Cirrhosis |
 | All Other Causes |
 
+## Provider Metrics (HRSA AHRF)
+
+| Metric | Description |
+|---|---|
+| Primary Care Physicians per 100k | Non-federal PCPs excluding hospital residents |
+| Total Active MDs per 100k | All non-federal active physicians |
+| Psychiatry MDs per 100k | Active psychiatrists |
+| Hospital Beds per 100k | AHA survey beds (2010, 2015, 2020; interpolated otherwise) |
+| HPSA Primary Care Designation | 0 = none, 1 = whole-county shortage area, 2 = partial |
+
 ## Project Structure
 
 ```
@@ -51,7 +63,9 @@ ResearchWork/
 │   └── *_death_data.csv             # Raw per-county data files (102 counties)
 │
 ├── One More time/                   # PDF ETL pipeline (2008-2022)
-│   ├── improved_pdf_converter.py    # Primary PDF-to-CSV extractor
+│   ├── extract_pdf_data.py          # Robust pdfplumber-based extractor (any year)
+│   ├── repair_pipeline.py           # End-to-end repair: re-extract -> rates -> CSVs
+│   ├── improved_pdf_converter.py    # Earlier primary PDF-to-CSV extractor
 │   ├── pdf_to_csv_converter.py      # Baseline PDF extractor
 │   ├── process_death_rates.py       # Pivots per-year CSVs into cause-year tables
 │   ├── clean_death_rates.py         # Validates and normalizes county tables
@@ -70,22 +84,27 @@ ResearchWork/
 │   │   ├── requirements.txt
 │   │   └── static/
 │   │       ├── illinois-counties.geojson
-│   │       └── death_rate_tables/   # Cause-year CSVs served by the API
+│   │       ├── death_rate_tables/   # Cause-year CSVs served by the API
+│   │       ├── provider_tables/     # HRSA-derived provider metric CSVs (5 files)
+│   │       ├── process_hrsa.py      # HRSA AHRF processor (produces provider_tables/)
+│   │       └── hrsa_raw/            # Raw AHRF files by year (2008-2023, Git LFS)
 │   └── frontend/
 │       ├── src/
 │       │   ├── App.tsx              # Root layout, sidebar, global filters, presets
 │       │   ├── auth/
 │       │   │   └── AuthContext.tsx  # JWT auth context + protected routes
 │       │   ├── data/
-│       │   │   ├── constants.ts     # Cause labels, IDPH districts, calcSlope
+│       │   │   ├── constants.ts     # Cause labels, provider metrics, calcSlope
 │       │   │   └── population.ts    # 2020 census population by county
 │       │   └── components/
-│       │       ├── MapView.tsx      # Choropleth map + county hover chart
-│       │       ├── InsightsView.tsx # Statewide trend, top counties, distribution
-│       │       ├── CountyScorecard.tsx  # All-county heatmap table
-│       │       ├── PriorityMatrix.tsx   # Scatter quadrant (rate vs. slope)
-│       │       ├── PulseView.tsx        # Annotated timeline + thresholds
-│       │       └── CountyDrillDown.tsx  # Per-county profile with cause breakdown
+│       │       ├── MapView.tsx           # Choropleth map + county hover chart
+│       │       ├── InsightsView.tsx      # Statewide trend, top counties, distribution
+│       │       ├── CountyScorecard.tsx   # All-county heatmap table
+│       │       ├── PriorityMatrix.tsx    # Scatter quadrant (rate vs. slope)
+│       │       ├── PulseView.tsx         # Annotated timeline + thresholds
+│       │       ├── ProvidersView.tsx     # Provider density choropleth and rankings
+│       │       ├── AccessMortalityView.tsx  # Provider x mortality correlation scatter
+│       │       └── CountyDrillDown.tsx   # Per-county profile with cause breakdown
 │       ├── package.json
 │       └── vite.config.ts
 │
@@ -94,11 +113,13 @@ ResearchWork/
 
 ## ETL Pipeline
 
+### Mortality data (IDPH PDFs)
+
 **Stage 1: PDF extraction** (run from `One More time/`)
 ```bash
-python improved_pdf_converter.py
+python extract_pdf_data.py
 ```
-Reads all IDPH annual PDF reports and outputs one CSV per year to `csv_output/`.
+Robust pdfplumber-based extractor; handles any year 2008-2022 including column-scramble years (2020-2022).
 
 **Stage 2: Pivot to cause tables** (run from `One More time/`)
 ```bash
@@ -111,6 +132,20 @@ Merges per-year CSVs into county-year pivot tables, one file per disease categor
 python clean_death_rates.py
 ```
 Fixes county name inconsistencies, removes invalid entries, and prepends a statewide Illinois summary row to each table.
+
+**Full repair run** (re-extracts all years from PDFs and recomputes rates):
+```bash
+cd "One More time"
+python repair_pipeline.py
+```
+
+### Provider data (HRSA AHRF)
+
+**Process AHRF files** (run from `processin/backend/static/`)
+```bash
+python process_hrsa.py
+```
+Reads fixed-width `.asc` files from `hrsa_raw/` for each year and outputs 5 county-year CSVs to `provider_tables/`. Covers 2008-2022; hospital beds are interpolated for non-survey years.
 
 ## Running the App
 
@@ -138,6 +173,7 @@ Dev server runs at `http://localhost:5173`.
 | GET | `/auth/me` | User | Current user info |
 | GET | `/geojson` | User | Illinois county GeoJSON boundaries |
 | GET | `/death_rates?cause=<cause>` | User | County-year death rates for a cause |
+| GET | `/provider_data?metric=<metric>` | User | County-year provider metric data |
 | GET | `/export/csv?cause=<cause>` | User | Download cause dataset as CSV |
 | GET/POST | `/annotations` | User/Editor | County-cause annotations |
 | PUT/DELETE | `/annotations/:id` | Editor | Update or delete annotation |
@@ -162,18 +198,23 @@ Dev server runs at `http://localhost:5173`.
 
 | Layer | Technology |
 |---|---|
-| ETL | Python, pandas, PyPDF2 |
+| ETL | Python, pandas, pdfplumber |
 | Backend | FastAPI, uvicorn, python-jose (JWT) |
 | Frontend | React 18, TypeScript, Vite |
 | Routing | React Router v6 |
 | Mapping | Leaflet.js, react-leaflet |
 | Charts | Recharts, D3 |
 | HTTP | Axios |
-| Data | IDPH Statewide Causes of Death by Resident County (2009-2022) |
+| Storage | Git LFS (HRSA raw .asc files) |
+| Data (mortality) | IDPH Statewide Causes of Death by Resident County (2008-2022) |
+| Data (providers) | HRSA Area Health Resource Files (AHRF) 2008-2023 |
 
 ## Data Notes
 
-- Source: Illinois Department of Public Health, Statewide Leading Causes of Death by Resident County, published annually.
-- Coverage: 2009-2022, 102 Illinois counties (plus Chicago and Suburban Cook subdivisions as separate rows).
+- **Mortality source**: Illinois Department of Public Health, Statewide Leading Causes of Death by Resident County, published annually.
+- **Coverage**: 2008-2022, 102 Illinois counties (plus Chicago and Suburban Cook subdivisions as separate rows).
 - Some county-year cells are suppressed in the source data (low counts). These appear as `0` in the processed CSVs. The county drill-down automatically falls back to the most recent non-suppressed year for each cause rather than showing "no data."
-- The `2008` column is excluded from all analysis as it was not consistently reported across counties.
+- **Provider source**: HRSA Area Health Resource Files (AHRF), a county-level dataset published annually covering provider counts, hospital capacity, and shortage designations.
+- Hospital bed counts are from the AHA survey (available only for 2010, 2015, 2020); intermediate years are linearly interpolated.
+- HPSA designation gaps between 2010 and 2015 are forward-filled from the 2010 value.
+- Raw AHRF `.asc` files are stored in Git LFS due to file size (95-100 MB each).
