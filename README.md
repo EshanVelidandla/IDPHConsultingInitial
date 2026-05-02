@@ -147,6 +147,46 @@ python process_hrsa.py
 ```
 Reads fixed-width `.asc` files from `hrsa_raw/` for each year and outputs 5 county-year CSVs to `provider_tables/`. Covers 2008-2022; hospital beds are interpolated for non-survey years.
 
+## Getting the Data (Git LFS)
+
+The raw HRSA `.asc` files (~95-100 MB each) are stored in Git LFS. A standard `git clone` downloads only the pointer files -- not the actual data. To get everything:
+
+**1. Install Git LFS** (one-time, per machine)
+```bash
+# macOS
+brew install git-lfs
+
+# Ubuntu/Debian
+sudo apt install git-lfs
+
+# Windows — download from https://git-lfs.com or via winget:
+winget install GitHub.GitLFS
+```
+
+**2. Enable LFS for your account** (one-time, per machine)
+```bash
+git lfs install
+```
+
+**3. Clone with LFS files**
+```bash
+git clone https://github.com/EshanVelidandla/IDPHConsultingInitial.git
+```
+LFS files are pulled automatically after LFS is installed.
+
+**Already cloned without LFS?** Fetch the large files retroactively:
+```bash
+git lfs pull
+```
+
+**Verify LFS files downloaded correctly:**
+```bash
+git lfs ls-files
+```
+Each line should show a hash prefix -- if you see `(missing)` instead, re-run `git lfs pull`.
+
+> Note: You do not need the raw HRSA `.asc` files to run the web app. The processed `provider_tables/` CSVs are plain text and are committed directly to the repo. LFS is only required if you want to re-run `process_hrsa.py` to regenerate those tables.
+
 ## Running the App
 
 **Backend**
