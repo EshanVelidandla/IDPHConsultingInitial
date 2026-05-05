@@ -615,6 +615,6 @@ def get_audit(limit: int = 100, offset: int = 0, user=Depends(require_admin)):
 
 from fastapi.staticfiles import StaticFiles
 
-_ui_dir = os.path.join(os.path.dirname(__file__), "static", "ui")
+_ui_dir = os.path.join(os.path.dirname(__file__), "ui")
 if os.path.isdir(_ui_dir):
     app.mount("/", StaticFiles(directory=_ui_dir, html=True), name="ui")
