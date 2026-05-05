@@ -1,0 +1,5 @@
+processin/backend/venv
+processin/backend/__pycache__
+processin/backend/*.pyc
+processin/frontend/node_modules
+processin/frontend/dist
