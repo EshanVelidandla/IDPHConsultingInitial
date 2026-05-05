@@ -613,6 +613,8 @@ def get_audit(limit: int = 100, offset: int = 0, user=Depends(require_admin)):
     return {"total": len(log_sorted), "entries": log_sorted[offset: offset + limit]}
 
 
-@app.get("/")
-def root():
-    return {"message": "IDPH Mortality Analytics API v2"}
+from fastapi.staticfiles import StaticFiles
+
+_ui_dir = os.path.join(os.path.dirname(__file__), "static", "ui")
+if os.path.isdir(_ui_dir):
+    app.mount("/", StaticFiles(directory=_ui_dir, html=True), name="ui")
