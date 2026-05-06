@@ -2,17 +2,17 @@
   {
     "id": "1",
     "username": "admin",
-    "password_hash": "99418f55cce659ab961de58acb509ba9:cc8de08a899f0306f61cfc3db4cef4c971d631837c030c98f6c2c99defde8ec1",
+    "password_hash": "eff982b4be5cc2fa6045fe9a4be7c50b:b57a2aa5b7ea188fabcc988227df1d95dcc71bab2bf980039215a16fae35cd61",
     "role": "admin",
     "name": "IDPH Admin",
-    "created_at": "2026-04-27T23:24:26.765172Z"
+    "created_at": "2026-05-06T00:23:56.669316Z"
   },
   {
     "id": "2",
     "username": "viewer",
-    "password_hash": "a2045b4c7553167b4e6631f3c2bada49:6635e29276d6902c839a149148632b61cec855bd4a2e3fb2b44b704786938c74",
+    "password_hash": "b2b2e26bf3b0dbe21af717be2eb4260b:a1f0c0a6c07602fdd3e403996bc48779227c9762ebd00ba2cfe71dd31ebc2a65",
     "role": "viewer",
     "name": "Read-Only User",
-    "created_at": "2026-04-27T23:24:26.765251Z"
+    "created_at": "2026-05-06T00:23:56.669388Z"
   }
 ]
