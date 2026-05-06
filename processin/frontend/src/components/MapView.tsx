@@ -367,15 +367,7 @@ path.on('mouseover', () => {
         </div>
       )}
 
-      {!selectedCause && !loading && (
-        <div className="empty" style={{ margin: '32px 40px 0' }}>
-          <div className="empty-eyebrow">No cause selected</div>
-          <div className="empty-title">Select a cause of death to begin</div>
-          <div className="empty-body">Use the dropdown above to choose a condition. The map will color all 102 counties by their death rate relative to the state average.</div>
-        </div>
-      )}
-
-      {/* Map + sidebar */}
+      {/* Map + sidebar — always full height so Leaflet never needs to resize */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', flex: 1, overflow: 'hidden', position: 'relative' }}>
 
         {/* Map column */}
@@ -386,6 +378,22 @@ path.on('mouseover', () => {
               <span>Loading data…</span>
             </div>
           )}
+
+          {/* Empty state overlaid on the map so the map container never changes height */}
+          {!selectedCause && !loading && (
+            <div style={{
+              position: 'absolute', inset: 0, zIndex: 700,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(251,250,247,0.88)', backdropFilter: 'blur(2px)',
+            }}>
+              <div className="empty" style={{ textAlign: 'center', alignItems: 'center' }}>
+                <div className="empty-eyebrow">No cause selected</div>
+                <div className="empty-title">Select a cause of death to begin</div>
+                <div className="empty-body">Use the dropdown above to choose a condition. The map will color all 102 counties by their death rate relative to the state average.</div>
+              </div>
+            </div>
+          )}
+
           <MapContainer
             center={[40.0, -89.3]}
             zoom={6}
