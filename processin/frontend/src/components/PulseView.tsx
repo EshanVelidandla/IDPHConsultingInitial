@@ -228,7 +228,7 @@ const PulseView = (_props: ViewProps) => {
             <span style={{ color: 'var(--ink-3)' }}>read year by year.</span>
           </h1>
           <p className="body" style={{ marginTop: 12, maxWidth: 540, color: 'var(--ink-3)' }}>
-            A narrative view of Illinois mortality. Scrub through years to see which counties shift, when policies took effect, and how the COVID-era reshaped the map.
+            A year-by-year view of Illinois mortality from 2009 to 2022. Drag the timeline to move through years and see how the county map shifts. Key events — ACA implementation, the pre-pandemic low, COVID onset — are marked as reference points. Use the multi-county chart below to compare specific counties side by side.
           </p>
         </div>
       </div>

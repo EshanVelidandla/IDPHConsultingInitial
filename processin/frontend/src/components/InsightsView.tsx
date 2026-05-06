@@ -275,7 +275,7 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
           <div className="eyebrow eyebrow-ink">Mortality Insights</div>
           <h1 className="h-display" style={{ marginTop: 8 }}>Statewide patterns &amp;<br />county trajectories.</h1>
           <p className="body" style={{ marginTop: 12, maxWidth: 540, color: 'var(--ink-3)' }}>
-            Population-adjusted excess deaths, change since 2009, and the COVID-era shift across 102 Illinois counties.
+            Pick a cause of death to see how its rate has moved statewide since 2009, how each county compares to the Illinois average, and which counties are on an improving or worsening trajectory. Scrub the year slider to update all charts at once.
           </p>
         </div>
         <div className="ix">
@@ -296,9 +296,9 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
 
       {!hasData && !loading ? (
         <div className="empty" style={{ margin: '48px 40px' }}>
-          <div className="empty-eyebrow">No data selected</div>
-          <div className="empty-title">Select a cause of death</div>
-          <div className="empty-body">Choose a cause from the dropdown above to view statewide trends, county distribution, and trajectory analysis.</div>
+          <div className="empty-eyebrow">No cause selected</div>
+          <div className="empty-title">Select a cause of death to begin</div>
+          <div className="empty-body">Choose a cause from the dropdown above to see the statewide trend line, county distribution, year-over-year changes, and which counties are improving or worsening.</div>
         </div>
       ) : loading ? (
         <div className="loading-center"><div className="spinner" /><span>Loading data…</span></div>

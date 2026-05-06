@@ -153,7 +153,7 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
           <div className="eyebrow eyebrow-ink">Healthcare Access · 102 counties</div>
           <h1 className="h-display" style={{ marginTop: 8 }}>Provider density<br /><span style={{ color: 'var(--ink-3)' }}>across Illinois.</span></h1>
           <p className="body" style={{ marginTop: 12, maxWidth: 540, color: 'var(--ink-3)' }}>
-            HRSA Area Health Resources File data. Physician counts, hospital beds, and HPSA shortage designations by county, 2008–2022.
+            Shows how physician availability, hospital bed capacity, and primary care shortage designations vary across Illinois counties from 2008 to 2022. Counties below the state average are flagged in red. Use the metric selector to switch between provider types, and the year slider to see how access has changed over time.
           </p>
         </div>
         <div className="ix">

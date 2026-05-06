@@ -267,7 +267,7 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
           <div className="eyebrow eyebrow-ink">Access × Mortality · Correlation analysis</div>
           <h1 className="h-display" style={{ marginTop: 8 }}>Does access predict<br /><span style={{ color: 'var(--ink-3)' }}>mortality?</span></h1>
           <p className="body" style={{ marginTop: 12, maxWidth: 540, color: 'var(--ink-3)' }}>
-            Pearson correlation, linear regression, and temporal analysis linking provider availability to cause-specific death rates across 102 Illinois counties.
+            Tests whether counties with fewer doctors or hospital beds tend to have higher death rates. Each dot is a county; the trend line shows the strength of that relationship across all 102 counties. Select a cause of death and a provider metric to explore the connection, or switch to the temporal tab to see how both have changed over time.
           </p>
         </div>
         <div className="ix">

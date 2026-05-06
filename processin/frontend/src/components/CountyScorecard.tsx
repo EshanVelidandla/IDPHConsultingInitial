@@ -222,7 +222,7 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
           <div className="eyebrow eyebrow-ink">County Scorecard</div>
           <h1 className="h-display" style={{ marginTop: 8 }}>102 counties × {causes.length} causes</h1>
           <p className="body" style={{ marginTop: 12, maxWidth: 540, color: 'var(--ink-3)' }}>
-            Each cell shows a county's age-adjusted death rate as a ratio to the statewide average. Click a cause cell to open that county's drilldown with the cause pre-selected.
+            Every row is a county; every column is a cause of death. Each cell shows that county's death rate as a multiple of the statewide average — red means above average, green means below. Click any cell to open a full county profile for that cause.
           </p>
         </div>
         <div className="ix">

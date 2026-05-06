@@ -153,7 +153,7 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
           <div className="eyebrow eyebrow-ink">Priority Matrix</div>
           <h1 className="h-display" style={{ marginTop: 8 }}>Where to intervene first.</h1>
           <p className="body" style={{ marginTop: 12, maxWidth: 540, color: 'var(--ink-3)' }}>
-            Each county plotted by its current rate (vs. state average) and its trajectory (slope from 2009). Upper-right quadrant warrants immediate attention.
+            Each dot is a county. The x-axis shows how high its death rate is relative to the state average; the y-axis shows whether that rate is rising or falling over time. Counties in the upper-right — already high and still getting worse — are the highest priority for intervention.
           </p>
         </div>
         <div className="ix">
@@ -195,6 +195,14 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
       </div>
 
       {error && <div className="error-banner" style={{ margin: '16px 40px' }}>{error}</div>}
+
+      {!selectedCause && !loading && (
+        <div className="empty" style={{ margin: '48px 40px' }}>
+          <div className="empty-eyebrow">No cause selected</div>
+          <div className="empty-title">Select a cause of death to begin</div>
+          <div className="empty-body">Choose a cause from the dropdown above to plot all 102 counties by their death rate and trend direction. Counties in the upper-right are the highest priority.</div>
+        </div>
+      )}
 
       {/* Chart + right rail */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', flex: 1, overflow: 'hidden' }}>

@@ -289,7 +289,7 @@ path.on('mouseover', () => {
           <div className="eyebrow eyebrow-ink">Choropleth · 102 counties</div>
           <h1 className="h-display" style={{ marginTop: 8 }}>Mortality across Illinois</h1>
           <p className="body" style={{ marginTop: 10, maxWidth: 540, color: 'var(--ink-3)' }}>
-            County-level age-adjusted death rates per 100,000 residents. Hover for trend; click to drill in.
+            Choose a cause of death to color each county by its age-adjusted death rate per 100,000 residents. Darker red means further above the state average; green means below. Hover a county to see its trend line; click to open a full county profile.
           </p>
         </div>
         <div className="ix">
@@ -359,6 +359,14 @@ path.on('mouseover', () => {
             <circle cx="8" cy="8" r="6" /><path d="M8 5v4M8 11v.5" />
           </svg>
           {error}
+        </div>
+      )}
+
+      {!selectedCause && !loading && (
+        <div className="empty" style={{ margin: '32px 40px 0' }}>
+          <div className="empty-eyebrow">No cause selected</div>
+          <div className="empty-title">Select a cause of death to begin</div>
+          <div className="empty-body">Use the dropdown above to choose a condition. The map will color all 102 counties by their death rate relative to the state average.</div>
         </div>
       )}
 
