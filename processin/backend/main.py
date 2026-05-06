@@ -621,7 +621,16 @@ def get_audit(limit: int = 100, offset: int = 0, user=Depends(require_admin)):
 
 
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 _ui_dir = os.path.join(os.path.dirname(__file__), "ui")
+_index = os.path.join(_ui_dir, "index.html")
+
 if os.path.isdir(_ui_dir):
-    app.mount("/", StaticFiles(directory=_ui_dir, html=True), name="ui")
+    app.mount("/assets", StaticFiles(directory=os.path.join(_ui_dir, "assets")), name="assets")
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def spa_fallback(full_path: str):
+    if os.path.isfile(_index):
+        return FileResponse(_index)
+    return {"detail": "UI not built"}

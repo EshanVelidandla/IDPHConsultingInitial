@@ -61,7 +61,7 @@ export const IDPH_DISTRICTS: Record<number, { name: string; counties: string[] }
   9: { name: 'District 9 — Southeast', counties: ['Jefferson','White','Hamilton','Perry','Franklin','Jackson','Gallatin','Saline','Williamson','Hardin','Pope','Johnson','Union','Massac','Pulaski','Alexander'] },
 };
 
-export const API_BASE = 'http://127.0.0.1:8000';
+export const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
 export const providerMetricLabels: Record<string, string> = {
   total_active_mds_per_100k: 'Total Active MDs /100k',
