@@ -106,17 +106,20 @@ def require_editor(user=Depends(get_current_user)):
 
 
 def _audit(action: str, resource: str, detail: str, user: dict, request: Optional[Request] = None):
-    log = storage.load("audit", [])
-    log.append({
-        "id": str(uuid.uuid4()),
-        "user": user.get("username", "unknown"),
-        "action": action,
-        "resource": resource,
-        "detail": detail,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "ip": request.client.host if request and request.client else None,
-    })
-    storage.save("audit", log[-500:])
+    try:
+        log = storage.load("audit", [])
+        log.append({
+            "id": str(uuid.uuid4()),
+            "user": user.get("username", "unknown"),
+            "action": action,
+            "resource": resource,
+            "detail": detail,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "ip": request.client.host if request and request.client else None,
+        })
+        storage.save("audit", log[-500:])
+    except Exception as e:
+        logger.warning("Audit log write failed: %s", e)
 
 
 def _validate_cause(cause: str) -> str:

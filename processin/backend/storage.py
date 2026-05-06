@@ -3,6 +3,7 @@ import os
 from typing import Any
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+os.makedirs(DATA_DIR, exist_ok=True)
 
 
 def _path(name: str) -> str:
