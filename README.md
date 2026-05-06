@@ -2,6 +2,8 @@
 
 A full-stack geospatial analytics platform surfacing cause-of-death trends and healthcare provider access across all 102 Illinois counties from 2008 to 2022. Built in collaboration with the Illinois Department of Public Health (IDPH) to inform statewide resource allocation decisions.
 
+**Live:** [healthequity.up.railway.app](https://healthequity.up.railway.app)
+
 ## Overview
 
 - **ETL pipeline**: Python scripts extract structured death data from IDPH annual PDF reports, normalize it across 15 disease categories, and output county-year pivot tables. A separate HRSA pipeline processes Area Health Resource Files (AHRF) into 5 provider-density metrics.
@@ -192,7 +194,15 @@ Each line should show a hash prefix -- if you see `(missing)` instead, re-run `g
 **Backend**
 ```bash
 cd processin/backend
+python -m venv venv
+.\venv\Scripts\Activate.ps1   # Windows
+source venv/bin/activate       # macOS/Linux
 pip install -r requirements.txt
+
+# Set required env var (local dev only)
+export JWT_SECRET="any-long-random-string-for-local-dev"   # macOS/Linux
+$env:JWT_SECRET = "any-long-random-string-for-local-dev"   # Windows
+
 uvicorn main:app --reload
 ```
 API runs at `http://127.0.0.1:8000`.
@@ -203,7 +213,30 @@ cd processin/frontend
 npm install
 npm run dev
 ```
-Dev server runs at `http://localhost:5173`.
+Dev server runs at `http://localhost:5173`. Proxies `/api/*` to the backend.
+
+## Default Credentials
+
+| Role | Username | Password | Access |
+|------|----------|----------|--------|
+| Viewer | `viewer` | `viewer123` | Read-only |
+| Admin | `admin` | `idph2024` | Full access including admin panel |
+
+To reset a password, run from `processin/backend/`:
+```bash
+python -c "import hashlib, secrets; s=secrets.token_hex(16); h=hashlib.sha256(f'{s}:NEWPASSWORD'.encode()).hexdigest(); print(f'{s}:{h}')"
+```
+Paste the output into `backend/users.json` as `password_hash` for the relevant user.
+
+## Deployment
+
+Deployed on Railway via the `Dockerfile` in `processin/`. Push to `main` triggers an automatic redeploy.
+
+Required Railway environment variables:
+```
+JWT_SECRET       # long random string, min 32 chars
+ALLOWED_ORIGINS  # comma-separated list of allowed frontend origins
+```
 
 ## API Endpoints
 
