@@ -42,7 +42,7 @@ VALID_PROVIDER_METRICS = frozenset([
     "psychiatry_mds_per_100k",
 ])
 
-UPLOAD_MAX_BYTES = 20 * 1024 * 1024  # 20 MB
+UPLOAD_MAX_BYTES = 100 * 1024 * 1024  # 100 MB
 
 # ── App setup ─────────────────────────────────────────────────
 
