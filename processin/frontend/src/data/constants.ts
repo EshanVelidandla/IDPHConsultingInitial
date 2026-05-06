@@ -61,6 +61,7 @@ export const IDPH_DISTRICTS: Record<number, { name: string; counties: string[] }
   9: { name: 'District 9 — Southeast', counties: ['Jefferson','White','Hamilton','Perry','Franklin','Jackson','Gallatin','Saline','Williamson','Hardin','Pope','Johnson','Union','Massac','Pulaski','Alexander'] },
 };
 
+// Empty string = same-origin requests (API served by the same host as the SPA)
 export const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
 export const providerMetricLabels: Record<string, string> = {

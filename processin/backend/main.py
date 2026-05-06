@@ -325,6 +325,27 @@ def get_provider_data(metric: str, user=Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Failed to read data")
 
 
+# ── Meta ─────────────────────────────────────────────────────
+
+@app.get("/meta")
+def get_meta(user=Depends(get_current_user)):
+    """Return year range from the first available death-rate CSV."""
+    year_min, year_max = None, None
+    for fname in os.listdir(death_rates_dir):
+        if not fname.endswith(".csv"):
+            continue
+        try:
+            df = pd.read_csv(os.path.join(death_rates_dir, fname), nrows=1)
+            year_cols = [int(c) for c in df.columns if re.fullmatch(r"\d{4}", c)]
+            if year_cols:
+                year_min = min(year_cols)
+                year_max = max(year_cols)
+                break
+        except Exception:
+            continue
+    return {"year_min": year_min or 2009, "year_max": year_max or 2022}
+
+
 # ── Export ────────────────────────────────────────────────────
 
 @app.get("/export/csv")

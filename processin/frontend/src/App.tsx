@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import MapView from './components/MapView';
@@ -20,6 +20,7 @@ export interface SharedState {
   selectedYear: number;
   selectedDistrict: number | '';
   searchTarget: string;
+  dataYearRange: { min: number; max: number } | null;
 }
 
 // ── Icons ────────────────────────────────────────────────────
@@ -97,6 +98,53 @@ const IconLogout = () => (
   </svg>
 );
 
+// ── Session timeout warning ──────────────────────────────────
+
+const WARN_MS = 15 * 60 * 1000; // show banner 15 min before expiry
+
+function SessionWarning() {
+  const { tokenExpiry, logout } = useAuth();
+  const navigate = useNavigate();
+  const [msLeft, setMsLeft] = useState<number | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const tick = useCallback(() => {
+    if (!tokenExpiry) { setMsLeft(null); return; }
+    const remaining = tokenExpiry.getTime() - Date.now();
+    setMsLeft(remaining > 0 ? remaining : 0);
+    if (remaining <= 0) {
+      logout();
+      navigate('/login');
+    }
+  }, [tokenExpiry, logout, navigate]);
+
+  useEffect(() => {
+    tick();
+    intervalRef.current = setInterval(tick, 10_000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [tick]);
+
+  if (msLeft === null || msLeft > WARN_MS) return null;
+
+  const mins = Math.ceil(msLeft / 60_000);
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+      background: '#8B5A1A', color: '#fff', padding: '8px 20px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      fontSize: 12, fontFamily: 'var(--mono)', letterSpacing: '0.04em',
+    }}>
+      <span>Session expires in {mins} min. Save your work.</span>
+      <button
+        onClick={() => { logout(); navigate('/login'); }}
+        style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', padding: '3px 10px', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--mono)' }}
+      >
+        Sign out now
+      </button>
+    </div>
+  );
+}
+
 // ── Nav items ────────────────────────────────────────────────
 
 const NAV_ITEMS = [
@@ -171,7 +219,7 @@ function PresetsPopover({
 
 // ── Sidebar ──────────────────────────────────────────────────
 
-function Sidebar() {
+function Sidebar({ shared }: { shared: SharedState }) {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -219,7 +267,14 @@ function Sidebar() {
         )}
       </nav>
       <div className="rail-foot">
-        <div className="rf-row"><span>Years</span><span className="v">2009 – 2022</span></div>
+        <div className="rf-row">
+          <span>Years</span>
+          <span className="v">
+            {shared.dataYearRange
+              ? `${shared.dataYearRange.min} – ${shared.dataYearRange.max}`
+              : '2009 – 2022'}
+          </span>
+        </div>
         <div className="rf-row"><span>Counties</span><span className="v">102</span></div>
         <div className="rf-row"><span>Build</span><span className="v">v4.0</span></div>
         {user && (
@@ -302,13 +357,21 @@ function AppShell() {
     selectedYear: 2022,
     selectedDistrict: '',
     searchTarget: '',
+    dataYearRange: null,
   });
+
+  useEffect(() => {
+    axios.get(`${API_BASE}/meta`)
+      .then(r => setShared(s => ({ ...s, dataYearRange: { min: r.data.year_min, max: r.data.year_max } })))
+      .catch(() => {});
+  }, []);
 
   const props = { shared, setShared };
 
   return (
     <div className="app">
-      <Sidebar />
+      <SessionWarning />
+      <Sidebar shared={shared} />
       <div className="main">
         <TopStrip shared={shared} setShared={setShared} />
         <Routes>

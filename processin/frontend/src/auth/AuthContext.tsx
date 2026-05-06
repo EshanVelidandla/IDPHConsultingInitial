@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import axios from 'axios';
 import { API_BASE } from '../data/constants';
 
@@ -20,6 +20,16 @@ interface AuthContextValue extends AuthState {
   logout: () => void;
   isAdmin: boolean;
   isEditor: boolean;
+  tokenExpiry: Date | null;
+}
+
+function parseTokenExpiry(token: string): Date | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp ? new Date(payload.exp * 1000) : null;
+  } catch {
+    return null;
+  }
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -45,6 +55,7 @@ function setAxiosToken(token: string | null) {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ user: null, token: null, loading: true });
+  const logoutRef = useRef<() => void>(() => {});
 
   const applyToken = useCallback((token: string) => {
     setAxiosToken(token);
@@ -78,12 +89,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ user: null, token: null, loading: false });
   }, []);
 
+  // Keep ref current so the response interceptor never has a stale closure
+  useEffect(() => { logoutRef.current = logout; }, [logout]);
+
+  // Auto-logout on any 401 response (expired token)
+  useEffect(() => {
+    const id = axios.interceptors.response.use(
+      r => r,
+      err => {
+        if (err.response?.status === 401) logoutRef.current();
+        return Promise.reject(err);
+      }
+    );
+    return () => axios.interceptors.response.eject(id);
+  }, []);
+
+  const tokenExpiry = state.token ? parseTokenExpiry(state.token) : null;
+
   const value: AuthContextValue = {
     ...state,
     login,
     logout,
     isAdmin: state.user?.role === 'admin',
     isEditor: state.user?.role === 'admin' || state.user?.role === 'editor',
+    tokenExpiry,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

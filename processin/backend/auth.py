@@ -13,11 +13,10 @@ logger = logging.getLogger(__name__)
 
 SECRET_KEY = os.environ.get("JWT_SECRET", "")
 if not SECRET_KEY:
-    logger.warning(
-        "JWT_SECRET env var is not set — using an insecure default. "
-        "Set JWT_SECRET in production."
+    raise RuntimeError(
+        "JWT_SECRET environment variable is not set. "
+        "Set it to a long random string before starting the server."
     )
-    SECRET_KEY = "idph-dev-key-not-for-production"
 
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 8
@@ -63,7 +62,7 @@ def verify_password(password: str, stored: str) -> bool:
         return False
 
 
-def _load_users_raw() -> list:
+def load_users() -> list:
     import json
 
     if not os.path.exists(USERS_FILE):
@@ -90,10 +89,6 @@ def _load_users_raw() -> list:
         return initial
     with open(USERS_FILE) as f:
         return json.load(f)
-
-
-def load_users() -> list:
-    return _load_users_raw()
 
 
 def save_users(users: list) -> None:
