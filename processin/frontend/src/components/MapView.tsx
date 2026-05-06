@@ -62,23 +62,29 @@ function bivariateColor(
   return BV_LOW_HIGH;
 }
 
-function FitBounds({ geojson }: { geojson: FeatureCollection | null }) {
+function FitBounds({ geojson, causeSelected }: { geojson: FeatureCollection | null; causeSelected: boolean }) {
   const map = useMap();
   const fitted = useRef(false);
+  const prevCauseSelected = useRef(false);
   useEffect(() => {
-    if (!geojson || fitted.current) return;
-    // Defer until the flex container has finished layout, then invalidate before fitting
-    const id = setTimeout(() => {
-      map.invalidateSize();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const bounds = L.geoJSON(geojson as any).getBounds();
-      if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [20, 20] });
-        fitted.current = true;
-      }
-    }, 150);
-    return () => clearTimeout(id);
-  }, [geojson, map]);
+    if (!geojson) return;
+    const shouldFit = !fitted.current || (!prevCauseSelected.current && causeSelected);
+    prevCauseSelected.current = causeSelected;
+    if (!shouldFit) return;
+    let raf1: number, raf2: number;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        map.invalidateSize();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const bounds = L.geoJSON(geojson as any).getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [20, 20] });
+          fitted.current = true;
+        }
+      });
+    });
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
+  }, [geojson, map, causeSelected]);
   return null;
 }
 
@@ -379,21 +385,6 @@ path.on('mouseover', () => {
             </div>
           )}
 
-          {/* Empty state overlaid on the map so the map container never changes height */}
-          {!selectedCause && !loading && (
-            <div style={{
-              position: 'absolute', inset: 0, zIndex: 700,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(251,250,247,0.88)', backdropFilter: 'blur(2px)',
-            }}>
-              <div className="empty" style={{ textAlign: 'center', alignItems: 'center' }}>
-                <div className="empty-eyebrow">No cause selected</div>
-                <div className="empty-title">Select a cause of death to begin</div>
-                <div className="empty-body">Use the dropdown above to choose a condition. The map will color all 102 counties by their death rate relative to the state average.</div>
-              </div>
-            </div>
-          )}
-
           <MapContainer
             center={[40.0, -89.3]}
             zoom={6}
@@ -410,7 +401,7 @@ path.on('mouseover', () => {
                 onEachFeature={onEachFeature}
               />
             )}
-            {geoData && <FitBounds geojson={geoData} />}
+            {geoData && <FitBounds geojson={geoData} causeSelected={!!selectedCause} />}
           </MapContainer>
         </div>
 
@@ -479,7 +470,7 @@ path.on('mouseover', () => {
               )}
             </div>
             {!selectedCause ? (
-              <p className="caption" style={{ color: 'var(--ink-4)' }}>Select a cause to surface priority counties.</p>
+              <p className="caption" style={{ color: 'var(--ink-4)' }}>Select a cause above to surface priority counties.</p>
             ) : priorityList.length === 0 ? (
               <p className="caption" style={{ color: 'var(--ink-4)' }}>No priority counties for {selectedYear}.</p>
             ) : (

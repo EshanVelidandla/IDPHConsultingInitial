@@ -10,7 +10,7 @@
   {
     "id": "2",
     "username": "viewer",
-    "password_hash": "b2b2e26bf3b0dbe21af717be2eb4260b:a1f0c0a6c07602fdd3e403996bc48779227c9762ebd00ba2cfe71dd31ebc2a65",
+    "password_hash": "16e84e1e35a8e85313b8637ac8e3e8bf:77067e3bfbd89b33682160d55663104aa174509b7525db2c535aad2222bb1dad",
     "role": "viewer",
     "name": "Read-Only User",
     "created_at": "2026-05-06T00:23:56.669388Z"
