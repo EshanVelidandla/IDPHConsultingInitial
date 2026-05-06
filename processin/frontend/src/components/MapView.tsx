@@ -95,8 +95,6 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
   const [providerOverlay, setProviderOverlay] = useState('');
   const [providerData, setProviderData] = useState<ProviderRow[]>([]);
 
-  // Tracks all rendered {feature, layer} pairs for hover-dim behaviour
-  const layerStore = useRef<Map<string, { layer: L.Path; feature: Feature }>>(new Map());
 
   useEffect(() => {
     axios.get(`${API_BASE}/geojson`)
@@ -123,11 +121,7 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
       .finally(() => setLoading(false));
   }, [selectedCause]);
 
-  useEffect(() => {
-    layerStore.current.clear();
-  }, [selectedCause, selectedYear, searchTarget, providerOverlay]);
-
-  const stateRate = useMemo(() => {
+const stateRate = useMemo(() => {
     const row = countyData.find(d => d.County === 'ILLINOIS');
     return Number(row?.[selectedYear.toString()]) || 0;
   }, [countyData, selectedYear]);
@@ -275,27 +269,12 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
 
     const path = layer as L.Path;
 
-    // Register in store for cross-layer hover dimming
-    layerStore.current.set(key, { layer: path, feature });
-
-    path.on('mouseover', () => {
-      path.setStyle({ weight: 2, fillOpacity: 1 });
+path.on('mouseover', () => {
+      path.setStyle({ weight: 2.5, fillOpacity: 1 });
       path.bringToFront();
-      // Dim all other counties
-      layerStore.current.forEach((v, k) => {
-        if (k !== key) {
-          try { v.layer.setStyle({ fillOpacity: 0.25 }); } catch { /* detached layer */ }
-        }
-      });
     });
     path.on('mouseout', () => {
       path.setStyle(getStyle(feature));
-      // Restore all other counties to their proper style
-      layerStore.current.forEach((v, k) => {
-        if (k !== key) {
-          try { v.layer.setStyle(getStyle(v.feature)); } catch { /* detached layer */ }
-        }
-      });
     });
     (layer as L.Path).on('click', () => {
       navigate(`/county/${encodeURIComponent(titleName.replace(/[^a-zA-Z0-9 .\-']/g, ''))}`);
