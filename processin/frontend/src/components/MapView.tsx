@@ -67,12 +67,17 @@ function FitBounds({ geojson }: { geojson: FeatureCollection | null }) {
   const fitted = useRef(false);
   useEffect(() => {
     if (!geojson || fitted.current) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const bounds = L.geoJSON(geojson as any).getBounds();
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [12, 12] });
-      fitted.current = true;
-    }
+    // Defer until the flex container has finished layout, then invalidate before fitting
+    const id = setTimeout(() => {
+      map.invalidateSize();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bounds = L.geoJSON(geojson as any).getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [20, 20] });
+        fitted.current = true;
+      }
+    }, 150);
+    return () => clearTimeout(id);
   }, [geojson, map]);
   return null;
 }
