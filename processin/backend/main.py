@@ -256,6 +256,10 @@ class UserUpdate(BaseModel):
 
 # ── Auth endpoints ────────────────────────────────────────────
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 @app.post("/auth/login")
 def login(body: LoginRequest, request: Request):
     if is_rate_limited(body.username):
