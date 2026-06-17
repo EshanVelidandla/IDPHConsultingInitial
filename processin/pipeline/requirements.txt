@@ -1,0 +1,3 @@
+pdfplumber  # PDF text extraction with layout awareness (extract_pdf_data.py)
+pandas      # data manipulation (deaths_pipeline.py, clean_death_rates.py)
+numpy       # numeric operations (deaths_pipeline.py, clean_death_rates.py)
