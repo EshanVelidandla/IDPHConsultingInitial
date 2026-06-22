@@ -3,26 +3,20 @@ import json
 import logging
 import os
 import re
-import time
 import uuid
-from collections import defaultdict
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Optional
 
 import pandas as pd
 import portalocker
 from fastapi import FastAPI, Depends, HTTPException, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from auth import (
-    authenticate_user, create_token, decode_token,
-    load_users, save_users, hash_password, is_rate_limited,
-)
+from auth import load_users, save_users, hash_password
 import storage
 
 logging.basicConfig(level=logging.INFO)
@@ -68,12 +62,6 @@ VALID_COUNTIES = _load_county_names()
 
 AUDIT_FILE = os.path.join(os.path.dirname(__file__), "audit.jsonl")
 
-# ── IP-based rate limiting ─────────────────────────────────────
-
-_ip_failures: Dict[str, list] = defaultdict(list)
-_IP_RATE_WINDOW = 300   # seconds
-_IP_MAX_FAILURES = 20
-
 # ── App setup ─────────────────────────────────────────────────
 
 app = FastAPI(docs_url=None, redoc_url=None)
@@ -116,37 +104,21 @@ provider_dir = os.path.join(data_dir, "provider_tables")
 os.makedirs(death_rates_dir, exist_ok=True)
 os.makedirs(provider_dir, exist_ok=True)
 
-# ── Auth helpers ──────────────────────────────────────────────
-
-_bearer = HTTPBearer(auto_error=False)
+# ── Auth (bypassed — every request is treated as the built-in admin) ──
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _PASS_RE = re.compile(r'^(?=.*[0-9])(?=.*[^a-zA-Z0-9]).{8,}$')
 
+_FAKE_USER = {"id": "1", "username": "admin", "name": "IDPH Admin", "role": "admin", "token_version": 0}
 
-def get_current_user(creds: HTTPAuthorizationCredentials = Depends(_bearer)):
-    if not creds:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    decoded = decode_token(creds.credentials)
-    if not decoded:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    # Token revocation: reject if token_version doesn't match the stored user record.
-    db_user = next((u for u in load_users() if u["id"] == decoded.get("sub")), None)
-    if not db_user or db_user.get("token_version", 0) != decoded.get("token_version", 0):
-        raise HTTPException(status_code=401, detail="Session invalidated — please log in again")
-    return decoded
+def get_current_user():
+    return _FAKE_USER
 
+def require_admin():
+    return _FAKE_USER
 
-def require_admin(user=Depends(get_current_user)):
-    if user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return user
-
-
-def require_editor(user=Depends(get_current_user)):
-    if user.get("role") not in ("admin", "editor"):
-        raise HTTPException(status_code=403, detail="Editor access required")
-    return user
+def require_editor():
+    return _FAKE_USER
 
 
 def _audit(action: str, resource: str, detail: str, user: dict, request: Optional[Request] = None):
@@ -173,18 +145,6 @@ def _validate_cause(cause: str) -> str:
 
 
 # ── Pydantic models ───────────────────────────────────────────
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-    @field_validator("username")
-    @classmethod
-    def no_whitespace(cls, v: str) -> str:
-        if not re.match(r"^[a-zA-Z0-9_\-\.]{1,64}$", v):
-            raise ValueError("Invalid username format")
-        return v
-
 
 class AnnotationCreate(BaseModel):
     county: str
@@ -315,47 +275,14 @@ class UserUpdate(BaseModel):
         return v
 
 
-# ── Auth endpoints ────────────────────────────────────────────
+# ── Health ────────────────────────────────────────────────────
 
 @app.get("/health")
 async def health():
     return {"status": "ok"}
 
 
-@app.post("/auth/login")
-def login(body: LoginRequest, request: Request):
-    # IP-based rate limit (across all usernames from same IP)
-    client_ip = request.client.host if request.client else "unknown"
-    now = time.time()
-    _ip_failures[client_ip] = [t for t in _ip_failures[client_ip] if now - t < _IP_RATE_WINDOW]
-    if len(_ip_failures[client_ip]) >= _IP_MAX_FAILURES:
-        raise HTTPException(status_code=429, detail="Too many login attempts from this IP — try again later")
-
-    if is_rate_limited(body.username):
-        raise HTTPException(status_code=429, detail="Too many failed attempts — try again later")
-
-    user = authenticate_user(body.username, body.password)
-    if not user:
-        _ip_failures[client_ip].append(time.time())
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    token = create_token({
-        "sub": user["id"],
-        "username": user["username"],
-        "role": user["role"],
-        "name": user["name"],
-        "token_version": user.get("token_version", 0),
-    })
-    _audit("login", "auth", "Successful login", user, request)
-    return {"access_token": token, "token_type": "bearer", "user": user}
-
-
-@app.get("/auth/me")
-def me(user=Depends(get_current_user)):
-    return user
-
-
-# ── Data endpoints (auth required) ───────────────────────────
+# ── Data endpoints ───────────────────────────────────────────
 
 @app.get("/geojson")
 def get_geojson(user=Depends(get_current_user)):

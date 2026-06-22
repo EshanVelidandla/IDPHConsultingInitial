@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import MapView from './components/MapView';
@@ -9,8 +9,6 @@ import CountyDrillDown from './components/CountyDrillDown';
 import PulseView from './components/PulseView';
 import ProvidersView from './components/ProvidersView';
 import AccessMortalityView from './components/AccessMortalityView';
-import ProtectedRoute from './components/ProtectedRoute';
-import LoginPage from './pages/LoginPage';
 import AdminPanel from './pages/AdminPanel';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { API_BASE } from './data/constants';
@@ -97,53 +95,6 @@ const IconLogout = () => (
     <path d="M10 3h3v10h-3M6 5l-3 3 3 3M13 8H6"/>
   </svg>
 );
-
-// ── Session timeout warning ──────────────────────────────────
-
-const WARN_MS = 15 * 60 * 1000; // show banner 15 min before expiry
-
-function SessionWarning() {
-  const { tokenExpiry, logout } = useAuth();
-  const navigate = useNavigate();
-  const [msLeft, setMsLeft] = useState<number | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const tick = useCallback(() => {
-    if (!tokenExpiry) { setMsLeft(null); return; }
-    const remaining = tokenExpiry.getTime() - Date.now();
-    setMsLeft(remaining > 0 ? remaining : 0);
-    if (remaining <= 0) {
-      logout();
-      navigate('/login');
-    }
-  }, [tokenExpiry, logout, navigate]);
-
-  useEffect(() => {
-    tick();
-    intervalRef.current = setInterval(tick, 10_000);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [tick]);
-
-  if (msLeft === null || msLeft > WARN_MS) return null;
-
-  const mins = Math.ceil(msLeft / 60_000);
-  return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
-      background: '#8B5A1A', color: '#fff', padding: '8px 20px',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      fontSize: 12, fontFamily: 'var(--mono)', letterSpacing: '0.04em',
-    }}>
-      <span>Session expires in {mins} min. Save your work.</span>
-      <button
-        onClick={() => { logout(); navigate('/login'); }}
-        style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', padding: '3px 10px', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--mono)' }}
-      >
-        Sign out now
-      </button>
-    </div>
-  );
-}
 
 // ── Nav items ────────────────────────────────────────────────
 
@@ -370,20 +321,19 @@ function AppShell() {
 
   return (
     <div className="app">
-      <SessionWarning />
       <Sidebar shared={shared} />
       <div className="main">
         <TopStrip shared={shared} setShared={setShared} />
         <Routes>
-          <Route path="/" element={<ProtectedRoute><MapView {...props} /></ProtectedRoute>} />
-          <Route path="/insights" element={<ProtectedRoute><InsightsView {...props} /></ProtectedRoute>} />
-          <Route path="/scorecard" element={<ProtectedRoute><CountyScorecard {...props} /></ProtectedRoute>} />
-          <Route path="/priority" element={<ProtectedRoute><PriorityMatrix {...props} /></ProtectedRoute>} />
-          <Route path="/pulse" element={<ProtectedRoute><PulseView {...props} /></ProtectedRoute>} />
-          <Route path="/providers" element={<ProtectedRoute><ProvidersView {...props} /></ProtectedRoute>} />
-          <Route path="/access" element={<ProtectedRoute><AccessMortalityView {...props} /></ProtectedRoute>} />
-          <Route path="/county/:countyName" element={<ProtectedRoute><CountyDrillDown {...props} /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminPanel /></ProtectedRoute>} />
+          <Route path="/" element={<MapView {...props} />} />
+          <Route path="/insights" element={<InsightsView {...props} />} />
+          <Route path="/scorecard" element={<CountyScorecard {...props} />} />
+          <Route path="/priority" element={<PriorityMatrix {...props} />} />
+          <Route path="/pulse" element={<PulseView {...props} />} />
+          <Route path="/providers" element={<ProvidersView {...props} />} />
+          <Route path="/access" element={<AccessMortalityView {...props} />} />
+          <Route path="/county/:countyName" element={<CountyDrillDown {...props} />} />
+          <Route path="/admin" element={<AdminPanel />} />
         </Routes>
       </div>
     </div>
@@ -396,10 +346,7 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/*" element={<AppShell />} />
-        </Routes>
+        <AppShell />
       </AuthProvider>
     </Router>
   );

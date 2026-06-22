@@ -1,7 +1,5 @@
 fastapi
 uvicorn
 pandas
-python-jose
 python-multipart
-bcrypt
 portalocker
