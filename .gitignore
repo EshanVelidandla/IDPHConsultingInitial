@@ -6,26 +6,43 @@ __pycache__/
 *.py[cod]
 *.pyo
 venv/
+.venv/
 .env
 *.egg-info/
+.pytest_cache/
 
-# Node / Frontend
+# Node / frontend
 node_modules/
 dist/
+app/frontend/dist/
 .DS_Store
 
 # Jupyter
 .ipynb_checkpoints/
 
-# Raw data formats (large binary files)
-*.xlsx
-*.pdf
-
 # OS
 Thumbs.db
 
-# Backend runtime data (instance state — not source)
-processin/backend/audit.json
-processin/backend/annotations.json
-processin/backend/thresholds.json
-processin/backend/presets.json
+# ── Backend runtime state ────────────────────────────────────────────────
+# Everything the running app writes lives in app/backend/var/. It is instance
+# state, not source: annotations, thresholds, presets, users, the audit log and
+# pre-overwrite dataset backups. The old rules pointed at paths that did not
+# exist (backend/audit.json, backend/annotations.json) while the real files sat
+# in backend/static/, so runtime data including a plaintext user store was
+# committable.
+app/backend/var/
+
+# Built SPA copied in for single-origin serving
+app/backend/ui/
+
+# ── Large binaries ───────────────────────────────────────────────────────
+*.xlsx
+*.xls
+*.doc
+*.docx
+
+# PDFs are ignored by default, but the IDPH source reports are the pipeline's
+# input and must be committed or the numbers cannot be reproduced from a clean
+# clone. See data/source/idph_death_reports/README.md.
+*.pdf
+!data/source/idph_death_reports/*.pdf

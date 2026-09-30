@@ -1,293 +1,151 @@
-# Illinois County Mortality Analytics
+# Illinois Mortality and Provider Access Dashboard
 
-A full-stack geospatial analytics platform surfacing cause-of-death trends and healthcare provider access across all 102 Illinois counties from 2008 to 2022. Built in collaboration with the Illinois Department of Public Health (IDPH) to inform statewide resource allocation decisions.
+County-level mortality and healthcare-access analytics for the Illinois
+Department of Public Health, built with the Center for Health Informatics at
+the UIUC School of Information Sciences.
 
-**Live:** [healthequity.up.railway.app](https://healthequity.up.railway.app)
+The dashboard shows crude death rates by cause for all 102 Illinois counties
+(plus Chicago and Suburban Cook as separate IDPH reporting units) for 2008 to
+2022, alongside provider supply measures from the HRSA Area Health Resources
+File.
 
-## Overview
-
-- **ETL pipeline**: Python scripts extract structured death data from IDPH annual PDF reports, normalize it across 15 disease categories, and output county-year pivot tables. A separate HRSA pipeline processes Area Health Resource Files (AHRF) into 5 provider-density metrics.
-- **Backend**: FastAPI server with JWT authentication, role-based access control, and endpoints for death rate data, provider metrics, annotations, thresholds, presets, and CSV export.
-- **Frontend**: React + TypeScript SPA with seven analytical views, a county drill-down profile, shared global filters, and an admin panel.
-
-## Views
-
-| # | View | Description |
-|---|---|---|
-| 01 | Map | Leaflet choropleth across 102 counties; click county to open drill-down |
-| 02 | Insights | Statewide trend chart, county distribution, top/bottom county rankings |
-| 03 | Scorecard | Heatmap table -- all counties x all causes, sortable by ratio vs. state |
-| 04 | Priority | Scatter quadrant matrix (rate vs. trend slope) for prioritization |
-| 05 | Pulse | Annotated timeline with intervention markers and threshold alerts |
-| 06 | Providers | County choropleth and rankings for 5 healthcare access metrics |
-| 07 | Access x Mortality | Scatter correlation analysis between provider density and death rates, with Pearson r and regression fit |
-| -- | County Profile | Per-county drill-down: cause breakdown bar chart, trend overlay, excess deaths, full cause table |
-| -- | Admin | Dataset upload/management, user management, audit log (admin only) |
-
-## Disease Categories
-
-| Category |
-|---|
-| Total Deaths |
-| Diseases of Heart |
-| Malignant Neoplasms (Cancer) |
-| Accidents (Unintentional Injuries) |
-| COVID-19 |
-| Cerebrovascular Diseases |
-| Chronic Lower Respiratory Diseases |
-| Alzheimer's Disease |
-| Diabetes Mellitus |
-| Nephritis, Nephrotic Syndrome & Nephrosis |
-| Influenza & Pneumonia |
-| Intentional Self-Harm (Suicide) |
-| Septicemia |
-| Chronic Liver Disease & Cirrhosis |
-| All Other Causes |
-
-## Provider Metrics (HRSA AHRF)
-
-| Metric | Description |
-|---|---|
-| Primary Care Physicians per 100k | Non-federal PCPs excluding hospital residents |
-| Total Active MDs per 100k | All non-federal active physicians |
-| Psychiatry MDs per 100k | Active psychiatrists |
-| Hospital Beds per 100k | AHA survey beds (2010, 2015, 2020; interpolated otherwise) |
-| HPSA Primary Care Designation | 0 = none, 1 = whole-county shortage area, 2 = partial |
-
-## Project Structure
+## Repository layout
 
 ```
-ResearchWork/
-├── Counties/                        # Early ETL scripts + per-county CSVs
-│   ├── cleaning.py                  # Text line reformatter for pre-2012 reports
-│   ├── fileconversion.py            # TXT to CSV converter (2009-2011)
-│   ├── sandbox.py                   # Text parsing utility
-│   └── *_death_data.csv             # Raw per-county data files (102 counties)
-│
-├── One More time/                   # PDF ETL pipeline (2008-2022)
-│   ├── extract_pdf_data.py          # Robust pdfplumber-based extractor (any year)
-│   ├── repair_pipeline.py           # End-to-end repair: re-extract -> rates -> CSVs
-│   ├── improved_pdf_converter.py    # Earlier primary PDF-to-CSV extractor
-│   ├── pdf_to_csv_converter.py      # Baseline PDF extractor
-│   ├── process_death_rates.py       # Pivots per-year CSVs into cause-year tables
-│   ├── clean_death_rates.py         # Validates and normalizes county tables
-│   ├── pdf_debug.py                 # PDF content inspection utility
-│   ├── text_to_csv_*.py             # Year-specific text parsers (2008, 2015, 2018)
-│   └── csv_output/                  # Intermediate per-year CSVs (2008-2022)
-│
-├── death_rate_tables/               # Canonical processed output (15 cause files)
-│   └── *_death_rates_by_county_year.csv
-│
-├── processin/                       # Full-stack web application
-│   ├── backend/
-│   │   ├── main.py                  # FastAPI server
-│   │   ├── auth.py                  # JWT auth, password hashing, rate limiting
-│   │   ├── storage.py               # JSON persistence layer
-│   │   ├── requirements.txt
-│   │   └── static/
-│   │       ├── illinois-counties.geojson
-│   │       ├── death_rate_tables/   # Cause-year CSVs served by the API
-│   │       ├── provider_tables/     # HRSA-derived provider metric CSVs (5 files)
-│   │       ├── process_hrsa.py      # HRSA AHRF processor (produces provider_tables/)
-│   │       └── hrsa_raw/            # Raw AHRF files by year (2008-2023, Git LFS)
-│   └── frontend/
-│       ├── src/
-│       │   ├── App.tsx              # Root layout, sidebar, global filters, presets
-│       │   ├── auth/
-│       │   │   └── AuthContext.tsx  # JWT auth context + protected routes
-│       │   ├── data/
-│       │   │   ├── constants.ts     # Cause labels, provider metrics, calcSlope
-│       │   │   └── population.ts    # 2020 census population by county
-│       │   └── components/
-│       │       ├── MapView.tsx           # Choropleth map + county hover chart
-│       │       ├── InsightsView.tsx      # Statewide trend, top counties, distribution
-│       │       ├── CountyScorecard.tsx   # All-county heatmap table
-│       │       ├── PriorityMatrix.tsx    # Scatter quadrant (rate vs. slope)
-│       │       ├── PulseView.tsx         # Annotated timeline + thresholds
-│       │       ├── ProvidersView.tsx     # Provider density choropleth and rankings
-│       │       ├── AccessMortalityView.tsx  # Provider x mortality correlation scatter
-│       │       └── CountyDrillDown.tsx   # Per-county profile with cause breakdown
-│       ├── package.json
-│       └── vite.config.ts
-│
-└── README.md
+app/
+  backend/          FastAPI service
+    main.py         API: rates, providers, population, annotations, admin
+    auth.py         user store (authentication is currently bypassed, see below)
+    storage.py      small JSON document store for runtime state
+    static/         data the API serves (pipeline output, committed)
+    var/            runtime state written by the app (gitignored)
+  frontend/         React + TypeScript + Vite single-page app
+    src/data/       shared analytics, data hooks and constants
+    src/components/ views
+  pipeline/         data preparation, run in order by run_pipeline.py
+    build_population.py    Census files    -> population table
+    extract_pdf_data.py    IDPH PDFs       -> county death counts
+    deaths_pipeline.py     counts + pop    -> death rate tables
+    validate_death_rates.py                -> read-only checks
+    process_hrsa.py        AHRF files      -> provider tables
+    tests/                 regression tests on the published numbers
+
+data/
+  source/
+    idph_death_reports/  15 IDPH annual PDFs, 2008-2022 (committed)
+    ahrf/                HRSA AHRF fixed-width data and SAS layouts
+    census/              Census population estimate files
+  reference/
+    population_by_county_year.csv   the denominators every rate divides by
+  extracted/
+    death_counts_by_year/           per-year county death counts from the PDFs
+  archive/
+    county_extracts/                earlier per-county extracts, kept for reference
 ```
 
-## ETL Pipeline
+## Running it
 
-### Mortality data (IDPH PDFs)
+Backend:
 
-**Stage 1: PDF extraction** (run from `One More time/`)
 ```bash
-python extract_pdf_data.py
-```
-Robust pdfplumber-based extractor; handles any year 2008-2022 including column-scramble years (2020-2022).
-
-**Stage 2: Pivot to cause tables** (run from `One More time/`)
-```bash
-python process_death_rates.py
-```
-Merges per-year CSVs into county-year pivot tables, one file per disease category. Outputs to `processin/backend/static/death_rate_tables/`.
-
-**Stage 3: Normalize** (run from `One More time/`)
-```bash
-python clean_death_rates.py
-```
-Fixes county name inconsistencies, removes invalid entries, and prepends a statewide Illinois summary row to each table.
-
-**Full repair run** (re-extracts all years from PDFs and recomputes rates):
-```bash
-cd "One More time"
-python repair_pipeline.py
-```
-
-### Provider data (HRSA AHRF)
-
-**Process AHRF files** (run from `processin/backend/static/`)
-```bash
-python process_hrsa.py
-```
-Reads fixed-width `.asc` files from `hrsa_raw/` for each year and outputs 5 county-year CSVs to `provider_tables/`. Covers 2008-2022; hospital beds are interpolated for non-survey years.
-
-## Getting the Data (Git LFS)
-
-The raw HRSA `.asc` files (~95-100 MB each) are stored in Git LFS. A standard `git clone` downloads only the pointer files -- not the actual data. To get everything:
-
-**1. Install Git LFS** (one-time, per machine)
-```bash
-# macOS
-brew install git-lfs
-
-# Ubuntu/Debian
-sudo apt install git-lfs
-
-# Windows — download from https://git-lfs.com or via winget:
-winget install GitHub.GitLFS
-```
-
-**2. Enable LFS for your account** (one-time, per machine)
-```bash
-git lfs install
-```
-
-**3. Clone with LFS files**
-```bash
-git clone https://github.com/EshanVelidandla/IDPHConsultingInitial.git
-```
-LFS files are pulled automatically after LFS is installed.
-
-**Already cloned without LFS?** Fetch the large files retroactively:
-```bash
-git lfs pull
-```
-
-**Verify LFS files downloaded correctly:**
-```bash
-git lfs ls-files
-```
-Each line should show a hash prefix -- if you see `(missing)` instead, re-run `git lfs pull`.
-
-> Note: You do not need the raw HRSA `.asc` files to run the web app. The processed `provider_tables/` CSVs are plain text and are committed directly to the repo. LFS is only required if you want to re-run `process_hrsa.py` to regenerate those tables.
-
-## Running the App
-
-**Backend**
-```bash
-cd processin/backend
-python -m venv venv
-.\venv\Scripts\Activate.ps1   # Windows
-source venv/bin/activate       # macOS/Linux
+cd app/backend
+python -m venv venv && source venv/Scripts/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# Set required env var (local dev only)
-export JWT_SECRET="any-long-random-string-for-local-dev"   # macOS/Linux
-$env:JWT_SECRET = "any-long-random-string-for-local-dev"   # Windows
-
-uvicorn main:app --reload
+uvicorn main:app --reload --port 8000
 ```
-API runs at `http://127.0.0.1:8000`.
 
-**Frontend**
+Frontend, in a second terminal:
+
 ```bash
-cd processin/frontend
+cd app/frontend
 npm install
-npm run dev
+VITE_API_BASE=http://127.0.0.1:8000 npm run dev      # http://localhost:5173
 ```
-Dev server runs at `http://localhost:5173`. Proxies `/api/*` to the backend.
 
-## Default Credentials
+`VITE_API_BASE` is required in development because the SPA and the API run on
+different ports. In production the SPA is built directly into `app/backend/ui/`
+and served from the same origin, so `API_BASE` stays empty.
 
-| Role | Username | Password | Access |
-|------|----------|----------|--------|
-| Viewer | `viewer` | `viewer123` | Read-only |
-| Admin | `admin` | `idph2024` | Full access including admin panel |
+To build for single-origin serving:
 
-To reset a password, run from `processin/backend/`:
 ```bash
-python -c "import hashlib, secrets; s=secrets.token_hex(16); h=hashlib.sha256(f'{s}:NEWPASSWORD'.encode()).hexdigest(); print(f'{s}:{h}')"
-```
-Paste the output into `backend/users.json` as `password_hash` for the relevant user.
-
-## Deployment
-
-Deployed on Railway via the `Dockerfile` in `processin/`. Push to `main` triggers an automatic redeploy.
-
-Required Railway environment variables:
-```
-JWT_SECRET       # long random string, min 32 chars
-ALLOWED_ORIGINS  # comma-separated list of allowed frontend origins
+cd app/frontend && npm run build
 ```
 
-## API Endpoints
+## Rebuilding the data
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/auth/login` | Public | Returns JWT token |
-| GET | `/auth/me` | User | Current user info |
-| GET | `/geojson` | User | Illinois county GeoJSON boundaries |
-| GET | `/death_rates?cause=<cause>` | User | County-year death rates for a cause |
-| GET | `/provider_data?metric=<metric>` | User | County-year provider metric data |
-| GET | `/export/csv?cause=<cause>` | User | Download cause dataset as CSV |
-| GET/POST | `/annotations` | User/Editor | County-cause annotations |
-| PUT/DELETE | `/annotations/:id` | Editor | Update or delete annotation |
-| GET/POST | `/thresholds` | User/Admin | Alert thresholds by cause |
-| DELETE | `/thresholds/:cause` | Admin | Remove threshold |
-| GET/POST/DELETE | `/presets` | User | Saved filter presets |
-| GET | `/admin/datasets` | Admin | List uploaded cause datasets |
-| POST | `/admin/upload?cause=<cause>` | Admin | Upload replacement CSV |
-| DELETE | `/admin/datasets/:cause` | Admin | Delete a dataset |
-| GET/POST/PUT/DELETE | `/admin/users` | Admin | User management |
-| GET | `/admin/audit` | Admin | Audit log (last 500 entries) |
+```bash
+cd app/pipeline
+pip install -r requirements.txt
+python run_pipeline.py
+```
 
-## Auth & Roles
+Every stage is a pure function of committed inputs. Nothing reads its own
+previous output, so two runs from a clean checkout produce identical numbers.
 
-| Role | Capabilities |
-|---|---|
-| viewer | Read-only access to all data and views |
-| editor | viewer + create/update/delete annotations |
-| admin | editor + user management, dataset upload, thresholds, audit log |
+Run the tests before trusting a change to any stage:
 
-## Tech Stack
+```bash
+python -m pytest app/pipeline/tests -q
+```
 
-| Layer | Technology |
-|---|---|
-| ETL | Python, pandas, pdfplumber |
-| Backend | FastAPI, uvicorn, python-jose (JWT) |
-| Frontend | React 18, TypeScript, Vite |
-| Routing | React Router v6 |
-| Mapping | Leaflet.js, react-leaflet |
-| Charts | Recharts, D3 |
-| HTTP | Axios |
-| Storage | Git LFS (HRSA raw .asc files) |
-| Data (mortality) | IDPH Statewide Causes of Death by Resident County (2008-2022) |
-| Data (providers) | HRSA Area Health Resource Files (AHRF) 2008-2023 |
+## Methodology
 
-## Data Notes
+**Rates are crude, not age-adjusted.** The pipeline computes deaths divided by
+county population times 100,000. The IDPH county reports publish totals only,
+with no age breakdown, so age standardisation is not possible from this source.
+Counties with older populations therefore read higher than they would on an
+age-adjusted basis. Adding true age-adjusted rates would need an IDPH vital
+records extract or CDC WONDER.
 
-- **Mortality source**: Illinois Department of Public Health, Statewide Leading Causes of Death by Resident County, published annually.
-- **Coverage**: 2008-2022, 102 Illinois counties (plus Chicago and Suburban Cook subdivisions as separate rows).
-- Some county-year cells are suppressed in the source data (low counts). These appear as `0` in the processed CSVs. The county drill-down automatically falls back to the most recent non-suppressed year for each cause rather than showing "no data."
-- **Provider source**: HRSA Area Health Resource Files (AHRF), a county-level dataset published annually covering provider counts, hospital capacity, and shortage designations.
-- Hospital bed counts are from the AHA survey (available only for 2010, 2015, 2020); intermediate years are linearly interpolated.
-- HPSA designation gaps between 2010 and 2015 are forward-filled from the 2010 value.
-- Raw AHRF `.asc` files are stored in Git LFS due to file size (95-100 MB each).
+**Denominators** come from the Census Population Estimates Program, committed
+under `data/source/census/` and compiled by `build_population.py`. The vintage
+changes at 2010 and 2020 because Census rebases after each decennial count.
+
+**Chicago and Suburban Cook** are IDPH reporting units, not Census geographies.
+IDPH reports Cook County three ways: the whole county, Chicago, and the
+suburban remainder. Census publishes the county and the city but not the
+remainder, so Suburban Cook is derived as Cook minus Chicago, from the same
+vintage in both terms. Statewide figures use the 102 real counties only, so
+Cook is not counted twice.
+
+**Statewide rates** use IDPH's own published ILLINOIS count over the state
+population. `deaths_pipeline.py` cross-checks that against the sum of the 102
+counties and reports the drift, which currently runs under 0.1% in every year.
+
+**Missing data is blank, never zero.** IDPH stopped publishing several causes
+partway through the series: suicide and chronic liver disease after 2014, "all
+other causes" after 2012, septicemia after 2019. Those cells are empty end to
+end, and the UI renders them as "no data". Nothing in this dataset is
+suppressed for small counts.
+
+**Column order changes between report years.** `YEAR_SCHEMAS` in
+`extract_pdf_data.py` maps each year's printed column order, verified against
+every source PDF. `verify_header_order()` re-checks the schema against each
+PDF's own header at extraction time and fails the run on a mismatch.
+
+**Provider metrics are not all annual.** Total MDs and primary care physicians
+come from twelve and eleven AHRF years respectively; hospital beds and
+psychiatry come from only 2010, 2015 and 2020. `metric_provenance.json` records
+which years are measured and which are interpolated, and the UI labels the
+difference. HPSA designation is a category (0 not designated, 1 whole county,
+2 part of county), so it is counted rather than averaged or ranked.
+
+## Authentication
+
+Authentication is currently bypassed: `get_current_user` in `main.py` returns a
+built-in admin, so every request has full access including the admin write
+endpoints. This build is for local use only and must not be deployed to a
+public host as it stands. Restoring real authentication, and deciding between
+campus SSO and application-level JWT, is tracked with NCSA.
+
+Treat every credential that ever appeared in this repository's history as
+compromised and rotate it.
+
+## Data sources
+
+- Illinois Department of Public Health, Causes of Death by Resident County,
+  annual reports 2008 through 2022.
+- HRSA Area Health Resources Files, county file.
+- US Census Bureau Population Estimates Program: 2000-2010 intercensal,
+  vintage 2019, and vintage 2023 county and place estimates.

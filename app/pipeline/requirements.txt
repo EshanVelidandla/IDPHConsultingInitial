@@ -1,0 +1,4 @@
+# Pinned so the published numbers can be reproduced exactly.
+pdfplumber==0.11.10   # PDF text and table extraction (extract_pdf_data.py)
+pandas==3.0.2         # data manipulation (deaths_pipeline.py, validate_death_rates.py)
+numpy==2.4.4          # numeric operations
