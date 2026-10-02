@@ -738,3 +738,134 @@ textarea.inp {
 .annotation-pill.info         { border-left-color: var(--accent); }
 .annotation-pill.warning      { border-left-color: var(--d-mid); }
 .annotation-pill.intervention { border-left-color: var(--d-low); }
+
+/* ── Pulse year timeline ──────────────────────────────────────────────────
+   One control: .tl-input is transparent and covers the strip, everything
+   else is decoration. Positions are measured inside a 28px inset on both
+   sides so the first and last dots and their labels stay in the box. */
+
+.tl {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;      /* stretched across a wide viewport the spacing
+                             between fourteen points stopped reading as a scale */
+  margin: 0 auto;
+}
+
+.tl-labels { position: relative; height: 30px; }
+
+.tl-label {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.tl-label-text {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  transition: color 120ms var(--ease);
+}
+/* Ties each label to the dot it describes. */
+.tl-connector {
+  width: 1px;
+  height: 8px;
+  margin-top: 3px;
+  background: var(--rule-2);
+  transition: background 120ms var(--ease);
+}
+.tl-label.is-active .tl-label-text,
+.tl-label.is-hover .tl-label-text { color: var(--ink); font-weight: 600; }
+.tl-label.is-active .tl-connector { background: var(--ink); }
+
+.tl-track-area { position: relative; height: 22px; }
+
+.tl-track {
+  position: absolute;
+  top: 50%;
+  height: 1px;
+  background: var(--rule-2);
+}
+.tl-track-fill {
+  position: absolute;
+  top: 50%;
+  height: 1px;
+  background: var(--ink);
+  transition: width 140ms var(--ease);
+}
+
+.tl-dot {
+  position: absolute;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 1px solid var(--ink-4);
+  transform: translate(-50%, -50%);
+  transition: width 120ms var(--ease), height 120ms var(--ease),
+              background 120ms var(--ease), border-color 120ms var(--ease);
+  pointer-events: none;
+}
+.tl-dot.is-event { width: 9px; height: 9px; border-color: var(--ink-3); }
+.tl-dot.is-hover { width: 11px; height: 11px; border-color: var(--ink); }
+.tl-dot.is-active {
+  width: 13px;
+  height: 13px;
+  background: var(--ink);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 4px var(--paper), 0 0 0 5px var(--rule-2);
+}
+
+/* Transparent, but it is the real slider: drag, click, arrows, Home and End. */
+.tl-input {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+/* A near-zero thumb keeps the input's value scale linear across its width, so
+   it lines up with the dots rather than being inset by half a thumb. */
+.tl-input::-webkit-slider-thumb { -webkit-appearance: none; width: 1px; height: 28px; }
+.tl-input::-moz-range-thumb { width: 1px; height: 28px; border: none; }
+.tl-input:focus-visible { opacity: 1; outline: none; }
+.tl-input:focus-visible::-webkit-slider-thumb {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--ink); box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--ink);
+}
+.tl-input:focus-visible::-moz-range-thumb {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--ink); box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--ink);
+}
+
+.tl-years { position: relative; height: 18px; margin-top: 8px; }
+.tl-year {
+  position: absolute;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  white-space: nowrap;
+  transition: color 120ms var(--ease);
+}
+.tl-year.is-active { color: var(--ink); font-weight: 600; font-size: 10.5px; }
+.tl-year.is-hover { color: var(--ink); }
+
+@media (max-width: 900px) {
+  .tl-label-text { font-size: 8.5px; }
+  .tl-year { font-size: 8.5px; }
+}

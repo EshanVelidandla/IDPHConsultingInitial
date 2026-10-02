@@ -9,44 +9,42 @@ import axios from 'axios';
 import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, IDPH_DISTRICTS, providerMetricLabels, providerMetrics } from '../data/constants';
 import { IL_GRID } from '../data/ilGrid';
 import type { SharedState } from '../App';
-import { asRows, toRate } from '../data/analytics';
+import { asRows, bandOf, bandStyle, toRate } from '../data/analytics';
+import YearTimeline from './YearTimeline';
+import type { TimelineEvent } from './YearTimeline';
 
 interface DeathRate { County: string; [key: string]: number | string; }
 interface ProviderRow { County: string; [year: string]: number | string; }
 interface ViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
 
 const D_HIGH = '#B23A2E';
-const D_HIGH_TINT = '#F2E4E1';
 const D_LOW = '#4F7A4D';
 const D_NULL_TINT = '#EFEDE7';
 const INK = '#1C1B18';
 const INK_4 = '#9A968C';
 const RULE = '#E6E3DC';
 
-// Richer (more saturated) tile colors for the selected mini-map
+// The selected mini-map uses the band's full-strength colour; the others use
+// its tint. Both classify through the shared band table, so these grids read
+// the same way as the main map and its legend. They used to carry their own
+// hardcoded red/green pair with no lightness difference between high and low.
 function tileColorRich(rate: number, stateRate: number): string {
-  if (!rate || !stateRate) return '#C8C4BC';
-  const r = rate / stateRate;
-  if (r > 1.2) return '#C84A3E';
-  if (r < 0.8) return '#3D7A3B';
-  return '#C07820';
+  return bandStyle(bandOf(rate || null, stateRate || null)).border;
 }
 
-// Standard tints used when data exists but map is not active (fallback)
 function tileColor(rate: number, stateRate: number): string {
-  if (!rate || !stateRate) return D_NULL_TINT;
-  const r = rate / stateRate;
-  if (r > 1.2) return D_HIGH_TINT;
-  if (r < 0.8) return '#C8DBB8';
-  return '#EBD6B0';
+  return bandStyle(bandOf(rate || null, stateRate || null)).fill;
 }
 
-const EVENTS: Record<number, { t: string; d: string }> = {
-  2009: { t: 'Baseline year', d: 'Tracking begins. Statewide all-cause rate is the starting reference.' },
-  2014: { t: 'ACA full implementation', d: 'Medicaid expansion in IL; uninsured rate drops sharply.' },
-  2019: { t: 'Last pre-pandemic year', d: 'The final year before COVID-19 affects the series.' },
-  2020: { t: 'COVID-19 onset', d: 'Sharpest single-year increase in IL mortality on record.' },
-  2022: { t: 'Latest available', d: 'Rate remains elevated above pre-pandemic baseline.' },
+// `short` is the timeline label and is written out rather than derived. The
+// timeline used to show the first word of `t`, which rendered
+// "Last pre-pandemic year" as the meaningless "Last".
+const EVENTS: Record<number, TimelineEvent> = {
+  2009: { short: 'Baseline', t: 'Baseline year', d: 'Tracking begins. Statewide all-cause rate is the starting reference.' },
+  2014: { short: 'ACA', t: 'ACA full implementation', d: 'Medicaid expansion in IL; uninsured rate drops sharply.' },
+  2019: { short: 'Pre-COVID', t: 'Last pre-pandemic year', d: 'The final year before COVID-19 affects the series.' },
+  2020: { short: 'COVID-19', t: 'COVID-19 onset', d: 'Sharpest single-year increase in IL mortality on record.' },
+  2022: { short: 'Latest', t: 'Latest available', d: 'Rate remains elevated above pre-pandemic baseline.' },
 };
 
 const TIP_STYLE = {
@@ -158,6 +156,13 @@ const PulseView = (_props: ViewProps) => {
 
   const activeEvent = EVENTS[year] ?? null;
 
+  // Years come from the loaded series rather than a hardcoded 2009..2022, so
+  // the scale always matches what the pipeline published.
+  const timelineYears = useMemo(
+    () => (statewideTrend.length ? statewideTrend.map(d => d.year) : ALL_YEARS),
+    [statewideTrend],
+  );
+
   // Mini-map tile constants
   const MINI_TILE = 8;
   const MINI_GAP = 0.5;
@@ -259,74 +264,12 @@ const PulseView = (_props: ViewProps) => {
           <span className="num" style={{ fontSize: 56, fontFamily: 'var(--serif)', color: INK, lineHeight: 1, letterSpacing: '-0.03em' }}>{year}</span>
         </div>
 
-        <div style={{ position: 'relative', paddingTop: 44, paddingBottom: 16 }}>
-          {/* baseline */}
-          <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: 1, background: 'var(--rule-2)' }} />
-
-          {/* Dots for all 14 years */}
-          {ALL_YEARS.map(y => {
-            const pct = ((y - 2009) / (2022 - 2009)) * 100;
-            const isActive = year === y;
-            const isPast = year >= y;
-            const hasAnnotation = y in EVENTS;
-            return (
-              <div key={y} style={{
-                position: 'absolute', left: `${pct}%`, top: 0,
-                transform: 'translateX(-50%)', textAlign: 'center',
-              }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  {/* Annotation label (only for annotated years) */}
-                  <div style={{ height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                    {hasAnnotation && (
-                      <span style={{
-                        fontFamily: 'var(--mono)', fontSize: 9,
-                        color: isActive ? INK : INK_4,
-                        whiteSpace: 'nowrap',
-                        fontWeight: isActive ? 600 : 400,
-                        letterSpacing: '0.04em',
-                      }}>
-                        {EVENTS[y].t.split(' ')[0]}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ height: 4 }} />
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Show ${y}`}
-                    aria-pressed={isActive}
-                    onClick={() => setYear(y)}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setYear(y); } }}
-                    style={{
-                      width: isActive ? 14 : hasAnnotation ? 9 : 7,
-                      height: isActive ? 14 : hasAnnotation ? 9 : 7,
-                      background: isPast ? INK : 'var(--card)',
-                      border: `1px solid ${isPast ? INK : INK_4}`,
-                      borderRadius: '50%',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
-                  />
-                  <div style={{
-                    marginTop: 6,
-                    fontFamily: 'var(--mono)',
-                    fontSize: isActive ? 10 : 9,
-                    fontWeight: isActive ? 600 : 400,
-                    color: isActive ? INK : INK_4,
-                    letterSpacing: '0.04em',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {y}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          <input type="range" className="range" min={2009} max={2022} value={year}
-            onChange={e => setYear(Number(e.target.value))}
-            style={{ position: 'relative', zIndex: 5, marginTop: 4 }} />
-        </div>
+        <YearTimeline
+          years={timelineYears}
+          value={year}
+          onChange={setYear}
+          events={EVENTS}
+        />
       </div>
 
       {/* Active annotation + snapshot */}

@@ -884,29 +884,47 @@ if os.path.isdir(_ui_dir):
     app.mount("/assets", StaticFiles(directory=os.path.join(_ui_dir, "assets")), name="assets")
 
 
-# Paths that belong to the API. A request under one of these that reached the
-# fallback is a genuine 404, not a client-side route.
-_API_PREFIXES = (
-    "api", "health", "meta", "geojson", "death_rates", "provider_data",
-    "provider_summary", "population", "annotations", "thresholds", "presets",
-    "export", "admin",
-)
+# The SPA's own routes, as declared in frontend/src/App.tsx. A page load or a
+# refresh on any of these has to return index.html so the client router can
+# take over. Note that "admin" is both a client route (/admin) and an API
+# namespace (/admin/users); the real API routes are matched before this
+# fallback is ever reached, so only the bare client route arrives here.
+_SPA_ROUTES = frozenset({
+    "", "insights", "scorecard", "priority", "pulse", "providers", "access",
+    "admin",
+})
+# The only client route that carries a parameter.
+_SPA_ROUTE_PREFIXES = ("county/",)
 
 
 @app.get("/{full_path:path}", include_in_schema=False)
 async def spa_fallback(full_path: str, request: Request):
     """
-    Serve the SPA for client-side routes.
+    Serve the SPA for client-side routes, and refuse anything API-shaped.
 
-    Anything that looks like an API call gets a JSON 404 instead. Returning
-    index.html with a 200 for an unknown API path is how a misconfigured
-    API_BASE stayed invisible: the frontend called /api/meta, got HTML and a
-    200, and quietly rendered empty panels instead of failing.
+    Returning index.html with a 200 for an unknown API path is how a
+    misconfigured API_BASE stayed invisible: the frontend called /api/meta, got
+    HTML and a 200, and quietly rendered empty panels instead of failing. An
+    XHR asks for JSON, so it gets a JSON 404; a browser navigation asks for
+    HTML, so it gets the app.
     """
-    first = full_path.split("/", 1)[0].lower()
-    wants_json = "application/json" in request.headers.get("accept", "")
-    if first in _API_PREFIXES or wants_json:
+    path = full_path.strip("/").lower()
+    accept = request.headers.get("accept", "")
+
+    # Nothing legitimately lives under /api. Always refuse, so a bad API_BASE
+    # fails loudly rather than being answered with the page itself.
+    if path == "api" or path.startswith("api/"):
         raise HTTPException(status_code=404, detail=f"No such endpoint: /{full_path}")
+
+    # Matched exactly, not by first segment: /admin is a client route but
+    # /admin/anything belongs to the admin API, and answering an unknown one
+    # with the page would hide the error from the caller.
+    is_client_route = path in _SPA_ROUTES or path.startswith(_SPA_ROUTE_PREFIXES)
+    wants_html = "text/html" in accept
+
+    if not is_client_route and not wants_html:
+        raise HTTPException(status_code=404, detail=f"No such endpoint: /{full_path}")
+
     if os.path.isfile(_index):
         return FileResponse(_index)
     raise HTTPException(status_code=503, detail="UI not built. Run npm run build in app/frontend.")

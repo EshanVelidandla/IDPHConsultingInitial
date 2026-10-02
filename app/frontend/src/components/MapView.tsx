@@ -9,6 +9,7 @@ import type { FeatureCollection, Feature } from 'geojson';
 import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, IDPH_DISTRICTS, providerMetricLabels, providerMetrics, providerMetricShort, providerMetricInverted } from '../data/constants';
 import { asRows, PRIORITY_BANDS, TREND_BASE_YEAR, bandOf, bandStyle, calcSlope, classifyCounty, toRate } from '../data/analytics';
 import type { Row } from '../data/analytics';
+import * as A from '../data/analytics';
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
 
@@ -25,22 +26,21 @@ interface DeathRate   { County: string; [key: string]: number | string; }
 interface ProviderRow { County: string; [year: string]: number | string; }
 interface MapViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
 
-const D_HIGH = '#B23A2E';
-const D_HIGH_TINT = '#EDCAC5';
-const D_MID_TINT = '#EBD6B0';
-const D_LOW = '#4F7A4D';
-const D_LOW_TINT = '#C2D9B0';
-const D_NULL_TINT = '#E0DDD5';
-const INK = '#1C1B18';
-const INK_4 = '#9A968C';
-const RULE = '#E6E3DC';
+// Colours come from the shared band table so the map, the legend and every
+// other view cannot drift apart. These were duplicated here with the old
+// tints, so the legend showed the accessible palette while the polygons kept
+// the pair whose luminance ratio was 1.00.
+const D_HIGH = A.D_HIGH;
+const D_HIGH_TINT = A.D_HIGH_TINT;
+const D_LOW = A.D_LOW;
+const D_NULL_TINT = A.D_NULL_TINT;
+const INK = A.INK;
+const INK_4 = '#757168';
+const RULE = A.RULE;
 
+/** Fill for one county, from the same classifier the legend renders from. */
 function tileColor(rate: number, stateRate: number): string {
-  if (!rate || !stateRate) return D_NULL_TINT;
-  const r = rate / stateRate;
-  if (r > 1.2) return D_HIGH_TINT;
-  if (r < 0.8) return D_LOW_TINT;
-  return D_MID_TINT;
+  return bandStyle(bandOf(rate || null, stateRate || null)).fill;
 }
 
 // Bivariate 2×2: axis A = mortality (above/below state avg), axis B = access (above/below state avg)
@@ -246,7 +246,7 @@ const stateRate = useMemo(() => {
   const escHtml = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-  const onEachFeature = useCallback((feature: Feature, layer: L.Layer) => {
+  const buildTooltip = useCallback((feature: Feature): string => {
     const key = ((feature.properties?.COUNTY_NAM as string) || '').toLowerCase();
     const titleName = nameMap[key] || (feature.properties?.COUNTY_NAM as string) || '';
     const safeTitle = escHtml(titleName);
@@ -295,25 +295,44 @@ const stateRate = useMemo(() => {
       </div>
     `;
 
-    (layer as L.Path).bindTooltip(tooltipHtml, {
+    return tooltipHtml;
+  }, [rateMap, stateRate, nameMap, priorityCounties, selectedCause, selectedYear, countyData, providerMap, stateProvVal, providerOverlay]);
+
+  // Leaflet binds these handlers once, when the layer is created. The GeoJSON
+  // layer is rebuilt the moment a cause is picked, which is before that cause's
+  // rates have arrived, so a handler that closed over getStyle captured an
+  // empty rateMap and repainted the county grey on mouseout. Refs keep the
+  // handlers pointed at the current functions instead of the ones that existed
+  // at creation time.
+  const styleRef = useRef(getStyle);
+  const tooltipRef = useRef(buildTooltip);
+  useEffect(() => { styleRef.current = getStyle; }, [getStyle]);
+  useEffect(() => { tooltipRef.current = buildTooltip; }, [buildTooltip]);
+
+  const onEachFeature = useCallback((feature: Feature, layer: L.Layer) => {
+    const key = ((feature.properties?.COUNTY_NAM as string) || '').toLowerCase();
+    const titleName = nameMap[key] || (feature.properties?.COUNTY_NAM as string) || '';
+    const path = layer as L.Path;
+
+    // A function, not a string: Leaflet calls it each time the tooltip opens,
+    // so it shows current numbers rather than whatever was loaded at creation.
+    path.bindTooltip(() => tooltipRef.current(feature), {
       sticky: true,
       className: 'idph-tip',
       opacity: 1,
     });
 
-    const path = layer as L.Path;
-
-path.on('mouseover', () => {
+    path.on('mouseover', () => {
       path.setStyle({ weight: 2.5, fillOpacity: 1 });
       path.bringToFront();
     });
     path.on('mouseout', () => {
-      path.setStyle(getStyle(feature));
+      path.setStyle(styleRef.current(feature));
     });
-    (layer as L.Path).on('click', () => {
+    path.on('click', () => {
       navigate(`/county/${encodeURIComponent(titleName.replace(/[^a-zA-Z0-9 .\-']/g, ''))}`);
     });
-  }, [rateMap, stateRate, nameMap, priorityCounties, selectedCause, selectedYear, countyData, searchTarget, navigate, getStyle, providerMap, stateProvVal, providerOverlay]);
+  }, [nameMap, navigate]);
 
   return (
     <div className="view fade-in" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

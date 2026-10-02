@@ -86,8 +86,13 @@ previous output, so two runs from a clean checkout produce identical numbers.
 Run the tests before trusting a change to any stage:
 
 ```bash
-python -m pytest app/pipeline/tests -q
+python -m pytest app/pipeline/tests -q    # the published numbers
+python -m pytest app/backend/tests -q     # API and SPA routing
 ```
+
+The routing suite covers the single-origin deployment: every client route must
+return the SPA, every API route must answer, and an unknown API path must
+return a JSON 404 rather than the page with a 200.
 
 ## Methodology
 
