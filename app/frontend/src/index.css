@@ -248,7 +248,13 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
   min-width: 0;
 }
 .topstrip .crumb .sep { color: var(--ink-5); font-family: var(--mono); }
-.topstrip .actions { display: flex; border-left: 1px solid var(--rule); }
+.topstrip .actions { display: flex; align-items: stretch; border-left: 1px solid var(--rule); }
+/* The Presets button sits inside a positioning wrapper so its popover can
+   anchor to it. A plain block wrapper does not pass the strip's height down,
+   so the button sized to its own content and sat at the top while Export,
+   a direct child, stretched and centred. Making the wrapper a flex container
+   lets the button fill the strip the same way. */
+.topstrip .actions > div { display: flex; align-items: stretch; }
 .topstrip .a-btn {
   padding: 0 18px;
   display: flex;
@@ -265,7 +271,11 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
   border-bottom: none;
   border-right: none;
 }
-.topstrip .a-btn:first-child { border-left: none; }
+/* Matches the first action whether or not it is wrapped. The old
+   :first-child only saw an unwrapped button, so Presets drew its own divider
+   right next to the one on .actions. */
+.topstrip .actions > :first-child .a-btn,
+.topstrip .actions > .a-btn:first-child { border-left: none; }
 .topstrip .a-btn:hover { color: var(--ink); background: var(--paper-2); }
 
 /* ─── View header ────────────────────────────────────────── */
