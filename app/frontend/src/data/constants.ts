@@ -22,15 +22,15 @@ export const EXCLUDED_COUNTIES = ['ILLINOIS', 'Chicago', 'Suburban Cook'];
 
 
 export const IDPH_DISTRICTS: Record<number, { name: string; counties: string[] }> = {
-  1: { name: 'District 1 — Metro Chicago', counties: ['Lake','McHenry','Cook','Kane','DuPage','Will'] },
-  2: { name: 'District 2 — Northwest', counties: ['Jo Daviess','Stephenson','Winnebago','Boone','Ogle','Carroll','Whiteside','Lee','Rock Island','Henry'] },
-  3: { name: 'District 3 — North Central', counties: ['DeKalb','Kendall','LaSalle','Bureau','Grundy','Kankakee','Livingston','Iroquois','Ford'] },
-  4: { name: 'District 4 — West Central', counties: ['Mercer','Putnam','Stark','Knox','Marshall','Henderson','Warren','Peoria','Woodford','Tazewell','Fulton','McDonough'] },
-  5: { name: 'District 5 — Central', counties: ['McLean','Vermilion','Champaign','Piatt','DeWitt','Edgar','Douglas'] },
-  6: { name: 'District 6 — West', counties: ['Hancock','Mason','Logan','Schuyler','Adams','Menard','Cass','Brown','Sangamon','Morgan','Pike','Christian','Scott','Montgomery','Macoupin'] },
-  7: { name: 'District 7 — East Central', counties: ['Macon','Moultrie','Coles','Shelby','Clark','Cumberland','Effingham','Fayette','Crawford','Jasper','Clay','Lawrence','Richland','Wayne','Wabash','Edwards'] },
-  8: { name: 'District 8 — Southwest', counties: ['Greene','Calhoun','Jersey','Bond','Madison','Marion','Clinton','St. Clair','Washington','Monroe','Randolph'] },
-  9: { name: 'District 9 — Southeast', counties: ['Jefferson','White','Hamilton','Perry','Franklin','Jackson','Gallatin','Saline','Williamson','Hardin','Pope','Johnson','Union','Massac','Pulaski','Alexander'] },
+  1: { name: 'District 1: Metro Chicago', counties: ['Lake','McHenry','Cook','Kane','DuPage','Will'] },
+  2: { name: 'District 2: Northwest', counties: ['Jo Daviess','Stephenson','Winnebago','Boone','Ogle','Carroll','Whiteside','Lee','Rock Island','Henry'] },
+  3: { name: 'District 3: North Central', counties: ['DeKalb','Kendall','LaSalle','Bureau','Grundy','Kankakee','Livingston','Iroquois','Ford'] },
+  4: { name: 'District 4: West Central', counties: ['Mercer','Putnam','Stark','Knox','Marshall','Henderson','Warren','Peoria','Woodford','Tazewell','Fulton','McDonough'] },
+  5: { name: 'District 5: Central', counties: ['McLean','Vermilion','Champaign','Piatt','DeWitt','Edgar','Douglas'] },
+  6: { name: 'District 6: West', counties: ['Hancock','Mason','Logan','Schuyler','Adams','Menard','Cass','Brown','Sangamon','Morgan','Pike','Christian','Scott','Montgomery','Macoupin'] },
+  7: { name: 'District 7: East Central', counties: ['Macon','Moultrie','Coles','Shelby','Clark','Cumberland','Effingham','Fayette','Crawford','Jasper','Clay','Lawrence','Richland','Wayne','Wabash','Edwards'] },
+  8: { name: 'District 8: Southwest', counties: ['Greene','Calhoun','Jersey','Bond','Madison','Marion','Clinton','St. Clair','Washington','Monroe','Randolph'] },
+  9: { name: 'District 9: Southeast', counties: ['Jefferson','White','Hamilton','Perry','Franklin','Jackson','Gallatin','Saline','Williamson','Hardin','Pope','Johnson','Union','Massac','Pulaski','Alexander'] },
 };
 
 // Empty string = same-origin requests (API served by the same host as the SPA)

@@ -4,9 +4,8 @@ import {
   Tooltip, ResponsiveContainer, ReferenceLine, Cell,
   ScatterChart, Scatter,
 } from 'recharts';
-import axios from 'axios';
-import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, providerMetricLabels, providerMetrics, providerMetricInverted } from '../data/constants';
-import { usePopulation } from '../data/useDataset';
+import { causeLabels, causes, EXCLUDED_COUNTIES, providerMetricLabels, providerMetrics, providerMetricInverted } from '../data/constants';
+import { fetchDeathRates, fetchProviderData, usePopulation } from '../data/useDataset';
 import { asRows, TREND_BASE_YEAR, toRate } from '../data/analytics';
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
@@ -65,18 +64,28 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
   useEffect(() => {
     if (!selectedCause) return;
     setLoading(true);
-    axios.get(`${API_BASE}/death_rates?cause=${selectedCause}`)
-      .then(r => { setDeathData(asRows(r.data)); setError(null); })
-      .catch(() => setError('Failed to load data. Ensure the backend is running.'))
-      .finally(() => setLoading(false));
+    // A slower earlier request must not land after a newer one and
+    // overwrite it. Switching cause or metric quickly can otherwise leave
+    // the view showing the answer to a request it has already moved on from.
+    let live = true;
+    fetchDeathRates(selectedCause)
+      .then(r => { if (live) { setDeathData(asRows(r.data)); setError(null); } })
+      .catch(() => { if (live) setError('Failed to load data. Ensure the backend is running.'); })
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
   }, [selectedCause]);
 
   useEffect(() => {
     setProviderLoading(true);
-    axios.get(`${API_BASE}/provider_data?metric=${corrMetric}`)
-      .then(r => setProviderData(asRows(r.data)))
+    // A slower earlier request must not land after a newer one and
+    // overwrite it. Switching cause or metric quickly can otherwise leave
+    // the view showing the answer to a request it has already moved on from.
+    let live = true;
+    fetchProviderData(corrMetric)
+      .then(r => { if (live) setProviderData(asRows(r.data)); })
       .catch(() => {})
-      .finally(() => setProviderLoading(false));
+      .finally(() => { if (live) setProviderLoading(false); });
+    return () => { live = false; };
   }, [corrMetric]);
 
   const latestYear = (() => {
@@ -275,15 +284,15 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
           </p>
         </div>
         <div className="ix">
-          <div className="field">
-            <div className="field-label">Cause of death</div>
+          <label className="field">
+            <span className="field-label">Cause of death</span>
             <select className="sel" style={{ width: 260 }}
               value={selectedCause}
               onChange={e => setShared({ ...shared, selectedCause: e.target.value })}>
-              <option value="">— Select cause —</option>
+              <option value="">Select a cause</option>
               {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
             </select>
-          </div>
+          </label>
           <YearScrub value={selectedYear} shared={shared} onChange={v => setShared({ ...shared, selectedYear: v })} />
         </div>
       </div>
@@ -304,24 +313,24 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid var(--rule)' }}>
             <div className="stat fade-in fade-in-1">
               <div className="stat-label">Highest county rate</div>
-              <div className="stat-value num" style={{ color: D_HIGH }}>{highest ? highest.rate.toFixed(1) : '—'}</div>
-              <div className="stat-meta"><span>{highest?.county ?? '—'} · {selectedYear}</span></div>
+              <div className="stat-value num" style={{ color: D_HIGH }}>{highest ? highest.rate.toFixed(1) : 'n/a'}</div>
+              <div className="stat-meta"><span>{highest?.county ?? 'n/a'} · {selectedYear}</span></div>
             </div>
             <div className="stat fade-in fade-in-2">
               <div className="stat-label">Lowest county rate</div>
-              <div className="stat-value num" style={{ color: D_LOW }}>{lowest ? lowest.rate.toFixed(1) : '—'}</div>
-              <div className="stat-meta"><span>{lowest?.county ?? '—'} · {selectedYear}</span></div>
+              <div className="stat-value num" style={{ color: D_LOW }}>{lowest ? lowest.rate.toFixed(1) : 'n/a'}</div>
+              <div className="stat-meta"><span>{lowest?.county ?? 'n/a'} · {selectedYear}</span></div>
             </div>
             <div className="stat fade-in fade-in-3">
               <div className="stat-label">State trend 2009–2022</div>
               <div className="stat-value num" style={{ color: stateTrend ? (stateTrend.pct < 0 ? D_LOW : D_HIGH) : 'var(--ink-5)' }}>
-                {stateTrend ? `${stateTrend.pct > 0 ? '+' : ''}${stateTrend.pct.toFixed(1)}%` : '—'}
+                {stateTrend ? `${stateTrend.pct > 0 ? '+' : ''}${stateTrend.pct.toFixed(1)}%` : 'n/a'}
               </div>
               <div className="stat-meta"><span>{stateTrend ? `${stateTrend.from.toFixed(1)} → ${stateTrend.to.toFixed(1)} /100k` : ''}</span></div>
             </div>
             <div className="stat fade-in fade-in-4">
               <div className="stat-label">Counties above state avg</div>
-              <div className="stat-value num">{aboveAvg ?? '—'}</div>
+              <div className="stat-value num">{aboveAvg ?? 'n/a'}</div>
               <div className="stat-meta"><span>of 102 · {selectedYear}</span></div>
             </div>
           </div>
@@ -336,7 +345,7 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
                   <div className="eyebrow">Statewide trend</div>
                   <div className="h3">Crude death rate, {firstYear} – {latestYear ?? lastYear}</div>
                 </div>
-                <span className="caption" style={{ color: 'var(--ink-4)' }}>Band = county min/max</span>
+                <span className="caption" style={{ color: 'var(--ink-4)' }}>Shaded band shows the county minimum and maximum</span>
               </div>
               <div className="panel-body">
                 <div style={{ height: 240 }}>
@@ -463,7 +472,7 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
                           <div style={{ color: INK, fontSize: 12.5 }}>{label}</div>
                           <div className="num" style={{ fontSize: 10, color: INK_4, marginTop: 1 }}>{sub}</div>
                         </div>
-                        <span className="num" style={{ color: count > 0 ? INK : 'var(--ink-5)', fontSize: 13, textAlign: 'right' }}>{count || '—'}</span>
+                        <span className="num" style={{ color: count > 0 ? INK : 'var(--ink-5)', fontSize: 13, textAlign: 'right' }}>{count || 'n/a'}</span>
                       </div>
                     ))}
                   </div>
@@ -560,7 +569,7 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
                 <div className="panel-head">
                   <div className="titles">
                     <div className="eyebrow">COVID-era impact</div>
-                    <div className="h3">Rate shift 2019 → 2022</div>
+                    <div className="h3">Rate shift, 2019 to {lastYear}</div>
                   </div>
                   <span className="caption">Sorted by absolute change</span>
                 </div>

@@ -4,14 +4,14 @@ import { MapContainer, GeoJSON as LeafletGeoJSON, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapView.css';
-import axios from 'axios';
 import type { FeatureCollection, Feature } from 'geojson';
-import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, IDPH_DISTRICTS, providerMetricLabels, providerMetrics, providerMetricShort, providerMetricInverted } from '../data/constants';
+import { causeLabels, causes, EXCLUDED_COUNTIES, IDPH_DISTRICTS, providerMetricLabels, providerMetrics, providerMetricShort, providerMetricInverted } from '../data/constants';
 import { asRows, PRIORITY_BANDS, TREND_BASE_YEAR, bandOf, bandStyle, calcSlope, classifyCounty, toRate } from '../data/analytics';
 import type { Row } from '../data/analytics';
 import * as A from '../data/analytics';
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
+import { fetchAnnotations, fetchDeathRates, fetchGeoJson, fetchProviderData } from '../data/useDataset';
 
 interface Annotation {
   id: string;
@@ -45,10 +45,10 @@ function tileColor(rate: number, stateRate: number): string {
 
 // Bivariate 2×2: axis A = mortality (above/below state avg), axis B = access (above/below state avg)
 // High mort + low access → red; High mort + high access → amber; Low mort + low access → blue; Low mort + high access → green
-const BV_HIGH_LOW  = '#D4605A'; // high mort, low access — worst
-const BV_HIGH_HIGH = '#D4A55A'; // high mort, high access — mortality issue, not access
-const BV_LOW_LOW   = '#5A8BBF'; // low mort, low access — access shortage, resilient
-const BV_LOW_HIGH  = '#5A9A68'; // low mort, high access — best
+const BV_HIGH_LOW  = '#D4605A'; // high mortality, low access: worst
+const BV_HIGH_HIGH = '#D4A55A'; // high mortality, high access: a mortality problem, not an access one
+const BV_LOW_LOW   = '#5A8BBF'; // low mortality, low access: an access shortage, but resilient
+const BV_LOW_HIGH  = '#5A9A68'; // low mortality, high access: best
 
 function bivariateColor(
   rate: number, stateRate: number,
@@ -111,35 +111,45 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
 
 
   useEffect(() => {
-    axios.get(`${API_BASE}/geojson`)
+    fetchGeoJson()
       .then(r => {
         const geo = r.data;
         // Leaflet throws "Invalid GeoJSON object" on anything unexpected, and
         // that throw happens inside render, which blanks the page rather than
         // the map. Check the shape before handing it over.
-        if (geo && typeof geo === 'object' && Array.isArray(geo.features)) setGeoData(geo);
+        if (geo && typeof geo === 'object' && Array.isArray(geo.features)) setGeoData(geo as unknown as FeatureCollection);
         else setError('Map geometry is not valid GeoJSON.');
       })
       .catch(() => setError('Failed to load map geometry.'));
-    axios.get(`${API_BASE}/annotations`)
+    fetchAnnotations()
       .then(r => setAnnotations(asRows(r.data)))
       .catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!providerOverlay) { setProviderData([]); return; }
-    axios.get(`${API_BASE}/provider_data?metric=${providerOverlay}`)
-      .then(r => setProviderData(asRows(r.data)))
-      .catch(() => setProviderData([]));
+    // A slower earlier request must not land after a newer one and
+    // overwrite it. Switching cause or metric quickly can otherwise leave
+    // the view showing the answer to a request it has already moved on from.
+    let live = true;
+    fetchProviderData(providerOverlay)
+      .then(r => { if (live) setProviderData(asRows(r.data)); })
+      .catch(() => { if (live) setProviderData([]); });
+    return () => { live = false; };
   }, [providerOverlay]);
 
   useEffect(() => {
     if (!selectedCause) return;
     setLoading(true);
-    axios.get(`${API_BASE}/death_rates?cause=${selectedCause}`)
-      .then(r => { setCountyData(asRows(r.data)); setError(null); })
-      .catch(() => setError('Failed to load data. Ensure the backend is running at port 8000.'))
-      .finally(() => setLoading(false));
+    // A slower earlier request must not land after a newer one and
+    // overwrite it. Switching cause or metric quickly can otherwise leave
+    // the view showing the answer to a request it has already moved on from.
+    let live = true;
+    fetchDeathRates(selectedCause)
+      .then(r => { if (live) { setCountyData(asRows(r.data)); setError(null); } })
+      .catch(() => { if (live) setError('Failed to load data. Ensure the backend is running at port 8000.'); })
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
   }, [selectedCause]);
 
 const stateRate = useMemo(() => {
@@ -263,7 +273,7 @@ const stateRate = useMemo(() => {
 
     const pctStr = ratio > 0
       ? `${(ratio - 1) * 100 > 0 ? '+' : ''}${((ratio - 1) * 100).toFixed(0)}%`
-      : '&mdash;';
+      : 'n/a';
     const slopeStr = slope === null ? 'n/a' : `${slope > 0 ? '+' : ''}${slope.toFixed(2)}/yr`;
     const slopeColor = slope === null ? INK_4 : slope > 0 ? D_HIGH : slope < 0 ? D_LOW : INK_4;
     const ratioColor = ratio > 1.2 ? D_HIGH : ratio < 0.8 ? D_LOW : INK;
@@ -274,7 +284,7 @@ const stateRate = useMemo(() => {
         ${selectedCause ? `
           <div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:4px;">
             <span style="color:${INK_4}">Rate&nbsp;/&nbsp;100k</span>
-            <span style="color:${INK}">${rate > 0 ? rate.toFixed(1) : '&mdash;'}</span>
+            <span style="color:${INK}">${rate > 0 ? rate.toFixed(1) : 'n/a'}</span>
           </div>
           <div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:4px;">
             <span style="color:${INK_4}">vs.&nbsp;state&nbsp;avg</span>
@@ -329,8 +339,38 @@ const stateRate = useMemo(() => {
     path.on('mouseout', () => {
       path.setStyle(styleRef.current(feature));
     });
-    path.on('click', () => {
+    const open = () => {
       navigate(`/county/${encodeURIComponent(titleName.replace(/[^a-zA-Z0-9 .\-']/g, ''))}`);
+    };
+    path.on('click', open);
+
+    // Leaflet renders each county as an SVG path with no tab stop, so the map
+    // was unusable without a mouse. The element only exists once the layer is
+    // on the map, hence the 'add' hook.
+    path.on('add', () => {
+      const el = path.getElement() as SVGElement | null;
+      if (!el) return;
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('role', 'link');
+      el.setAttribute('aria-label', `${titleName} County`);
+      el.addEventListener('keydown', (e: Event) => {
+        const key = (e as KeyboardEvent).key;
+        if (key === 'Enter' || key === ' ') {
+          e.preventDefault();
+          open();
+        }
+      });
+      // Focus should look like hover, and leaving should restore the band
+      // styling rather than whatever the hover handler last set.
+      el.addEventListener('focus', () => {
+        path.setStyle({ weight: 2.5, fillOpacity: 1 });
+        path.bringToFront();
+        path.openTooltip();
+      });
+      el.addEventListener('blur', () => {
+        path.setStyle(styleRef.current(feature));
+        path.closeTooltip();
+      });
     });
   }, [nameMap, navigate]);
 
@@ -346,37 +386,37 @@ const stateRate = useMemo(() => {
           </p>
         </div>
         <div className="ix">
-          <div className="field">
-            <div className="field-label">Cause of death</div>
+          <label className="field">
+            <span className="field-label">Cause of death</span>
             <select className="sel" style={{ width: 260 }}
               value={selectedCause}
               onChange={e => setShared({ ...shared, selectedCause: e.target.value })}>
-              <option value="">— Select cause —</option>
+              <option value="">Select a cause</option>
               {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
             </select>
-          </div>
-          <div className="field">
-            <div className="field-label">Provider overlay</div>
+          </label>
+          <label className="field">
+            <span className="field-label">Provider overlay</span>
             <select className="sel" style={{ width: 240 }}
               value={providerOverlay}
               onChange={e => setProviderOverlay(e.target.value)}>
-              <option value="">— None (mortality only) —</option>
+              <option value="">None (mortality only)</option>
               {providerMetrics.map(m => <option key={m} value={m}>{providerMetricLabels[m]}</option>)}
             </select>
-          </div>
-          <div className="field">
-            <div className="field-label">District filter</div>
+          </label>
+          <label className="field">
+            <span className="field-label">District filter</span>
             <select className="sel" style={{ width: 200 }}
               value={selectedDistrict || ''}
               onChange={e => setShared({ ...shared, selectedDistrict: e.target.value ? Number(e.target.value) : '' })}>
               <option value="">All districts</option>
               {Object.entries(IDPH_DISTRICTS).map(([num, { name }]) => (
-                <option key={num} value={num}>D{num} · {(name as string).split(' — ')[1]}</option>
+                <option key={num} value={num}>D{num} · {(name as string).split(': ')[1]}</option>
               ))}
             </select>
-          </div>
-          <div className="field">
-            <div className="field-label">Search county</div>
+          </label>
+          <label className="field">
+            <span className="field-label">Search county</span>
             <div style={{ position: 'relative' }}>
               <svg style={{ position: 'absolute', left: 9, top: 9, color: 'var(--ink-4)', pointerEvents: 'none' }}
                 width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
@@ -391,7 +431,7 @@ const stateRate = useMemo(() => {
                   .map(d => <option key={d.County} value={d.County} />)}
               </datalist>
             </div>
-          </div>
+          </label>
           <YearScrub value={selectedYear} shared={shared}
             onChange={v => setShared({ ...shared, selectedYear: v })} />
         </div>
@@ -406,7 +446,7 @@ const stateRate = useMemo(() => {
         </div>
       )}
 
-      {/* Map + sidebar — always full height so Leaflet never needs to resize */}
+      {/* Map and sidebar, always full height so Leaflet never needs to resize */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', flex: 1, overflow: 'hidden', position: 'relative' }}>
 
         {/* Map column */}

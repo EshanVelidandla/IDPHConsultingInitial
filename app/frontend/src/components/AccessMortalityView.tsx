@@ -4,14 +4,14 @@ import {
   ResponsiveContainer, ReferenceLine, Cell, LineChart, Line,
   ComposedChart,
 } from 'recharts';
-import axios from 'axios';
 import {
   causeLabels, causes, providerMetricLabels, continuousProviderMetrics,
-  EXCLUDED_COUNTIES, API_BASE, providerMetricInverted,
+  EXCLUDED_COUNTIES, providerMetricInverted,
 } from '../data/constants';
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
 import { asRows, toRate, yearsOf } from '../data/analytics';
+import { fetchDeathRates, fetchProviderData } from '../data/useDataset';
 
 interface DeathRow   { County: string; [year: string]: number | string; }
 interface ProviderRow { County: string; [year: string]: number | string; }
@@ -79,29 +79,54 @@ interface ScatterPoint { county: string; x: number; y: number; hpsa: number; }
  * meaning.
  */
 export const ACCESS_QUADRANTS = [
-  { key: 'hi-hpsa',  color: D_HIGH, aboveAvg: true,  designated: true,
+  { key: 'hi-hpsa',  color: D_HIGH, shape: 'triangle', aboveAvg: true,  designated: true,
     label: 'Above-state mortality · HPSA designated' },
-  { key: 'lo-hpsa',  color: D_MID,  aboveAvg: false, designated: true,
+  { key: 'lo-hpsa',  color: D_MID,  shape: 'diamond',  aboveAvg: false, designated: true,
     label: 'Below-state mortality · HPSA designated' },
-  { key: 'hi-ok',    color: ACCENT, aboveAvg: true,  designated: false,
+  { key: 'hi-ok',    color: ACCENT, shape: 'square',   aboveAvg: true,  designated: false,
     label: 'Above-state mortality · not designated' },
-  { key: 'lo-ok',    color: D_LOW,  aboveAvg: false, designated: false,
+  { key: 'lo-ok',    color: D_LOW,  shape: 'circle',   aboveAvg: false, designated: false,
     label: 'Below-state mortality · not designated' },
 ] as const;
 
-function dotColor(hpsa: number, y: number, stateY: number): string {
+type MarkShape = typeof ACCESS_QUADRANTS[number]['shape'];
+
+/** One mark, shared by the scatter and the legend swatches. */
+function Mark({ shape, cx, cy, r, ...rest }: {
+  shape: MarkShape; cx: number; cy: number; r: number;
+} & Record<string, unknown>) {
+  if (shape === 'triangle') {
+    return <polygon points={`${cx},${cy - r} ${cx + r},${cy + r * 0.8} ${cx - r},${cy + r * 0.8}`} {...rest} />;
+  }
+  if (shape === 'diamond') {
+    return <polygon points={`${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`} {...rest} />;
+  }
+  if (shape === 'square') {
+    return <rect x={cx - r * 0.85} y={cy - r * 0.85} width={r * 1.7} height={r * 1.7} {...rest} />;
+  }
+  return <circle cx={cx} cy={cy} r={r} {...rest} />;
+}
+
+function quadrantFor(hpsa: number, y: number, stateY: number) {
   const aboveAvg = y > stateY;
   const designated = hpsa > 0;
-  return (ACCESS_QUADRANTS.find(q => q.aboveAvg === aboveAvg && q.designated === designated)
-    ?? ACCESS_QUADRANTS[3]).color;
+  return ACCESS_QUADRANTS.find(q => q.aboveAvg === aboveAvg && q.designated === designated)
+    ?? ACCESS_QUADRANTS[3];
+}
+
+function dotColor(hpsa: number, y: number, stateY: number): string {
+  return quadrantFor(hpsa, y, stateY).color;
 }
 
 const CustomDot = (props: { cx?: number; cy?: number; payload?: ScatterPoint; stateY?: number }) => {
   const { cx = 0, cy = 0, payload, stateY = 0 } = props;
   if (!payload) return null;
+  // Shape repeats the quadrant, so the four groups stay separable without
+  // colour vision. The legend below draws the same shapes.
+  const q = quadrantFor(payload.hpsa, payload.y, stateY);
   return (
-    <circle cx={cx} cy={cy} r={5}
-      fill={dotColor(payload.hpsa, payload.y, stateY)}
+    <Mark shape={q.shape} cx={cx} cy={cy} r={5}
+      fill={q.color}
       fillOpacity={0.85} stroke="#FFF" strokeWidth={1.2}
       style={{ cursor: 'default' }} />
   );
@@ -150,22 +175,28 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
   // Fetch mortality + provider on cause/metric change
   useEffect(() => {
     setLoading(true);
+    // A slower earlier request must not land after a newer one and
+    // overwrite it. Switching cause or metric quickly can otherwise leave
+    // the view showing the answer to a request it has already moved on from.
+    let live = true;
     Promise.all([
-      axios.get(`${API_BASE}/death_rates?cause=${cause}`),
-      axios.get(`${API_BASE}/provider_data?metric=${metric}`),
-      axios.get(`${API_BASE}/provider_data?metric=hpsa_primary_care_designation`),
+      fetchDeathRates(cause),
+      fetchProviderData(metric),
+      fetchProviderData('hpsa_primary_care_designation'),
     ]).then(([mr, pr, hr]) => {
+      if (!live) return;
       setMortalityData(asRows(mr.data));
       setProviderData(asRows(pr.data));
       setHpsaData(asRows(hr.data));
     }).catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
   }, [cause, metric]);
 
-  // Fetch all causes for correlation matrix (lazy — only on tab mount)
+  // Fetch all causes for the correlation matrix, lazily on tab mount
   useEffect(() => {
     Promise.all(
-      causes.map(c => axios.get(`${API_BASE}/death_rates?cause=${c}`).then(r => ({ c, data: r.data as DeathRow[] })))
+      causes.map(c => fetchDeathRates(c).then(r => ({ c, data: r.data as DeathRow[] })))
     ).then(results => {
       const m: Record<string, DeathRow[]> = {};
       results.forEach(({ c, data }) => { m[c] = data; });
@@ -295,18 +326,18 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
           </p>
         </div>
         <div className="ix">
-          <div className="field">
-            <div className="field-label">Cause of death</div>
+          <label className="field">
+            <span className="field-label">Cause of death</span>
             <select className="sel" style={{ width: 260 }} value={cause} onChange={e => setCause(e.target.value)}>
               {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
             </select>
-          </div>
-          <div className="field">
-            <div className="field-label">Provider metric</div>
+          </label>
+          <label className="field">
+            <span className="field-label">Provider metric</span>
             <select className="sel" style={{ width: 280 }} value={metric} onChange={e => setMetric(e.target.value)}>
               {continuousProviderMetrics.map(m => <option key={m} value={m}>{providerMetricLabels[m]}</option>)}
             </select>
-          </div>
+          </label>
           <YearScrub value={selectedYear} shared={shared}
             onChange={v => setShared({ ...shared, selectedYear: v })} />
         </div>
@@ -321,7 +352,7 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
             <div className="stat fade-in fade-in-1">
               <div className="stat-label">Pearson r · {selectedYear}</div>
               <div className="stat-value num" style={{ color: rColor(stats.r) }}>
-                {stats.r !== 0 ? stats.r.toFixed(3) : '—'}
+                {stats.r !== 0 ? stats.r.toFixed(3) : 'n/a'}
               </div>
               <div className="stat-meta">
                 <span>{stats.r > 0 ? 'Positive' : stats.r < 0 ? 'Negative' : ''} correlation · {stats.n} counties</span>
@@ -329,20 +360,20 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
             </div>
             <div className="stat fade-in fade-in-2">
               <div className="stat-label">R² (variance explained)</div>
-              <div className="stat-value num">{stats.r2 > 0 ? `${(stats.r2 * 100).toFixed(1)}%` : '—'}</div>
+              <div className="stat-value num">{stats.r2 > 0 ? `${(stats.r2 * 100).toFixed(1)}%` : 'n/a'}</div>
               <div className="stat-meta"><span>of mortality variance explained by access</span></div>
             </div>
             <div className="stat fade-in fade-in-3">
               <div className="stat-label">Regression slope</div>
               <div className="stat-value num" style={{ color: stats.slope < 0 ? D_LOW : D_HIGH }}>
-                {stats.slope !== 0 ? `${stats.slope > 0 ? '+' : ''}${stats.slope.toFixed(2)}` : '—'}
+                {stats.slope !== 0 ? `${stats.slope > 0 ? '+' : ''}${stats.slope.toFixed(2)}` : 'n/a'}
               </div>
               <div className="stat-meta"><span>deaths/100k per unit provider metric</span></div>
             </div>
             <div className="stat fade-in fade-in-4">
               <div className="stat-label">p-value</div>
               <div className="stat-value num" style={{ color: stats.p === '< 0.001' || stats.p === '< 0.01' ? D_LOW : stats.p === '< 0.05' ? D_MID : INK_4 }}>
-                {stats.p !== 'n/a' ? stats.p : '—'}
+                {stats.p !== 'n/a' ? stats.p : 'n/a'}
               </div>
               <div className="stat-meta"><span>t-test · df = {stats.n - 2}</span></div>
             </div>
@@ -358,9 +389,11 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
                   <div className="h3">{providerMetricLabels[metric]} vs. {causeLabels[cause]}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                  {ACCESS_QUADRANTS.map(({ color, label }) => (
+                  {ACCESS_QUADRANTS.map(({ color, shape, label }) => (
                     <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontFamily: 'var(--mono)', color: INK_3 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                      <svg width="12" height="12" style={{ flexShrink: 0 }} aria-hidden="true">
+                        <Mark shape={shape} cx={6} cy={6} r={4.5} fill={color} />
+                      </svg>
                       {label}
                     </span>
                   ))}
@@ -413,7 +446,7 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
                 <div className="panel-head">
                   <div className="titles">
                     <div className="eyebrow">Correlation over time</div>
-                    <div className="h3">Pearson r · 2009–2022</div>
+                    <div className="h3">Pearson r by year</div>
                   </div>
                 </div>
                 <div className="panel-body">
@@ -541,7 +574,7 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
             <div style={{ paddingTop: 24, borderTop: `1px solid ${RULE}`, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
               <div>
                 <div className="eyebrow" style={{ marginBottom: 8 }}>Interpretation</div>
-                <p className="caption">A negative r between provider density and mortality rate indicates counties with more providers have lower death rates. Correlation does not imply causation — rural counties may have both fewer providers and higher mortality due to underlying socioeconomic factors.</p>
+                <p className="caption">A negative r between provider density and mortality rate indicates counties with more providers have lower death rates. Correlation does not imply causation. Rural counties may have both fewer providers and higher mortality because of underlying socioeconomic factors.</p>
               </div>
               <div>
                 <div className="eyebrow" style={{ marginBottom: 8 }}>Statistical note</div>

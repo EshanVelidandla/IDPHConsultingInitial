@@ -76,19 +76,6 @@ export function stateRow(rows: Row[]): Row | undefined {
 }
 
 /**
- * The most recent year this row actually has data for, at or before `upTo`.
- * Views must display this, because it is often not the year the user picked.
- */
-export function latestYearWithData(row: Row | undefined, years: number[], upTo?: number): number | null {
-  if (!row) return null;
-  const candidates = years.filter((y) => (upTo === undefined ? true : y <= upTo));
-  for (let i = candidates.length - 1; i >= 0; i--) {
-    if (toRate(row, candidates[i]) !== null) return candidates[i];
-  }
-  return null;
-}
-
-/**
  * Least-squares slope in rate units per year, over [from, to].
  *
  * Returns null rather than 0 when there are fewer than two points. The old
@@ -201,14 +188,6 @@ export function classifyCounty(
   };
 }
 
-/** "No data" rather than "0.00" for a missing value. */
-export function fmtRate(v: number | null, digits = 1): string {
-  return v === null ? 'No data' : v.toFixed(digits);
-}
-
-export function fmtSigned(v: number | null, digits = 2): string {
-  return v === null ? 'n/a' : `${v >= 0 ? '+' : ''}${v.toFixed(digits)}`;
-}
 
 /**
  * Coerce a list response into an array.

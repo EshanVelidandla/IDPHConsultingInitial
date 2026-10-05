@@ -17,7 +17,7 @@ from pydantic import BaseModel, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from auth import load_users, save_users, hash_password
+from auth import load_users, update_users, hash_password
 import storage
 
 logging.basicConfig(level=logging.INFO)
@@ -145,7 +145,7 @@ provider_dir = os.path.join(data_dir, "provider_tables")
 os.makedirs(death_rates_dir, exist_ok=True)
 os.makedirs(provider_dir, exist_ok=True)
 
-# ── Auth (bypassed — every request is treated as the built-in admin) ──
+# ── Auth (bypassed: every request is treated as the built-in admin) ──
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _PASS_RE = re.compile(r'^(?=.*[0-9])(?=.*[^a-zA-Z0-9]).{8,}$')
@@ -806,9 +806,6 @@ def list_users_admin(user=Depends(require_admin)):
 
 @app.post("/admin/users")
 def create_user(body: UserCreate, request: Request, user=Depends(require_admin)):
-    users = load_users()
-    if any(u["username"] == body.username for u in users):
-        raise HTTPException(status_code=409, detail="Username already exists")
     new_user = {
         "id": str(uuid.uuid4()),
         "username": body.username,
@@ -818,42 +815,56 @@ def create_user(body: UserCreate, request: Request, user=Depends(require_admin))
         "token_version": 0,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    users.append(new_user)
-    save_users(users)
+
+    # The uniqueness check and the append happen under one lock. Done as a
+    # load, edit, save the two could interleave and admit a duplicate.
+    def _add(users: list) -> None:
+        if any(u["username"] == body.username for u in users):
+            raise HTTPException(status_code=409, detail="Username already exists")
+        users.append(new_user)
+
+    update_users(_add)
     _audit("create", f"users/{new_user['id']}", f"Created user {body.username} ({body.role})", user, request)
     return {k: v for k, v in new_user.items() if k != "password_hash"}
 
 
 @app.put("/admin/users/{user_id}")
 def update_user(user_id: str, body: UserUpdate, request: Request, user=Depends(require_admin)):
-    users = load_users()
-    idx = next((i for i, u in enumerate(users) if u["id"] == user_id), None)
-    if idx is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    if body.name is not None:
-        users[idx]["name"] = body.name
-    if body.role is not None or body.password is not None:
-        # Invalidate all existing sessions for this user
-        users[idx]["token_version"] = users[idx].get("token_version", 0) + 1
-    if body.role is not None:
-        users[idx]["role"] = body.role
-    if body.password is not None:
-        users[idx]["password_hash"] = hash_password(body.password)
-    save_users(users)
-    _audit("update", f"users/{user_id}", f"Updated user {users[idx]['username']}", user, request)
-    return {k: v for k, v in users[idx].items() if k != "password_hash"}
+    def _edit(users: list) -> dict:
+        idx = next((i for i, u in enumerate(users) if u["id"] == user_id), None)
+        if idx is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        if body.name is not None:
+            users[idx]["name"] = body.name
+        if body.role is not None or body.password is not None:
+            # Invalidate all existing sessions for this user
+            users[idx]["token_version"] = users[idx].get("token_version", 0) + 1
+        if body.role is not None:
+            users[idx]["role"] = body.role
+        if body.password is not None:
+            users[idx]["password_hash"] = hash_password(body.password)
+        return dict(users[idx])
+
+    updated = update_users(_edit)
+    _audit("update", f"users/{user_id}", f"Updated user {updated['username']}", user, request)
+    return {k: v for k, v in updated.items() if k != "password_hash"}
 
 
 @app.delete("/admin/users/{user_id}")
 def delete_user(user_id: str, request: Request, user=Depends(require_admin)):
-    if user_id == user.get("sub"):
+    # Compare against "id" as well as "sub": the bypassed auth user carries
+    # "id", so the self-delete guard never fired.
+    if user_id in {user.get("sub"), user.get("id")}:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
-    users = load_users()
-    target = next((u for u in users if u["id"] == user_id), None)
-    if not target:
-        raise HTTPException(status_code=404, detail="User not found")
-    users = [u for u in users if u["id"] != user_id]
-    save_users(users)
+
+    def _remove(users: list) -> dict:
+        target = next((u for u in users if u["id"] == user_id), None)
+        if not target:
+            raise HTTPException(status_code=404, detail="User not found")
+        users[:] = [u for u in users if u["id"] != user_id]
+        return target
+
+    target = update_users(_remove)
     _audit("delete", f"users/{user_id}", f"Deleted user {target['username']}", user, request)
     return {"ok": True}
 

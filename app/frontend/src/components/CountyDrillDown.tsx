@@ -4,9 +4,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, LineChart, Line, Legend, LabelList,
 } from 'recharts';
-import axios from 'axios';
-import { causeLabels, causes, API_BASE, providerMetricLabels, providerMetrics, providerMetricInverted } from '../data/constants';
-import { usePopulation } from '../data/useDataset';
+import { causeLabels, causes, providerMetricLabels, providerMetrics, providerMetricInverted } from '../data/constants';
+import { fetchDeathRates, fetchProviderData, usePopulation } from '../data/useDataset';
 import { asRows, TREND_BASE_YEAR, calcSlope } from '../data/analytics';
 import type { SharedState } from '../App';
 
@@ -56,7 +55,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
     setLoading(true);
     Promise.allSettled(
       causes.map(cause =>
-        axios.get(`${API_BASE}/death_rates?cause=${cause}`).then(r => ({ cause, data: r.data as DeathRate[] }))
+        fetchDeathRates(cause).then(r => ({ cause, data: r.data as DeathRate[] }))
       )
     ).then(results => {
       const map: AllData = {};
@@ -70,7 +69,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
     setProvLoading(true);
     Promise.allSettled(
       providerMetrics.map(m =>
-        axios.get(`${API_BASE}/provider_data?metric=${m}`).then(r => ({ m, data: r.data as ProvRow[] }))
+        fetchProviderData(m).then(r => ({ m, data: r.data as ProvRow[] }))
       )
     ).then(results => {
       const map: Record<string, ProvRow[]> = {};
@@ -92,7 +91,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
     return null;
   };
 
-  // All 15 causes — include even those with no county data (show placeholder)
+  // All 15 causes, including those with no county data, which show a placeholder
   const causeSummary = causes.map(cause => {
     const data = allData[cause] ?? [];
     const years = getDataYears(data);
@@ -208,15 +207,15 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
           )}
         </div>
         <div className="ix">
-          <div className="field">
-            <div className="field-label">Trend cause</div>
+          <label className="field">
+            <span className="field-label">Trend cause</span>
             <select className="sel" style={{ width: 240 }}
               value={selectedCause || ''}
               onChange={e => setSelectedCause(e.target.value || null)}>
-              <option value="">— Select to view trend —</option>
+              <option value="">Select a cause to view its trend</option>
               {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
             </select>
-          </div>
+          </label>
         </div>
       </div>
 
@@ -224,25 +223,25 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: `1px solid ${RULE}` }}>
         <div className="stat">
           <div className="stat-label">Population (2020)</div>
-          <div className="stat-value num">{pop ? (pop / 1000).toFixed(0) + 'k' : '—'}</div>
+          <div className="stat-value num">{pop ? (pop / 1000).toFixed(0) + 'k' : 'n/a'}</div>
           <div className="stat-meta"><span>US Census</span></div>
         </div>
         <div className="stat">
           <div className="stat-label">All-cause rate / 100k</div>
-          <div className="stat-value num">{(totalRow?.countyRate ?? 0) > 0 ? (totalRow?.countyRate ?? 0).toFixed(1) : '—'}</div>
+          <div className="stat-value num">{(totalRow?.countyRate ?? 0) > 0 ? (totalRow?.countyRate ?? 0).toFixed(1) : 'n/a'}</div>
           <div className="stat-meta"><span>Latest year</span></div>
         </div>
         <div className="stat">
           <div className="stat-label">Excess deaths · annual</div>
           <div className="stat-value num" style={{ color: excessDeaths > 0 ? D_HIGH : excessDeaths < 0 ? D_LOW : undefined }}>
-            {Math.abs(excessDeaths) > 0.5 ? `${excessDeaths > 0 ? '+' : ''}${excessDeaths.toFixed(1)}` : '—'}
+            {Math.abs(excessDeaths) > 0.5 ? `${excessDeaths > 0 ? '+' : ''}${excessDeaths.toFixed(1)}` : 'n/a'}
           </div>
           <div className="stat-meta"><span>vs. state avg</span></div>
         </div>
         <div className="stat">
           <div className="stat-label">Top cause vs. state</div>
           <div className="stat-value" style={{ fontSize: 18, fontFamily: 'var(--sans)' }}>
-            {topCauses[0] ? causeLabels[topCauses[0].cause].split(' ')[0] : '—'}
+            {topCauses[0] ? causeLabels[topCauses[0].cause].split(' ')[0] : 'n/a'}
           </div>
           <div className="stat-meta" style={{ color: topCauses[0]?.ratio > 1.2 ? D_HIGH : D_LOW }}>
             {topCauses[0]?.ratio > 0 ? `${((topCauses[0].ratio - 1) * 100 > 0 ? '+' : '')}${((topCauses[0].ratio - 1) * 100).toFixed(0)}%` : ''}
@@ -273,7 +272,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
           <div className="panel-head">
             <div className="titles">
               <div className="eyebrow">Cause breakdown</div>
-              <div className="h3">{decoded} vs. Illinois — all causes</div>
+              <div className="h3">{decoded} vs. Illinois, all causes</div>
             </div>
             <span className="caption">
               {selectedCause
@@ -323,7 +322,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
             <div className="panel-head">
               <div className="titles">
                 <div className="eyebrow">Trend overlay</div>
-                <div className="h3">{causeLabels[selectedCause]} — {decoded} vs. Illinois</div>
+                <div className="h3">{causeLabels[selectedCause]}: {decoded} vs. Illinois</div>
               </div>
               <span className="num" style={{ fontSize: 11.5, color: trendSlope === null ? INK_4 : trendSlope > 0 ? D_HIGH : D_LOW }}>
                 {trendSlope === null
@@ -423,10 +422,10 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
                     return (
                       <tr key={m}>
                         <td className="col-left">{providerMetricLabels[m]}</td>
-                        <td>{countyVal > 0 ? countyVal.toFixed(1) : '—'}</td>
-                        <td style={{ color: INK_4 }}>{stateVal > 0 ? stateVal.toFixed(1) : '—'}</td>
+                        <td>{countyVal > 0 ? countyVal.toFixed(1) : 'n/a'}</td>
+                        <td style={{ color: INK_4 }}>{stateVal > 0 ? stateVal.toFixed(1) : 'n/a'}</td>
                         <td style={{ color }}>
-                          {ratio > 0 ? `${ratio > 1 ? '+' : ''}${((ratio - 1) * 100).toFixed(0)}%` : '—'}
+                          {ratio > 0 ? `${ratio > 1 ? '+' : ''}${((ratio - 1) * 100).toFixed(0)}%` : 'n/a'}
                         </td>
                       </tr>
                     );
@@ -437,7 +436,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
           </div>
         </div>
 
-        {/* Cause table — all causes */}
+        {/* Cause table, all causes */}
         <div className="panel">
           <div className="panel-head">
             <div className="titles">
@@ -469,19 +468,30 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
                     return b.ratio - a.ratio;
                   })
                   .map(d => (
-                    <tr key={d.cause} onClick={() => d.hasData && setSelectedCause(d.cause)}
+                    <tr key={d.cause}
+                      role={d.hasData ? 'button' : undefined}
+                      tabIndex={d.hasData ? 0 : undefined}
+                      aria-pressed={d.hasData ? d.cause === selectedCause : undefined}
+                      aria-label={d.hasData ? `Show ${causeLabels[d.cause]}` : undefined}
+                      onClick={() => d.hasData && setSelectedCause(d.cause)}
+                      onKeyDown={e => {
+                        if (d.hasData && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          setSelectedCause(d.cause);
+                        }
+                      }}
                       style={{ cursor: d.hasData ? 'pointer' : 'default', opacity: d.hasData ? 1 : 0.5 }}>
                       <td className="col-left">{causeLabels[d.cause]}</td>
                       <td style={{ color: INK_4, fontFamily: 'var(--mono)', fontSize: 11 }}>
-                        {d.hasData ? d.latestYear : '—'}
+                        {d.hasData ? d.latestYear : 'n/a'}
                       </td>
-                      <td>{d.countyRate > 0 ? d.countyRate.toFixed(1) : '—'}</td>
+                      <td>{d.countyRate > 0 ? d.countyRate.toFixed(1) : 'n/a'}</td>
                       <td style={{ color: INK_4 }}>{d.stateRate.toFixed(1)}</td>
                       <td style={{ color: d.ratio > 1.2 ? D_HIGH : d.ratio < 0.8 ? D_LOW : D_MID }}>
-                        {d.ratio > 0 ? `${d.ratio > 1 ? '+' : ''}${((d.ratio - 1) * 100).toFixed(0)}%` : '—'}
+                        {d.ratio > 0 ? `${d.ratio > 1 ? '+' : ''}${((d.ratio - 1) * 100).toFixed(0)}%` : 'n/a'}
                       </td>
                       <td style={{ color: d.slope === null ? INK_4 : d.slope > 0 ? D_HIGH : d.slope < 0 ? D_LOW : INK_4 }}>
-                        {d.slope === null || d.slope === 0 ? '—' : `${d.slope > 0 ? '+' : ''}${d.slope.toFixed(2)}`}
+                        {d.slope === null || d.slope === 0 ? 'n/a' : `${d.slope > 0 ? '+' : ''}${d.slope.toFixed(2)}`}
                       </td>
                     </tr>
                   ))}

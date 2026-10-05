@@ -3,11 +3,10 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell, ReferenceLine,
 } from 'recharts';
-import axios from 'axios';
-import { providerMetricLabels, providerMetrics, EXCLUDED_COUNTIES, API_BASE, HPSA_METRIC } from '../data/constants';
+import { providerMetricLabels, providerMetrics, EXCLUDED_COUNTIES, HPSA_METRIC } from '../data/constants';
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
-import { useMeta, useHpsaSummary } from '../data/useDataset';
+import { fetchProviderData, useHpsaSummary, useMeta } from '../data/useDataset';
 import { asRows, toRate } from '../data/analytics';
 
 interface ProviderRow { County: string; [year: string]: number | string; }
@@ -62,17 +61,23 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
 
   useEffect(() => {
     setLoading(true);
+    // A slower earlier request must not land after a newer one and
+    // overwrite it. Switching cause or metric quickly can otherwise leave
+    // the view showing the answer to a request it has already moved on from.
+    let live = true;
     const reqs = [
-      axios.get(`${API_BASE}/provider_data?metric=${metric}`),
-      ...(isHpsa(metric) ? [] : [axios.get(`${API_BASE}/provider_data?metric=hpsa_primary_care_designation`)]),
+      fetchProviderData(metric),
+      ...(isHpsa(metric) ? [] : [fetchProviderData('hpsa_primary_care_designation')]),
     ];
     Promise.all(reqs)
       .then(([pr, hr]) => {
+        if (!live) return;
         setProviderData(asRows(pr.data));
         setHpsaData(asRows(hr ? hr.data : pr.data));
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
   }, [metric]);
 
   const isHpsaMetric = isHpsa(metric);
@@ -197,12 +202,12 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
           </p>
         </div>
         <div className="ix">
-          <div className="field">
-            <div className="field-label">Provider metric</div>
+          <label className="field">
+            <span className="field-label">Provider metric</span>
             <select className="sel" style={{ width: 280 }} value={metric} onChange={e => setMetric(e.target.value)}>
               {providerMetrics.map(m => <option key={m} value={m}>{providerMetricLabels[m]}</option>)}
             </select>
-          </div>
+          </label>
           <YearScrub value={selectedYear} shared={shared}
             onChange={v => setShared({ ...shared, selectedYear: v })} />
         </div>
@@ -216,7 +221,7 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid var(--rule)' }}>
             <div className="stat fade-in fade-in-1">
               <div className="stat-label">State avg · {selectedYear}</div>
-              <div className="stat-value num">{stateVal > 0 ? formatVal(stateVal) : '—'}</div>
+              <div className="stat-value num">{stateVal > 0 ? formatVal(stateVal) : 'n/a'}</div>
               <div className="stat-meta">
                 <span>{providerMetricLabels[metric]}</span>
                 {isImputedYear && (
@@ -228,13 +233,13 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
             </div>
             <div className="stat fade-in fade-in-2">
               <div className="stat-label">Best access county</div>
-              <div className="stat-value num" style={{ color: D_LOW }}>{highest ? formatVal(highest.val) : '—'}</div>
-              <div className="stat-meta"><span>{highest?.county ?? '—'} · {selectedYear}</span></div>
+              <div className="stat-value num" style={{ color: D_LOW }}>{highest ? formatVal(highest.val) : 'n/a'}</div>
+              <div className="stat-meta"><span>{highest?.county ?? 'n/a'} · {selectedYear}</span></div>
             </div>
             <div className="stat fade-in fade-in-3">
               <div className="stat-label">Lowest access county</div>
-              <div className="stat-value num" style={{ color: D_HIGH }}>{lowest ? formatVal(lowest.val) : '—'}</div>
-              <div className="stat-meta"><span>{lowest?.county ?? '—'} · {selectedYear}</span></div>
+              <div className="stat-value num" style={{ color: D_HIGH }}>{lowest ? formatVal(lowest.val) : 'n/a'}</div>
+              <div className="stat-meta"><span>{lowest?.county ?? 'n/a'} · {selectedYear}</span></div>
             </div>
             <div className="stat fade-in fade-in-4">
               <div className="stat-label">HPSA-designated counties</div>
@@ -252,7 +257,7 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
                   <div className="eyebrow">Statewide trend</div>
                   <div className="h3">{providerMetricLabels[metric]} · 2008–2022</div>
                 </div>
-                <span className="caption" style={{ color: 'var(--ink-4)' }}>Band = county min/max</span>
+                <span className="caption" style={{ color: 'var(--ink-4)' }}>Shaded band shows the county minimum and maximum</span>
               </div>
               <div className="panel-body">
                 <div style={{ height: 240 }}>
@@ -324,7 +329,7 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
                 <div className="panel-head">
                   <div className="titles">
                     <div className="eyebrow">HPSA primary care designations</div>
-                    <div className="h3">Counties in shortage · 2008–2022</div>
+                    <div className="h3">Counties in shortage, {yearMin} to {yearMax}</div>
                   </div>
                 </div>
                 <div className="panel-body">
@@ -443,7 +448,7 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
                                   {d.hpsa === 1 ? 'Whole' : 'Partial'}
                                 </span>
                               ) : (
-                                <span style={{ color: 'var(--ink-5)', fontSize: 10 }}>—</span>
+                                <span style={{ color: 'var(--ink-5)', fontSize: 10 }}>n/a</span>
                               )}
                             </td>
                           )}

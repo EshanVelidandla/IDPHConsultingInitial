@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
-import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, providerMetricLabels, providerMetricShort, providerMetricInverted } from '../data/constants';
+import { causeLabels, causes, EXCLUDED_COUNTIES, providerMetricLabels, providerMetricShort, providerMetricInverted } from '../data/constants';
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
 import { asRows, TREND_BASE_YEAR, calcSlope, stateRow as findStateRow, toRate } from '../data/analytics';
+import { fetchDeathRates, fetchProviderData } from '../data/useDataset';
 
 interface ProviderRow { County: string; [year: string]: number | string; }
 
@@ -113,7 +113,7 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
     setLoading(true);
     Promise.allSettled(
       causes.map(cause =>
-        axios.get(`${API_BASE}/death_rates?cause=${cause}`).then(r => ({ cause, data: r.data as DeathRate[] }))
+        fetchDeathRates(cause).then(r => ({ cause, data: r.data as DeathRate[] }))
       )
     ).then(results => {
       const map: AllData = {};
@@ -132,7 +132,7 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
     if (!showProvider || Object.keys(providerData).length > 0) return;
     Promise.all(
       PROVIDER_COLS.map(m =>
-        axios.get(`${API_BASE}/provider_data?metric=${m}`).then(r => ({ m, data: r.data as ProviderRow[] }))
+        fetchProviderData(m).then(r => ({ m, data: r.data as ProviderRow[] }))
       )
     ).then(results => {
       const map: Record<string, ProviderRow[]> = {};
@@ -242,12 +242,12 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
           <div className="eyebrow eyebrow-ink">County Scorecard</div>
           <h1 className="h-display" style={{ marginTop: 8 }}>102 counties × {causes.length} causes</h1>
           <p className="body" style={{ marginTop: 12, maxWidth: 540, color: 'var(--ink-3)' }}>
-            Every row is a county; every column is a cause of death. Each cell shows that county's death rate as a multiple of the statewide average — red means above average, green means below. Click any cell to open a full county profile for that cause.
+            Every row is a county; every column is a cause of death. Each cell shows that county's death rate as a multiple of the statewide average. Red means above average, green means below. Click any cell to open a full county profile for that cause.
           </p>
         </div>
         <div className="ix">
-          <div className="field">
-            <div className="field-label">Search county</div>
+          <label className="field">
+            <span className="field-label">Search county</span>
             <div style={{ position: 'relative' }}>
               <svg style={{ position: 'absolute', left: 9, top: 9, color: 'var(--ink-4)', pointerEvents: 'none' }}
                 width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
@@ -256,7 +256,7 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
               <input className="inp" placeholder="Filter county…" style={{ paddingLeft: 30, width: 200 }}
                 value={search} onChange={e => setSearch(e.target.value)} />
             </div>
-          </div>
+          </label>
           <YearScrub value={selectedYear} shared={shared}
             onChange={v => setShared({ ...shared, selectedYear: v })} />
         </div>
@@ -299,7 +299,9 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
           ))}
         </div>
         <div style={{ flex: 1 }} />
-        <span className="caption" style={{ color: 'var(--ink-4)' }}>Trend arrows: 2015–2022 regression slope</span>
+        <span className="caption" style={{ color: 'var(--ink-4)' }}>
+          Trend arrows: regression slope, {TREND_BASE_YEAR} to {selectedYear}
+        </span>
         <button
           className={`seg-btn${showProvider ? ' active' : ''}`}
           style={{ marginLeft: 16 }}
@@ -313,7 +315,13 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
         <table className="tbl">
           <thead>
             <tr>
-              <th className="col-left" onClick={() => handleSort('county')} style={{ textAlign: 'left', paddingLeft: 24, cursor: 'pointer' }}>
+              <th className="col-left"
+                scope="col"
+                tabIndex={0}
+                aria-sort={sortCol === 'county' ? (sortAsc ? 'ascending' : 'descending') : 'none'}
+                onClick={() => handleSort('county')}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('county'); } }}
+                style={{ textAlign: 'left', paddingLeft: 24, cursor: 'pointer' }}>
                 County {sortCol === 'county' ? (sortAsc ? '↑' : '↓') : <span style={{ opacity: 0.25 }}>⇅</span>}
               </th>
               {causes.map(c => (
@@ -335,7 +343,11 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
                     cursor: 'pointer',
                   }}
                   title={providerMetricLabels[m]}
-                  onClick={() => handleSort(`__prov_${m}`)}>
+                  scope="col"
+                  tabIndex={0}
+                  aria-sort={sortCol === `__prov_${m}` ? (sortAsc ? 'ascending' : 'descending') : 'none'}
+                  onClick={() => handleSort(`__prov_${m}`)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort(`__prov_${m}`); } }}>
                   {providerMetricShort[m]}
                   {sortCol === `__prov_${m}` ? (sortAsc ? '↑' : '↓') : <span style={{ opacity: 0.2 }}>⇅</span>}
                 </th>
@@ -374,6 +386,11 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
                         key={c}
                         title={`${causeLabels[c]} (${selectedYear}): ${pct != null ? `${pct > 0 ? '+' : ''}${pct.toFixed(0)}% vs IL avg` : 'No data'}`}
                         style={{ background: heatBg(ratio), cursor: 'pointer' }}
+                        /* Deliberately not a tab stop. Making all ~1,600 heat
+                           cells focusable would bury the keyboard user. The row
+                           itself is focusable and opens the county profile,
+                           where every cause is listed as a focusable row, so the
+                           same destination is reachable in two stops. */
                         onClick={e => {
                           e.stopPropagation();
                           navigate(`/county/${encodeURIComponent(county)}`, { state: { fromScorecard: true, selectedCause: c } });
@@ -384,7 +401,7 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
                             <span>{pct > 0 ? '+' : ''}{pct.toFixed(0)}%
                               <TrendArrow slope={slopeMap[county]?.[c] ?? null} threshold={trendThreshold[c] ?? 1.5} />
                             </span>
-                          ) : '—'}
+                          ) : 'n/a'}
                         </div>
                       </td>
                     );
@@ -399,7 +416,7 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
                         borderLeft: i === 0 ? `2px solid ${D_LOW}` : undefined,
                       }}>
                         <div className="h-fill" style={{ color: provHeatColor(val, stateVal, inv) }}>
-                          {val > 0 ? (m === 'hpsa_primary_care_designation' ? val.toFixed(0) : val.toFixed(1)) : '—'}
+                          {val > 0 ? (m === 'hpsa_primary_care_designation' ? val.toFixed(0) : val.toFixed(1)) : 'n/a'}
                         </div>
                       </td>
                     );

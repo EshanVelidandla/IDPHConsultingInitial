@@ -1,6 +1,6 @@
 import { createContext, useContext, ReactNode } from 'react';
 
-// Auth is bypassed for local use — every session is the built-in admin.
+// Auth is bypassed for local use, so every session is the built-in admin.
 interface User {
   id: string;
   username: string;

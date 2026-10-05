@@ -4,10 +4,10 @@ import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Cell,
 } from 'recharts';
-import axios from 'axios';
-import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, providerMetricLabels, providerMetrics, providerMetricInverted } from '../data/constants';
+import { causeLabels, causes, EXCLUDED_COUNTIES, providerMetricLabels, providerMetrics, providerMetricInverted } from '../data/constants';
 import type { SharedState } from '../App';
 import { asRows, D_NULL, HIGH_RATIO, TREND_BASE_YEAR, calcSlope, toRate } from '../data/analytics';
+import { fetchDeathRates, fetchProviderData } from '../data/useDataset';
 
 interface DeathRate   { County: string; [key: string]: number | string; }
 interface ProviderRow { County: string; [year: string]: number | string; }
@@ -28,12 +28,50 @@ function isPriorityPoint(p: { x: number; y: number | null }): boolean {
   return p.x > HIGH_RATIO && p.y !== null && p.y > 0;
 }
 
+type QuadrantKey = 'priority' | 'watch' | 'recovering' | 'stable' | 'nodata';
+type MarkShape = 'triangle' | 'diamond' | 'square' | 'circle';
+
+/**
+ * The four quadrants, defined once.
+ *
+ * Shape carries the same reading as colour, so the quadrants stay separable
+ * without colour vision. Each quadrant gets its own shape rather than, say,
+ * one shape for "rising": Priority and Watch are the two a reader most needs
+ * to tell apart, and sharing a shape would have left them differing only by
+ * red against amber.
+ */
+const QUADRANTS: Record<QuadrantKey, { color: string; shape: MarkShape; label: string; desc: string }> = {
+  priority:   { color: D_HIGH, shape: 'triangle', label: 'Priority',   desc: 'Above the state rate and worsening' },
+  watch:      { color: D_MID,  shape: 'diamond',  label: 'Watch',      desc: 'At or below the state rate but worsening' },
+  recovering: { color: ACCENT, shape: 'square',   label: 'Recovering', desc: 'Above the state rate but improving' },
+  stable:     { color: D_LOW,  shape: 'circle',   label: 'Stable',     desc: 'Below the state rate and improving' },
+  nodata:     { color: D_NULL, shape: 'circle',   label: 'No trend',   desc: 'Too few years to fit a trend' },
+};
+
+function quadrantOf(x: number, y: number | null): QuadrantKey {
+  if (y === null) return 'nodata';
+  if (x > HIGH_RATIO) return y > 0 ? 'priority' : 'recovering';
+  return y > 0 ? 'watch' : 'stable';
+}
+
+/** One mark, used by the scatter and by the legend swatches. */
+function Mark({ shape, cx, cy, r, ...rest }: {
+  shape: MarkShape; cx: number; cy: number; r: number;
+} & Record<string, unknown>) {
+  if (shape === 'triangle') {
+    return <polygon points={`${cx},${cy - r} ${cx + r},${cy + r * 0.8} ${cx - r},${cy + r * 0.8}`} {...rest} />;
+  }
+  if (shape === 'diamond') {
+    return <polygon points={`${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`} {...rest} />;
+  }
+  if (shape === 'square') {
+    return <rect x={cx - r * 0.85} y={cy - r * 0.85} width={r * 1.7} height={r * 1.7} {...rest} />;
+  }
+  return <circle cx={cx} cy={cy} r={r} {...rest} />;
+}
+
 function dotColor(x: number, y: number | null): string {
-  if (y === null) return D_NULL;
-  if (x > HIGH_RATIO && y > 0) return D_HIGH;   // above state and rising
-  if (x <= HIGH_RATIO && y > 0) return D_MID;   // at or below state but rising
-  if (x > HIGH_RATIO && y <= 0) return ACCENT;  // above state but improving
-  return D_LOW;
+  return QUADRANTS[quadrantOf(x, y)].color;
 }
 
 const CustomDot = (props: { cx?: number; cy?: number; payload?: CountyPoint; hasProvider?: boolean }) => {
@@ -50,10 +88,13 @@ const CustomDot = (props: { cx?: number; cy?: number; payload?: CountyPoint; has
       ? Math.max(3, Math.min(14, 8 / payload.provRatio))
       : 14;
   return (
-    <circle cx={cx} cy={cy} r={r}
+    <Mark
+      shape={QUADRANTS[quadrantOf(payload.x, payload.y)].shape}
+      cx={cx} cy={cy} r={r}
       fill={color} fillOpacity={0.75}
       stroke="#FFFFFF" strokeWidth={1.2}
-      style={{ cursor: 'pointer' }} />
+      style={{ cursor: 'pointer' }}
+    />
   );
 };
 
@@ -92,7 +133,7 @@ const CustomTooltip = ({ active, payload, selectedYear, providerMetric }: { acti
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 4 }}>
           <span style={{ color: INK_3 }}>Access (vs state)</span>
           <span style={{ color: d.provRatio < 0.8 ? D_HIGH : d.provRatio > 1.2 ? D_LOW : INK }}>
-            {d.provRatio > 0 ? `${((d.provRatio - 1) * 100) > 0 ? '+' : ''}${((d.provRatio - 1) * 100).toFixed(0)}%` : '—'}
+            {d.provRatio > 0 ? `${((d.provRatio - 1) * 100) > 0 ? '+' : ''}${((d.provRatio - 1) * 100).toFixed(0)}%` : 'n/a'}
           </span>
         </div>
       )}
@@ -119,17 +160,27 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
   useEffect(() => {
     if (!cause) { setDeathData([]); setError(null); return; }
     setLoading(true);
-    axios.get(`${API_BASE}/death_rates?cause=${encodeURIComponent(cause)}`)
-      .then(r => { setDeathData(asRows(r.data)); setError(null); })
-      .catch(() => setError('Failed to load data.'))
-      .finally(() => setLoading(false));
+    // A slower earlier request must not land after a newer one and
+    // overwrite it. Switching cause or metric quickly can otherwise leave
+    // the view showing the answer to a request it has already moved on from.
+    let live = true;
+    fetchDeathRates(cause)
+      .then(r => { if (live) { setDeathData(asRows(r.data)); setError(null); } })
+      .catch(() => { if (live) setError('Failed to load data.'); })
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
   }, [cause]);
 
   useEffect(() => {
     if (!providerMetric) { setProviderData([]); return; }
-    axios.get(`${API_BASE}/provider_data?metric=${providerMetric}`)
-      .then(r => setProviderData(asRows(r.data)))
-      .catch(() => setProviderData([]));
+    // A slower earlier request must not land after a newer one and
+    // overwrite it. Switching cause or metric quickly can otherwise leave
+    // the view showing the answer to a request it has already moved on from.
+    let live = true;
+    fetchProviderData(providerMetric)
+      .then(r => { if (live) setProviderData(asRows(r.data)); })
+      .catch(() => { if (live) setProviderData([]); });
+    return () => { live = false; };
   }, [providerMetric]);
 
   const points = useMemo<CountyPoint[]>(() => {
@@ -167,19 +218,19 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
           <div className="eyebrow eyebrow-ink">Priority Matrix</div>
           <h1 className="h-display" style={{ marginTop: 8 }}>Where to intervene first.</h1>
           <p className="body" style={{ marginTop: 12, maxWidth: 540, color: 'var(--ink-3)' }}>
-            Each dot is a county. The x-axis shows how high its death rate is relative to the state average; the y-axis shows whether that rate is rising or falling over time. Counties in the upper-right — already high and still getting worse — are the highest priority for intervention.
+            Each dot is a county. The x-axis shows how high its death rate is relative to the state average; the y-axis shows whether that rate is rising or falling over time. Counties in the upper right, already high and still getting worse, are the highest priority for intervention.
           </p>
         </div>
         <div className="ix">
-          <div className="field">
-            <div className="field-label">Cause</div>
+          <label className="field">
+            <span className="field-label">Cause</span>
             <select className="sel" style={{ width: 260 }}
               value={selectedCause}
               onChange={e => setShared({ ...shared, selectedCause: e.target.value })}>
-              <option value="">— Select cause —</option>
+              <option value="">Select a cause</option>
               {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
             </select>
-          </div>
+          </label>
           <div style={{ width: 220 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
               <span className="eyebrow">Year</span>
@@ -191,15 +242,15 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
               {[2009, 2012, 2015, 2018, 2022].map(y => <span key={y}>{y}</span>)}
             </div>
           </div>
-          <div className="field">
-            <div className="field-label">Bubble size</div>
+          <label className="field">
+            <span className="field-label">Bubble size</span>
             <select className="sel" style={{ width: 220 }}
               value={providerMetric}
               onChange={e => setProviderMetric(e.target.value)}>
-              <option value="">— None —</option>
+              <option value="">None</option>
               {providerMetrics.map(m => <option key={m} value={m}>{providerMetricLabels[m]}</option>)}
             </select>
-          </div>
+          </label>
           {priorityCount > 0 && !loading && (
             <div className="chip priority" style={{ alignSelf: 'flex-end', marginBottom: 2 }}>
               {priorityCount} priority {priorityCount === 1 ? 'county' : 'counties'}
@@ -214,7 +265,7 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
         <div className="empty" style={{ margin: '48px 40px' }}>
           <div className="empty-eyebrow">No cause selected</div>
           <div className="empty-title">Select a cause of death to begin</div>
-          <div className="empty-body">Choose a cause from the dropdown above to plot all 102 counties by their death rate and trend direction. Counties in the upper-right are the highest priority.</div>
+          <div className="empty-body">Choose a cause from the dropdown above to plot all 102 counties by their death rate and trend direction. Counties in the upper right are the highest priority.</div>
         </div>
       )}
 
@@ -280,20 +331,22 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
           <div>
             <div className="eyebrow" style={{ marginBottom: 10 }}>Quadrants</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              {[
-                { color: D_HIGH, label: 'Priority', desc: 'High & worsening — intervene now' },
-                { color: D_MID, label: 'Watch', desc: 'Below average but trending up' },
-                { color: ACCENT, label: 'Recovering', desc: 'Above average but improving' },
-                { color: D_LOW, label: 'Stable', desc: 'Below average and improving' },
-              ].map(({ color, label, desc }, i) => (
-                <div key={label} style={{ display: 'grid', gridTemplateColumns: '10px 1fr', gap: 12, padding: '10px 0', borderTop: i === 0 ? 'none' : `1px solid ${RULE}` }}>
-                  <span style={{ width: 8, height: 8, background: color, borderRadius: '50%', marginTop: 5, flexShrink: 0 }} />
+              {(['priority', 'watch', 'recovering', 'stable'] as const).map((key, i) => {
+                const { color, shape, label, desc } = QUADRANTS[key];
+                return (
+                <div key={label} style={{ display: 'grid', gridTemplateColumns: '14px 1fr', gap: 12, padding: '10px 0', borderTop: i === 0 ? 'none' : `1px solid ${RULE}` }}>
+                  {/* Same shape the chart draws, so the swatch is readable
+                      without relying on its colour. */}
+                  <svg width="14" height="14" style={{ marginTop: 3, flexShrink: 0 }} aria-hidden="true">
+                    <Mark shape={shape} cx={7} cy={7} r={5.5} fill={color} />
+                  </svg>
                   <div>
                     <div style={{ color: INK, fontSize: 13 }}>{label}</div>
                     <div className="caption" style={{ marginTop: 2 }}>{desc}</div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

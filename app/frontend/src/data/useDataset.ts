@@ -10,7 +10,7 @@
  * and abort on unmount, so views can load partially and say which parts failed.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_BASE, causes } from './constants';
 import type { Row } from './analytics';
@@ -78,100 +78,31 @@ export function useMeta(): { meta: Meta; loading: boolean } {
   return { meta, loading };
 }
 
-/** Inclusive list of years, from the server's declared range. */
-export function yearRange(meta: Meta): number[] {
-  const out: number[] = [];
-  for (let y = meta.year_min; y <= meta.year_max; y++) out.push(y);
-  return out;
-}
-
-export interface DatasetState {
-  rows: Row[];
-  loading: boolean;
-  error: string | null;
-}
-
-/** One cause's rate table. */
-export function useDeathRates(cause: string | null): DatasetState {
-  const [state, setState] = useState<DatasetState>({ rows: [], loading: !!cause, error: null });
-  const latest = useRef(0);
-
-  useEffect(() => {
-    if (!cause) { setState({ rows: [], loading: false, error: null }); return; }
-    const token = ++latest.current;
-    setState((s) => ({ ...s, loading: true, error: null }));
-    fetchCached<Row[]>(`${API_BASE}/death_rates?cause=${encodeURIComponent(cause)}`)
-      .then((rows) => {
-        // Ignore a response that a newer request has already superseded.
-        if (token === latest.current) setState({ rows, loading: false, error: null });
-      })
-      .catch(() => {
-        if (token === latest.current) {
-          setState({ rows: [], loading: false, error: `Could not load ${cause}` });
-        }
-      });
-  }, [cause]);
-
-  return state;
-}
-
-export interface MultiCauseState {
-  byCause: Record<string, Row[]>;
-  loading: boolean;
-  /** Causes that failed. The rest still render. */
-  failed: string[];
-}
-
 /**
- * Several causes at once, each settled independently.
+ * Cached GET returning the same `{ data }` shape as axios, so an existing
+ * `axios.get(url).then(r => ...)` call site becomes `getCached(url).then(...)`
+ * with no other change.
  *
- * Promise.allSettled rather than Promise.all: an admin can delete a dataset,
- * and losing one cause should grey out one card, not the whole page.
+ * This is the "shared query cache" half of the fix. Scorecard, the county
+ * profile and Access each request all fifteen causes on mount, and the map,
+ * insights, priority and pulse views each request one more. Without a cache
+ * that is upwards of fifty requests for perhaps fifteen distinct responses,
+ * repeated on every navigation.
  */
-export function useAllDeathRates(causeList: string[]): MultiCauseState {
-  const [state, setState] = useState<MultiCauseState>({ byCause: {}, loading: true, failed: [] });
-  const key = causeList.join(',');
-
-  useEffect(() => {
-    let live = true;
-    setState((s) => ({ ...s, loading: true }));
-    Promise.allSettled(
-      causeList.map((c) => fetchCached<Row[]>(`${API_BASE}/death_rates?cause=${encodeURIComponent(c)}`)),
-    ).then((results) => {
-      if (!live) return;
-      const byCause: Record<string, Row[]> = {};
-      const failed: string[] = [];
-      results.forEach((r, i) => {
-        if (r.status === 'fulfilled') byCause[causeList[i]] = r.value;
-        else failed.push(causeList[i]);
-      });
-      setState({ byCause, loading: false, failed });
-    });
-    return () => { live = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-
-  return state;
+export function getCached<T>(url: string): Promise<{ data: T }> {
+  return fetchCached<T>(url).then(data => ({ data }));
 }
 
-/** One provider metric's table. */
-export function useProviderData(metric: string | null): DatasetState {
-  const [state, setState] = useState<DatasetState>({ rows: [], loading: !!metric, error: null });
-  const latest = useRef(0);
+export const fetchDeathRates = (cause: string) =>
+  getCached<Row[]>(`${API_BASE}/death_rates?cause=${encodeURIComponent(cause)}`);
 
-  useEffect(() => {
-    if (!metric) { setState({ rows: [], loading: false, error: null }); return; }
-    const token = ++latest.current;
-    setState((s) => ({ ...s, loading: true, error: null }));
-    fetchCached<Row[]>(`${API_BASE}/provider_data?metric=${encodeURIComponent(metric)}`)
-      .then((rows) => { if (token === latest.current) setState({ rows, loading: false, error: null }); })
-      .catch(() => {
-        if (token === latest.current) setState({ rows: [], loading: false, error: `Could not load ${metric}` });
-      });
-  }, [metric]);
+export const fetchProviderData = (metric: string) =>
+  getCached<Row[]>(`${API_BASE}/provider_data?metric=${encodeURIComponent(metric)}`);
 
-  return state;
-}
+export const fetchGeoJson = () =>
+  getCached<{ type?: string; features?: unknown[] }>(`${API_BASE}/geojson`);
+
+export const fetchAnnotations = () => getCached<unknown[]>(`${API_BASE}/annotations`);
 
 export interface HpsaSummaryRow {
   Year: number;
@@ -226,7 +157,3 @@ export function usePopulation(): { pop: Record<string, Record<number, number>>; 
   return { pop, loading };
 }
 
-/** Stable callback for views that need to force a refetch after a mutation. */
-export function useInvalidate(): () => void {
-  return useCallback(() => invalidateDataCache(), []);
-}

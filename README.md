@@ -88,6 +88,7 @@ Run the tests before trusting a change to any stage:
 ```bash
 python -m pytest app/pipeline/tests -q    # the published numbers
 python -m pytest app/backend/tests -q     # API and SPA routing
+cd app/frontend && npm run smoke          # every route renders (backend must be up)
 ```
 
 The routing suite covers the single-origin deployment: every client route must

@@ -119,7 +119,7 @@ function DataTab() {
       form.append('file', file);
       const r = await axios.post(`${API_BASE}/admin/upload?cause=${uploadCause}`, form);
       setFeedbackOk(true);
-      setFeedback(`Uploaded — ${r.data.rows} rows.`
+      setFeedback(`Uploaded ${r.data.rows} rows.`
         + (r.data.backup ? ` Previous version kept as ${r.data.backup}.` : ''));
       setFile(null); setUploadCause('');
       invalidateDataCache();
@@ -165,7 +165,7 @@ function DataTab() {
       <FormPanel title="Upload CSV" onSubmit={handleUpload}>
         <FieldRow label="Cause">
           <select className="sel" value={uploadCause} onChange={e => setUploadCause(e.target.value)} style={{ width: '100%' }}>
-            <option value="">— Select cause —</option>
+            <option value="">Select a cause</option>
             {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
           </select>
         </FieldRow>
@@ -173,7 +173,7 @@ function DataTab() {
           <input type="file" accept=".csv"
             onChange={e => setFile(e.target.files?.[0] ?? null)}
             style={{ fontSize: 12, fontFamily: 'var(--mono)', color: INK_3 }} />
-          <span className="tiny">Must have a 'County' column + year columns.</span>
+          <span className="tiny">Must have a 'County' column and one column per year.</span>
         </FieldRow>
         {feedback && <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: feedbackOk ? D_LOW : D_HIGH }}>{feedback}</div>}
         <button type="submit" className="login-btn" disabled={uploading || !uploadCause || !file}>
@@ -367,7 +367,7 @@ function ThresholdsTab() {
                   <tr key={t.id}>
                     <td>{causeLabels[t.cause] ?? t.cause}</td>
                     <td><span className="num" style={{ color: D_HIGH }}>{'>'} {t.rate} /100k</span></td>
-                    <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: INK_4 }}>{t.notify_email ?? '—'}</td>
+                    <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: INK_4 }}>{t.notify_email ?? 'n/a'}</td>
                     <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: INK_4 }}>{t.created_by}</td>
                     <td>{isAdmin && <ActionBtn danger onClick={() => handleDelete(t.cause)}>Delete</ActionBtn>}</td>
                   </tr>
@@ -381,7 +381,7 @@ function ThresholdsTab() {
         <FormPanel title="Set Threshold" onSubmit={handleSubmit}>
           <FieldRow label="Cause">
             <select className="sel" value={cause} onChange={e => setCause(e.target.value)} style={{ width: '100%' }}>
-              <option value="">— Select cause —</option>
+              <option value="">Select a cause</option>
               {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
             </select>
           </FieldRow>
@@ -460,7 +460,7 @@ function PresetsTab() {
         </FieldRow>
         <FieldRow label="Cause">
           <select className="sel" value={cause} onChange={e => setCause(e.target.value)} style={{ width: '100%' }}>
-            <option value="">— Select cause —</option>
+            <option value="">Select a cause</option>
             {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
           </select>
         </FieldRow>
@@ -550,9 +550,13 @@ function UsersTab() {
                         <ActionBtn onClick={() => setEditId(null)}>Cancel</ActionBtn>
                       </div>
                     ) : (
-                      <span style={{ cursor: 'pointer' }} onClick={() => { setEditId(u.id); setEditRole(u.role); }}>
+                      <button
+                        type="button"
+                        aria-label={`Change role for ${u.username}`}
+                        style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                        onClick={() => { setEditId(u.id); setEditRole(u.role); }}>
                         <Badge type={u.role} />
-                      </span>
+                      </button>
                     )}
                   </td>
                   <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: INK_4 }}>{new Date(u.created_at).toLocaleDateString()}</td>
@@ -633,7 +637,7 @@ function AuditTab() {
                   </td>
                   <td style={{ fontFamily: 'var(--mono)', fontSize: 10, color: INK_4 }}>{e.resource}</td>
                   <td style={{ fontSize: 12, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.detail}</td>
-                  <td style={{ fontFamily: 'var(--mono)', fontSize: 10, color: INK_4 }}>{e.ip ?? '—'}</td>
+                  <td style={{ fontFamily: 'var(--mono)', fontSize: 10, color: INK_4 }}>{e.ip ?? 'n/a'}</td>
                 </tr>
               ))}
           </tbody>

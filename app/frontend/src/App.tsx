@@ -271,7 +271,7 @@ function TopStrip({ shared, setShared }: { shared: SharedState; setShared: (s: S
       a.download = `idph_${shared.selectedCause}_death_rates.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch { alert('Export failed — select a cause first.'); }
+    } catch { alert('Export failed. Select a cause first.'); }
   }
 
   return (

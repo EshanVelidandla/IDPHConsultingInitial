@@ -5,13 +5,13 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import type { TooltipProps } from 'recharts';
-import axios from 'axios';
-import { causeLabels, causes, EXCLUDED_COUNTIES, API_BASE, IDPH_DISTRICTS, providerMetricLabels, providerMetrics } from '../data/constants';
+import { causeLabels, causes, EXCLUDED_COUNTIES, IDPH_DISTRICTS, providerMetricLabels, providerMetrics } from '../data/constants';
 import { IL_GRID } from '../data/ilGrid';
 import type { SharedState } from '../App';
 import { asRows, bandOf, bandStyle, toRate } from '../data/analytics';
 import YearTimeline from './YearTimeline';
 import type { TimelineEvent } from './YearTimeline';
+import { fetchDeathRates, fetchProviderData } from '../data/useDataset';
 
 interface DeathRate { County: string; [key: string]: number | string; }
 interface ProviderRow { County: string; [year: string]: number | string; }
@@ -81,7 +81,7 @@ const PulseView = (_props: ViewProps) => {
   // Load Total Deaths for mini-map and fixed trend chart
   useEffect(() => {
     setLoading(true);
-    axios.get(`${API_BASE}/death_rates?cause=Total_Deaths`)
+    fetchDeathRates('Total_Deaths')
       .then(r => setDeathData(asRows(r.data)))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -90,17 +90,27 @@ const PulseView = (_props: ViewProps) => {
   // Load multi-county cause data on demand
   useEffect(() => {
     setMultiLoading(true);
-    axios.get(`${API_BASE}/death_rates?cause=${multiCause}`)
-      .then(r => setMultiData(asRows(r.data)))
+    // A slower earlier request must not land after a newer one and
+    // overwrite it. Switching cause or metric quickly can otherwise leave
+    // the view showing the answer to a request it has already moved on from.
+    let live = true;
+    fetchDeathRates(multiCause)
+      .then(r => { if (live) setMultiData(asRows(r.data)); })
       .catch(() => {})
-      .finally(() => setMultiLoading(false));
+      .finally(() => { if (live) setMultiLoading(false); });
+    return () => { live = false; };
   }, [multiCause]);
 
   useEffect(() => {
     if (!providerMetric) { setProviderData([]); return; }
-    axios.get(`${API_BASE}/provider_data?metric=${providerMetric}`)
-      .then(r => setProviderData(asRows(r.data)))
-      .catch(() => setProviderData([]));
+    // A slower earlier request must not land after a newer one and
+    // overwrite it. Switching cause or metric quickly can otherwise leave
+    // the view showing the answer to a request it has already moved on from.
+    let live = true;
+    fetchProviderData(providerMetric)
+      .then(r => { if (live) setProviderData(asRows(r.data)); })
+      .catch(() => { if (live) setProviderData([]); });
+    return () => { live = false; };
   }, [providerMetric]);
 
   const statewideTrend = useMemo(() => {
@@ -252,12 +262,12 @@ const PulseView = (_props: ViewProps) => {
             <span style={{ color: 'var(--ink-3)' }}>read year by year.</span>
           </h1>
           <p className="body" style={{ marginTop: 12, maxWidth: 540, color: 'var(--ink-3)' }}>
-            A year-by-year view of Illinois mortality from 2009 to 2022. Drag the timeline to move through years and see how the county map shifts. Key events — ACA implementation, the pre-pandemic low, COVID onset — are marked as reference points. Use the multi-county chart below to compare specific counties side by side.
+            A year-by-year view of Illinois mortality from {timelineYears[0]} to {timelineYears[timelineYears.length - 1]}. Drag the timeline to move through years and see how the county map shifts. Key events are marked as reference points: ACA implementation, the last pre-pandemic year, and the onset of COVID-19. Use the multi-county chart below to compare specific counties side by side.
           </p>
         </div>
       </div>
 
-      {/* Timeline ribbon — all 14 year dots */}
+      {/* Timeline ribbon */}
       <div style={{ padding: '40px 48px 24px', borderBottom: `1px solid ${RULE}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 18 }}>
           <span className="eyebrow">Timeline</span>
@@ -294,18 +304,18 @@ const PulseView = (_props: ViewProps) => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', border: `1px solid ${RULE}` }}>
             <div className="stat">
               <div className="stat-label">State rate / 100k</div>
-              <div className="stat-value num">{yearRate ? yearRate.toFixed(1) : '—'}</div>
+              <div className="stat-value num">{yearRate ? yearRate.toFixed(1) : 'n/a'}</div>
               <div className="stat-meta"><span>All causes</span></div>
             </div>
             <div className="stat">
               <div className="stat-label">Counties above avg</div>
-              <div className="stat-value num">{aboveAvg ?? '—'}</div>
+              <div className="stat-value num">{aboveAvg ?? 'n/a'}</div>
               <div className="stat-meta"><span>of 102</span></div>
             </div>
             <div className="stat">
               <div className="stat-label">Δ from prior year</div>
               <div className="stat-value num" style={{ color: deltaYoY != null ? (deltaYoY > 0 ? D_HIGH : D_LOW) : undefined }}>
-                {deltaYoY != null ? `${deltaYoY > 0 ? '+' : ''}${deltaYoY.toFixed(1)}%` : '—'}
+                {deltaYoY != null ? `${deltaYoY > 0 ? '+' : ''}${deltaYoY.toFixed(1)}%` : 'n/a'}
               </div>
               <div className="stat-meta"><span>Year-over-year change</span></div>
             </div>
@@ -318,7 +328,7 @@ const PulseView = (_props: ViewProps) => {
         </div>
       </div>
 
-      {/* Fixed all-cause mortality trend (mod #10 — chart does not change with slider) */}
+      {/* All-cause mortality trend. Fixed: the chart does not follow the slider. */}
       <div style={{ padding: '40px 48px', borderBottom: `1px solid ${RULE}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 }}>
           <div>
@@ -361,34 +371,34 @@ const PulseView = (_props: ViewProps) => {
             <div className="h2">All counties by cause · 2009–2022</div>
           </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div className="field">
-              <div className="field-label">Cause</div>
+            <label className="field">
+              <span className="field-label">Cause</span>
               <select className="sel" style={{ width: 220 }}
                 value={multiCause}
                 onChange={e => setMultiCause(e.target.value)}>
                 {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
               </select>
-            </div>
-            <div className="field">
-              <div className="field-label">District filter</div>
+            </label>
+            <label className="field">
+              <span className="field-label">District filter</span>
               <select className="sel" style={{ width: 200 }}
                 value={multiDistrict}
                 onChange={e => setMultiDistrict(e.target.value)}>
                 <option value="">All counties</option>
                 {Object.entries(IDPH_DISTRICTS).map(([num, { name }]) => (
-                  <option key={num} value={num}>D{num} · {name.split(' — ')[1]}</option>
+                  <option key={num} value={num}>D{num} · {name.split(': ')[1]}</option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <div className="field-label">Provider overlay</div>
+            </label>
+            <label className="field">
+              <span className="field-label">Provider overlay</span>
               <select className="sel" style={{ width: 220 }}
                 value={providerMetric}
                 onChange={e => setProviderMetric(e.target.value)}>
-                <option value="">— None —</option>
+                <option value="">None</option>
                 {providerMetrics.map(m => <option key={m} value={m}>{providerMetricLabels[m]}</option>)}
               </select>
-            </div>
+            </label>
           </div>
         </div>
         <div style={{ height: 320 }}>
@@ -453,7 +463,7 @@ const PulseView = (_props: ViewProps) => {
         </p>
       </div>
 
-      {/* Mini-map small multiples (mod #11 — richer active colors, dimmer inactive) */}
+      {/* Mini-map small multiples. The selected year is drawn at full strength. */}
       <div style={{ padding: '40px 48px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 24 }}>
           <div>
@@ -514,7 +524,7 @@ const PulseView = (_props: ViewProps) => {
                     color: isActive ? INK : INK_4,
                   }}>{y}</span>
                   <span className="num" style={{ fontSize: 9.5, color: isActive ? INK_4 : '#C0BCB4' }}>
-                    {yStateRate > 0 ? yStateRate.toFixed(0) : '—'}
+                    {yStateRate > 0 ? yStateRate.toFixed(0) : 'n/a'}
                   </span>
                 </div>
               </div>

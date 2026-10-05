@@ -83,16 +83,50 @@ cross-check against the sum of the 102 counties within 0.08% in every year.
 
 ## Partially fixed
 
-| # | Done | Left |
+Nothing remains partially fixed. The three items listed here previously were
+closed in a later pass:
+
+| # | What was outstanding | How it was closed |
 | --- | --- | --- |
-| 11 | Logout route, per-cause loading, duplicate audit fetch, year sliders from `/meta`, Pulse small multiples, map search highlight, Admin nav number | Request cancellation exists in the shared hooks but the views that still call axios directly do not use it yet |
-| 14 | Contrast tokens lifted to AA, focus outlines restored, map carries a non-colour channel, keyboard access on Map, Priority, Scorecard and Pulse targets, real labels in the admin form | `CountyDrillDown.tsx:457` and `App.tsx:152` click targets; `field-label` divs outside the admin panel; scatter plots still have no shape redundancy |
-| 16 | Unused MUI and Emotion removed, types moved to devDependencies, map remount fixed, duplicate imports removed, backend CSV reads cached, dead exports deleted | Six views still call axios directly instead of the shared `useDeathRates` hook, so the new cache is only partly adopted |
+| 11 | Requests did not cancel on rapid cause changes | Ten fetch effects across six views now drop their result if the component moved on, so a slower earlier response cannot overwrite a newer one |
+| 14 | Keyboard access, form labels, scatter shape redundancy | See below |
+| 16 | The shared data hook existed but no view used it | All eight views now fetch through one cached client |
+
+### #16 in detail
+
+The fetching hooks were dead code: `useDeathRates`, `useAllDeathRates` and
+`useProviderData` were imported by zero files while all nine components called
+`axios.get` directly. They have been replaced by `getCached` and the
+`fetchDeathRates` / `fetchProviderData` / `fetchGeoJson` / `fetchAnnotations`
+helpers, which return the same shape axios did and so dropped into the existing
+call sites unchanged. Every view fetch is now deduplicated and cached, which
+matters most for Scorecard, the county profile and Access, each of which asks
+for all fifteen causes on mount.
+
+### #14 in detail
+
+| Item | Status |
+| --- | --- |
+| Colour-only encoding on the map | Fixed: high and low tints now differ in lightness (ratio 1.90, was 1.00) and the high band carries a dashed border |
+| Contrast | Fixed: `--ink-4` and `--ink-5` raised to meet AA |
+| Keyboard: clickable divs and table cells | Fixed: sortable headers carry `aria-sort` and a tab stop, county rows and cause rows are focusable, the admin role badge is a real button |
+| Keyboard: Leaflet counties | Fixed: all 102 county paths take a tab stop, announce their name, and open on Enter or Space, with focus styled like hover |
+| Focus outlines | Fixed: restored on the map and its layers |
+| Form labels were `<div>`s | Fixed: 15 field wrappers are now `<label>` elements containing their control |
+| Scatter shape redundancy | Fixed: both scatters use four distinct shapes, drawn from the same table that supplies the legend |
+| Chart dots are mouse-only | Not fixed. Recharts marks have no keyboard affordance; the equivalent data is reachable through the tables in the same views |
+
+One deliberate non-change: the scorecard's ~1,600 heat cells are clickable but
+are not tab stops. Making them focusable would bury a keyboard user. Each
+county row is one tab stop and opens the county profile, where every cause is
+a focusable row, so the same destination is two stops away.
 
 ## Open
 
 | # | Why |
 | --- | --- |
-| 1 | Authentication model is NCSA's call: campus SSO, application JWT, or read-only deployment. |
+| 1 | Authentication model is NCSA's call: campus SSO, application JWT, or read-only deployment. The user store now locks its writes, so that part is ready either way. |
 | 8 | Rotation versus history rewrite is NCSA's call. Nothing in history is a live credential once auth is rebuilt. |
 | 18 (district list) | `IDPH_DISTRICTS` defines 9 districts; only IDPH can confirm that against their published regions. |
+
+Everything else in issues 2 through 18 is closed.
