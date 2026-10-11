@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import './MapView.css';
 import type { FeatureCollection, Feature } from 'geojson';
 import { causeLabels, causes, EXCLUDED_COUNTIES, IDPH_DISTRICTS, providerMetricLabels, providerMetrics, providerMetricShort, providerMetricInverted } from '../data/constants';
-import { asRows, PRIORITY_BANDS, TREND_BASE_YEAR, bandOf, bandStyle, calcSlope, classifyCounty, toRate } from '../data/analytics';
+import { asRows, PRIORITY_BANDS, bandOf, bandStyle, calcSlope, classifyCounty, toRate, trendBase } from '../data/analytics';
 import type { Row } from '../data/analytics';
 import * as A from '../data/analytics';
 import type { SharedState } from '../App';
@@ -100,6 +100,7 @@ const ANNOT_COLORS: Record<string, string> = {
 const MapView = ({ shared, setShared }: MapViewProps) => {
   const navigate = useNavigate();
   const { selectedCause, selectedYear, selectedDistrict, searchTarget } = shared;
+  const trendFrom = trendBase(shared.dataYearRange);
 
   const [countyData, setCountyData] = useState<DeathRate[]>([]);
   const [geoData, setGeoData] = useState<FeatureCollection | null>(null);
@@ -123,7 +124,9 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
       .catch(() => setError('Failed to load map geometry.'));
     fetchAnnotations()
       .then(r => setAnnotations(asRows(r.data)))
-      .catch(() => {});
+      // Annotations are secondary, so a failure must not replace a more
+      // serious message such as missing geometry.
+      .catch(() => setError(e => e ?? 'Annotations could not be loaded.'));
   }, []);
 
   useEffect(() => {
@@ -198,12 +201,12 @@ const stateRate = useMemo(() => {
     const s = new Set<string>();
     countyData.forEach(d => {
       if (EXCLUDED_COUNTIES.includes(d.County)) return;
-      if (classifyCounty(d as unknown as Row, selectedYear, stateRate).isPriority) {
+      if (classifyCounty(d as unknown as Row, selectedYear, stateRate, trendFrom).isPriority) {
         s.add(d.County.toLowerCase());
       }
     });
     return s;
-  }, [countyData, stateRate, selectedYear]);
+  }, [countyData, stateRate, selectedYear, trendFrom]);
 
   const districtSet = useMemo<Set<string> | null>(() => {
     if (!selectedDistrict) return null;
@@ -267,7 +270,7 @@ const stateRate = useMemo(() => {
     const isPriority = priorityCounties.has(key);
     // Same trend window as every other view. The tooltip used to read
     // "Slope 2015-2012" for early years because the window ran backwards.
-    const slope = calcSlope(row, Math.min(TREND_BASE_YEAR, selectedYear), selectedYear);
+    const slope = calcSlope(row, Math.min(trendFrom, selectedYear), selectedYear);
     const provVal = providerMap[key] || 0;
     const provRatio = provVal && stateProvVal ? provVal / stateProvVal : 0;
 
@@ -291,7 +294,7 @@ const stateRate = useMemo(() => {
             <span style="color:${ratioColor}">${pctStr}</span>
           </div>
           <div style="display:flex;justify-content:space-between;gap:16px;padding-top:6px;border-top:1px solid ${RULE};">
-            <span style="color:${INK_4}">Slope&nbsp;${Math.min(TREND_BASE_YEAR, selectedYear)}&ndash;${selectedYear}</span>
+            <span style="color:${INK_4}">Slope&nbsp;${Math.min(trendFrom, selectedYear)}&ndash;${selectedYear}</span>
             <span style="color:${slopeColor}">${slopeStr}</span>
           </div>
           ${isPriority ? `<div style="margin-top:6px;padding:3px 7px;background:${D_HIGH_TINT};font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:${D_HIGH};">Priority county</div>` : ''}
@@ -306,7 +309,7 @@ const stateRate = useMemo(() => {
     `;
 
     return tooltipHtml;
-  }, [rateMap, stateRate, nameMap, priorityCounties, selectedCause, selectedYear, countyData, providerMap, stateProvVal, providerOverlay]);
+  }, [rateMap, stateRate, nameMap, priorityCounties, selectedCause, selectedYear, trendFrom, countyData, providerMap, stateProvVal, providerOverlay]);
 
   // Leaflet binds these handlers once, when the layer is created. The GeoJSON
   // layer is rebuilt the moment a cause is picked, which is before that cause's

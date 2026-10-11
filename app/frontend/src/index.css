@@ -39,6 +39,11 @@
   --gutter:   32px;
   --ease:     cubic-bezier(0.32, 0.72, 0, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* The current view's hue (see VIEW_HUES in data/constants.ts). Pages
+     without one fall back to ink, which is how the app looked before. */
+  --hue:      var(--ink);
+  --hue-tint: var(--paper-2);
 }
 
 /* ─── Reset ─────────────────────────────────────────────── */
@@ -202,7 +207,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
   left: -14px;
   top: 8px; bottom: 8px;
   width: 2px;
-  background: var(--ink);
+  background: var(--hue);
 }
 .nav-num {
   font-family: var(--mono);
@@ -212,7 +217,8 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
   width: 20px;
   flex-shrink: 0;
 }
-.nav-item.active .nav-num { color: var(--ink); }
+.nav-item.active .nav-num { color: var(--hue); }
+.nav-item.active svg { color: var(--hue); }
 
 .rail-foot {
   padding: 18px 24px 22px;
@@ -230,6 +236,59 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
   letter-spacing: 0.04em;
 }
 .rail-foot .rf-row .v { color: var(--ink-2); }
+.rail-foot .rf-credit {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: var(--ink-4);
+}
+.rail-foot .rf-credit .v { color: var(--ink-2); }
+
+/* ─── Home ───────────────────────────────────────────────── */
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  padding: 28px 40px 40px;
+}
+.home-card {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--hue);
+  border-radius: 4px;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 120ms var(--ease), background 120ms var(--ease), transform 120ms var(--ease);
+}
+.home-card:hover { border-color: var(--hue); background: var(--hue-tint); transform: translateY(-1px); }
+.home-card-top { display: flex; align-items: center; justify-content: space-between; }
+.home-card-top .nav-num { color: var(--hue); }
+.home-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--hue-tint);
+  color: var(--hue);
+}
+.home-card:hover .home-card-icon { background: var(--card); }
+.home-card-go {
+  margin-top: auto;
+  padding-top: 16px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hue);
+}
 
 /* ─── Top Strip ──────────────────────────────────────────── */
 .topstrip {
@@ -277,6 +336,24 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
 .topstrip .actions > :first-child .a-btn,
 .topstrip .actions > .a-btn:first-child { border-left: none; }
 .topstrip .a-btn:hover { color: var(--ink); background: var(--paper-2); }
+
+/* ─── Page hue ───────────────────────────────────────────── */
+/* .main carries the current view's --hue. Scoped to .hued so Home and Admin
+   keep the plain ink chrome rather than gaining black accents. */
+.main.hued .topstrip { box-shadow: inset 0 -2px 0 var(--hue); }
+.main.hued .topstrip .crumb .eyebrow-ink,
+.main.hued .view-head .eyebrow-ink { color: var(--hue); }
+.main.hued .panel { border-top: 2px solid var(--hue); }
+.main.hued .panel-head .h3::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  margin-right: 8px;
+  vertical-align: 1px;
+  border-radius: 50%;
+  background: var(--hue);
+}
+.main.hued .stat-label { color: var(--hue); }
 
 /* ─── View header ────────────────────────────────────────── */
 .view-head {
@@ -347,7 +424,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
   transition: border-color 120ms var(--ease);
   width: 100%;
 }
-.sel:focus, .inp:focus { border-color: var(--ink); }
+.sel:focus, .inp:focus { border-color: var(--hue); }
 .inp::placeholder { color: var(--ink-5); }
 
 .sel {
@@ -379,7 +456,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
 }
 .seg-btn:last-child { border-right: none; }
 .seg-btn:hover { color: var(--ink); }
-.seg-btn.active { background: var(--ink); color: var(--paper); border-right-color: var(--ink); }
+.seg-btn.active { background: var(--hue); color: var(--paper); border-right-color: var(--hue); }
 
 /* Year scrub slider */
 .range {
@@ -394,7 +471,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
 .range::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 12px; height: 12px;
-  background: var(--ink);
+  background: var(--hue);
   border-radius: 50%;
   margin-top: -5.5px;
   cursor: grab;
@@ -403,7 +480,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
 .range::-webkit-slider-thumb:active { transform: scale(1.25); cursor: grabbing; }
 .range::-moz-range-thumb {
   width: 12px; height: 12px;
-  background: var(--ink);
+  background: var(--hue);
   border-radius: 50%;
   border: none;
 }
@@ -441,8 +518,8 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
   transition: background 120ms var(--ease), border-color 120ms var(--ease);
 }
 .btn:hover { background: var(--paper-2); border-color: var(--ink-4); }
-.btn-primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.btn-primary:hover { background: var(--ink-2); border-color: var(--ink-2); }
+.btn-primary { background: var(--hue); color: var(--paper); border-color: var(--hue); }
+.btn-primary:hover { filter: brightness(0.88); }
 .btn-ghost { border-color: transparent; }
 .btn-ghost:hover { border-color: var(--rule-2); }
 .btn-sm { height: 26px; padding: 0 10px; font-size: 11.5px; }
@@ -577,14 +654,14 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
 }
 .chip:hover { border-color: var(--ink-3); }
 .chip.priority { color: var(--d-high); border-color: rgba(178,58,46,0.3); background: var(--d-high-tint); }
-.chip.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.chip.active { background: var(--hue); color: var(--paper); border-color: var(--hue); }
 
 /* ─── Loading spinner ─────────────────────────────────────── */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner {
   width: 22px; height: 22px;
   border: 2px solid var(--rule-2);
-  border-top-color: var(--ink-3);
+  border-top-color: var(--hue);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -632,6 +709,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
   .nav-item.active::before { left: 0; }
   .view-head { padding: 24px; }
   .view-head .ix { flex-direction: column; }
+  .home-grid { padding: 20px 24px 32px; }
 }
 
 /* ─── Login page ─────────────────────────────────────────── */
@@ -792,7 +870,7 @@ textarea.inp {
 }
 .tl-label.is-active .tl-label-text,
 .tl-label.is-hover .tl-label-text { color: var(--ink); font-weight: 600; }
-.tl-label.is-active .tl-connector { background: var(--ink); }
+.tl-label.is-active .tl-connector { background: var(--hue); }
 
 .tl-track-area { position: relative; height: 22px; }
 
@@ -806,7 +884,7 @@ textarea.inp {
   position: absolute;
   top: 50%;
   height: 1px;
-  background: var(--ink);
+  background: var(--hue);
   transition: width 140ms var(--ease);
 }
 
@@ -828,8 +906,8 @@ textarea.inp {
 .tl-dot.is-active {
   width: 13px;
   height: 13px;
-  background: var(--ink);
-  border-color: var(--ink);
+  background: var(--hue);
+  border-color: var(--hue);
   box-shadow: 0 0 0 4px var(--paper), 0 0 0 5px var(--rule-2);
 }
 
@@ -854,11 +932,11 @@ textarea.inp {
 .tl-input:focus-visible { opacity: 1; outline: none; }
 .tl-input:focus-visible::-webkit-slider-thumb {
   width: 13px; height: 13px; border-radius: 50%;
-  background: var(--ink); box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--ink);
+  background: var(--hue); box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--hue);
 }
 .tl-input:focus-visible::-moz-range-thumb {
   width: 13px; height: 13px; border-radius: 50%;
-  background: var(--ink); box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--ink);
+  background: var(--hue); box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--hue);
 }
 
 .tl-years { position: relative; height: 18px; margin-top: 8px; }
@@ -872,7 +950,7 @@ textarea.inp {
   white-space: nowrap;
   transition: color 120ms var(--ease);
 }
-.tl-year.is-active { color: var(--ink); font-weight: 600; font-size: 10.5px; }
+.tl-year.is-active { color: var(--hue); font-weight: 600; font-size: 10.5px; }
 .tl-year.is-hover { color: var(--ink); }
 
 @media (max-width: 900px) {

@@ -3,7 +3,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell, ReferenceLine,
 } from 'recharts';
-import { providerMetricLabels, providerMetrics, EXCLUDED_COUNTIES, HPSA_METRIC } from '../data/constants';
+import { providerMetricLabels, providerMetrics, EXCLUDED_COUNTIES, HPSA_METRIC, VIEW_HUES } from '../data/constants';
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
 import { fetchProviderData, useHpsaSummary, useMeta } from '../data/useDataset';
@@ -18,7 +18,7 @@ const D_LOW  = '#4F7A4D';
 const INK_3 = '#6B675F';
 const INK_4 = '#9A968C';
 const RULE  = '#E6E3DC';
-const ACCENT = '#1F5C5A';
+const HUE = VIEW_HUES['/providers'].hue;
 
 const TIP_STYLE = {
   fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
@@ -57,6 +57,7 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
   const [providerData, setProviderData] = useState<ProviderRow[]>([]);
   const [hpsaData, setHpsaData] = useState<ProviderRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showBottom, setShowBottom] = useState(false);
 
   useEffect(() => {
@@ -74,8 +75,9 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
         if (!live) return;
         setProviderData(asRows(pr.data));
         setHpsaData(asRows(hr ? hr.data : pr.data));
+        setError(null);
       })
-      .catch(() => {})
+      .catch(() => { if (live) setError('Failed to load provider data. Ensure the backend is running.'); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [metric]);
@@ -193,6 +195,7 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
   return (
     <div className="view fade-in" style={{ overflowY: 'auto' }}>
       {/* View head */}
+      {error && <div className="error-banner" role="alert">{error}</div>}
       <div className="view-head">
         <div className="titles">
           <div className="eyebrow eyebrow-ink">Healthcare Access · 102 counties</div>
@@ -255,7 +258,7 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
               <div className="panel-head">
                 <div className="titles">
                   <div className="eyebrow">Statewide trend</div>
-                  <div className="h3">{providerMetricLabels[metric]} · 2008–2022</div>
+                  <div className="h3">{providerMetricLabels[metric]} · {yearMin}–{yearMax}</div>
                 </div>
                 <span className="caption" style={{ color: 'var(--ink-4)' }}>Shaded band shows the county minimum and maximum</span>
               </div>
@@ -273,8 +276,8 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
                         ] as [string, string]} />
                       <Line type="monotone" dataKey="high" stroke={RULE} strokeWidth={1} dot={false} name="high" />
                       <Line type="monotone" dataKey="low" stroke={RULE} strokeWidth={1} dot={false} name="low" />
-                      <Line type="monotone" dataKey="state" stroke={ACCENT} strokeWidth={2}
-                        dot={{ r: 3, fill: ACCENT }} activeDot={{ r: 5 }} connectNulls={false} name="state" />
+                      <Line type="monotone" dataKey="state" stroke={HUE} strokeWidth={2}
+                        dot={{ r: 3, fill: HUE }} activeDot={{ r: 5 }} connectNulls={false} name="state" />
                       <ReferenceLine x={yearStr} stroke={INK_4} strokeDasharray="4 3" strokeWidth={1} />
                     </LineChart>
                   </ResponsiveContainer>

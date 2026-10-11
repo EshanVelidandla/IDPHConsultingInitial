@@ -6,7 +6,8 @@ import {
 } from 'recharts';
 import { causeLabels, causes, EXCLUDED_COUNTIES, providerMetricLabels, providerMetrics, providerMetricInverted } from '../data/constants';
 import type { SharedState } from '../App';
-import { asRows, D_NULL, HIGH_RATIO, TREND_BASE_YEAR, calcSlope, toRate } from '../data/analytics';
+import { asRows, D_NULL, HIGH_RATIO, calcSlope, toRate, trendBase } from '../data/analytics';
+import YearScrub from './YearScrub';
 import { fetchDeathRates, fetchProviderData } from '../data/useDataset';
 
 interface DeathRate   { County: string; [key: string]: number | string; }
@@ -98,7 +99,7 @@ const CustomDot = (props: { cx?: number; cy?: number; payload?: CountyPoint; has
   );
 };
 
-const CustomTooltip = ({ active, payload, selectedYear, providerMetric }: { active?: boolean; payload?: { payload: CountyPoint }[]; selectedYear: number; providerMetric?: string }) => {
+const CustomTooltip = ({ active, payload, selectedYear, trendFrom, providerMetric }: { active?: boolean; payload?: { payload: CountyPoint }[]; selectedYear: number; trendFrom: number; providerMetric?: string }) => {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   const pct = ((d.x - 1) * 100).toFixed(1);
@@ -122,7 +123,7 @@ const CustomTooltip = ({ active, payload, selectedYear, providerMetric }: { acti
         <span style={{ color: Number(pct) > 0 ? D_HIGH : D_LOW }}>{Number(pct) > 0 ? '+' : ''}{pct}%</span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 4 }}>
-        <span style={{ color: INK_3 }}>Slope (2009–{selectedYear})</span>
+        <span style={{ color: INK_3 }}>Slope ({Math.min(trendFrom, selectedYear)}–{selectedYear})</span>
         <span style={{ color: d.y > 0 ? D_HIGH : D_LOW }}>{d.y > 0 ? '+' : ''}{d.y.toFixed(2)}/yr</span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, paddingTop: 6, borderTop: `1px solid ${RULE}` }}>
@@ -147,6 +148,7 @@ const CustomTooltip = ({ active, payload, selectedYear, providerMetric }: { acti
 const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
   const navigate = useNavigate();
   const { selectedCause, selectedYear } = shared;
+  const trendFrom = trendBase(shared.dataYearRange);
   const [deathData, setDeathData] = useState<DeathRate[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -197,7 +199,7 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
       .map(d => {
         const countyRate = toRate(d as never, yrStr);
         if (countyRate === null) return null;
-        const slope = calcSlope(d as never, Math.min(TREND_BASE_YEAR, selectedYear), selectedYear);
+        const slope = calcSlope(d as never, Math.min(trendFrom, selectedYear), selectedYear);
         const countyProvVal = Number(providerData.find(p => p.County === d.County)?.[yrStr]) || 0;
         // provRatio: >1 = better access, <1 = worse. For inverted metrics flip it.
         const provRatio = stateProvVal > 0 && countyProvVal > 0
@@ -206,7 +208,7 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
         return { county: d.County, x: countyRate / stateRate, y: slope, rate: countyRate, stateRate, provRatio };
       })
       .filter(Boolean) as CountyPoint[];
-  }, [deathData, selectedYear, providerData, providerMetric]);
+  }, [deathData, selectedYear, trendFrom, providerData, providerMetric]);
 
   const priorityCount = useMemo(() => points.filter(isPriorityPoint).length, [points]);
 
@@ -231,17 +233,8 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
               {causes.map(c => <option key={c} value={c}>{causeLabels[c]}</option>)}
             </select>
           </label>
-          <div style={{ width: 220 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span className="eyebrow">Year</span>
-              <span className="num" style={{ fontSize: 18, color: 'var(--ink)', fontWeight: 500 }}>{selectedYear}</span>
-            </div>
-            <input type="range" className="range" min={2009} max={2022} value={selectedYear}
-              onChange={e => setShared({ ...shared, selectedYear: Number(e.target.value) })} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--ink-4)' }}>
-              {[2009, 2012, 2015, 2018, 2022].map(y => <span key={y}>{y}</span>)}
-            </div>
-          </div>
+          <YearScrub value={selectedYear} shared={shared}
+            onChange={v => setShared({ ...shared, selectedYear: v })} />
           <label className="field">
             <span className="field-label">Bubble size</span>
             <select className="sel" style={{ width: 220 }}
@@ -304,11 +297,11 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
                     tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
                   <YAxis type="number" dataKey="y" name="Annual slope"
                     tickFormatter={v => `${v > 0 ? '+' : ''}${Number(v).toFixed(1)}`}
-                    label={{ value: `Annual rate change 2009–${selectedYear} (/100k/yr)`, angle: -90, position: 'insideLeft', offset: 8, fontSize: 11, fill: INK_4 }}
+                    label={{ value: `Annual rate change ${Math.min(trendFrom, selectedYear)}–${selectedYear} (/100k/yr)`, angle: -90, position: 'insideLeft', offset: 8, fontSize: 11, fill: INK_4 }}
                     tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
                   <ReferenceLine x={1} stroke={INK_4} strokeDasharray="6 4" strokeWidth={1} />
                   <ReferenceLine y={0} stroke={INK_4} strokeDasharray="6 4" strokeWidth={1} />
-                  <Tooltip content={<CustomTooltip selectedYear={selectedYear} providerMetric={providerMetric} />} cursor={{ fill: 'transparent' }} />
+                  <Tooltip content={<CustomTooltip selectedYear={selectedYear} trendFrom={trendFrom} providerMetric={providerMetric} />} cursor={{ fill: 'transparent' }} />
                   <Scatter data={points} shape={<CustomDot hasProvider={!!providerMetric} />}
                     onClick={(d: unknown) => navigate(`/county/${encodeURIComponent((d as CountyPoint).county)}`)}>
                     {points.map((p, i) => <Cell key={i} fill={dotColor(p.x, p.y)} />)}

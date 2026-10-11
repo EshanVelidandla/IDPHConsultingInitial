@@ -121,6 +121,19 @@ are not tab stops. Making them focusable would bury a keyboard user. Each
 county row is one tab stop and opens the county profile, where every cause is
 a focusable row, so the same destination is two stops away.
 
+### Follow-up pass (2026-10-10)
+
+A code review against the issues found leftovers in four issues marked closed above. They are now fixed:
+
+| # | Leftover | Fix |
+| --- | --- | --- |
+| 5 | Scorecard, county profile and Pulse still treated a real zero rate as "no data" (`val > 0`), and the county profile dropped 2008 by name | Null versus zero goes through `toRate` everywhere; a county with no deaths from a cause shows -100%, not n/a |
+| 7 | Scorecard showed zero-provider counties as `n/a` and coloured the HPSA code (0/1/2) against a state average | Zeros shown as 0.0; HPSA shown as None / Whole / Partial and sorted by severity; county profile uses the latest provider year instead of a fixed 2022 |
+| 11 | Priority slider, Pulse years, Insights trend and the shared trend start were fixed at 2009 while the data starts in 2008; the Access correlation matrix was all-or-nothing; 12 fetches swallowed errors | `trendBase()` reads the served range; Priority uses the shared slider; every year label comes from the data; the matrix loads with `allSettled` and names missing causes; every failed load now shows a message |
+| 16 | About 180 MB of AHRF files the pipeline never reads were committed | Untracked and gitignored (still on disk); `data/source/ahrf/README.md` lists the six files the pipeline reads. Provider tables rebuild byte-identically. History still holds the old files |
+
+Note: the trend window now starts in 2008, the first published year, instead of 2009. Priority classifications and trend arrows can shift slightly as a result.
+
 ## Open
 
 | # | Why |
