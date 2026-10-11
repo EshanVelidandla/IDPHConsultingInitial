@@ -5,10 +5,10 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import type { TooltipProps } from 'recharts';
-import { causeLabels, causes, EXCLUDED_COUNTIES, IDPH_DISTRICTS, providerMetricLabels, providerMetrics } from '../data/constants';
+import { causeLabels, causes, EXCLUDED_COUNTIES, IDPH_DISTRICTS, providerMetricLabels, providerMetrics, VIEW_HUES } from '../data/constants';
 import { IL_GRID } from '../data/ilGrid';
 import type { SharedState } from '../App';
-import { asRows, bandOf, bandStyle, toRate } from '../data/analytics';
+import { asRows, bandOf, bandStyle, toRate, yearsOf } from '../data/analytics';
 import YearTimeline from './YearTimeline';
 import type { TimelineEvent } from './YearTimeline';
 import { fetchDeathRates, fetchProviderData } from '../data/useDataset';
@@ -21,6 +21,7 @@ const D_HIGH = '#B23A2E';
 const D_LOW = '#4F7A4D';
 const D_NULL_TINT = '#EFEDE7';
 const INK = '#1C1B18';
+const HUE = VIEW_HUES['/pulse'].hue;
 const INK_4 = '#9A968C';
 const RULE = '#E6E3DC';
 
@@ -53,7 +54,6 @@ const TIP_STYLE = {
   borderRadius: 0, background: '#FFFFFF',
 };
 
-const ALL_YEARS = Array.from({ length: 14 }, (_, i) => 2009 + i);
 
 // Distinct palette for multi-county lines
 const MULTI_PALETTE = [
@@ -68,6 +68,7 @@ const PulseView = (_props: ViewProps) => {
   const [year, setYear] = useState(2022);
   const [deathData, setDeathData] = useState<DeathRate[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Multi-county chart state
   const [multiCause, setMultiCause] = useState('Total_Deaths');
@@ -83,7 +84,7 @@ const PulseView = (_props: ViewProps) => {
     setLoading(true);
     fetchDeathRates('Total_Deaths')
       .then(r => setDeathData(asRows(r.data)))
-      .catch(() => {})
+      .catch(() => setError('Failed to load statewide mortality data. Ensure the backend is running.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -96,7 +97,7 @@ const PulseView = (_props: ViewProps) => {
     let live = true;
     fetchDeathRates(multiCause)
       .then(r => { if (live) setMultiData(asRows(r.data)); })
-      .catch(() => {})
+      .catch(() => { if (live) setError(`Failed to load ${causeLabels[multiCause] ?? multiCause} for the county comparison.`); })
       .finally(() => { if (live) setMultiLoading(false); });
     return () => { live = false; };
   }, [multiCause]);
@@ -169,7 +170,7 @@ const PulseView = (_props: ViewProps) => {
   // Years come from the loaded series rather than a hardcoded 2009..2022, so
   // the scale always matches what the pipeline published.
   const timelineYears = useMemo(
-    () => (statewideTrend.length ? statewideTrend.map(d => d.year) : ALL_YEARS),
+    () => statewideTrend.map(d => d.year),
     [statewideTrend],
   );
 
@@ -208,12 +209,12 @@ const PulseView = (_props: ViewProps) => {
       if (districtCounties && !districtCounties.includes(d.County)) return false;
       return true;
     });
-    return ALL_YEARS.map(yr => {
+    // Years come from this series itself, not a fixed 2009..2022.
+    return yearsOf(multiData as never).map(yr => {
       const yrStr = yr.toString();
       const point: Record<string, string | number | null> = { year: yrStr };
       visibleRows.forEach(row => {
-        const val = Number(row[yrStr]);
-        point[row.County] = val > 0 ? val : null;
+        point[row.County] = toRate(row as never, yrStr);
         if (providerData.length) {
           const provRow = providerData.find(p => p.County === row.County);
           const pVal = provRow ? Number(provRow[yrStr]) : 0;
@@ -254,6 +255,7 @@ const PulseView = (_props: ViewProps) => {
   return (
     <div className="view fade-in" style={{ overflowY: 'auto' }}>
       {/* View head */}
+      {error && <div className="error-banner" role="alert">{error}</div>}
       <div className="view-head">
         <div className="titles">
           <div className="eyebrow eyebrow-ink">Pulse · Annotated timeline</div>
@@ -333,7 +335,7 @@ const PulseView = (_props: ViewProps) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 }}>
           <div>
             <span className="eyebrow" style={{ display: 'block', marginBottom: 4 }}>All-cause mortality · fixed reference</span>
-            <div className="h2">Total deaths rate · Illinois 2009–2022</div>
+            <div className="h2">Total deaths rate · Illinois {timelineYears[0]}–{timelineYears[timelineYears.length - 1]}</div>
           </div>
           <span className="caption" style={{ color: 'var(--ink-3)' }}>Crude rate per 100,000</span>
         </div>
@@ -349,12 +351,12 @@ const PulseView = (_props: ViewProps) => {
                   label={{ value: '/100k', angle: -90, position: 'insideLeft', fontSize: 10, fill: INK_4, dx: 4 }} />
                 <Tooltip contentStyle={TIP_STYLE}
                   formatter={(v: unknown) => [`${Number(v).toFixed(1)} /100k`, 'IL all-cause']} />
-                <Line type="monotone" dataKey="rate" stroke={INK} strokeWidth={2}
+                <Line type="monotone" dataKey="rate" stroke={HUE} strokeWidth={2}
                   dot={(p) => {
                     if (!p || p.cx == null || p.cy == null) return <g />;
                     const isSelected = p.payload?.year === year;
                     return <circle key={p.key} cx={p.cx} cy={p.cy} r={isSelected ? 5 : 3}
-                      fill={isSelected ? D_HIGH : INK} stroke="none" />;
+                      fill={isSelected ? D_HIGH : HUE} stroke="none" />;
                   }}
                   connectNulls={false} />
               </LineChart>
@@ -368,7 +370,7 @@ const PulseView = (_props: ViewProps) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
           <div>
             <span className="eyebrow" style={{ display: 'block', marginBottom: 4 }}>County comparison</span>
-            <div className="h2">All counties by cause · 2009–2022</div>
+            <div className="h2">All counties by cause · {timelineYears[0]}–{timelineYears[timelineYears.length - 1]}</div>
           </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <label className="field">
@@ -489,7 +491,7 @@ const PulseView = (_props: ViewProps) => {
                 style={{ cursor: 'pointer' }}>
                 <div style={{
                   position: 'relative',
-                  border: `${isActive ? '2px' : '1px'} solid ${isActive ? INK : RULE}`,
+                  border: `${isActive ? '2px' : '1px'} solid ${isActive ? HUE : RULE}`,
                   padding: isActive ? 3 : 4,
                   background: isActive ? 'var(--paper)' : 'var(--paper-2)',
                   transition: 'all 0.12s ease',
@@ -521,7 +523,7 @@ const PulseView = (_props: ViewProps) => {
                   <span className="num" style={{
                     fontSize: isActive ? 11.5 : 10.5,
                     fontWeight: isActive ? 600 : 400,
-                    color: isActive ? INK : INK_4,
+                    color: isActive ? HUE : INK_4,
                   }}>{y}</span>
                   <span className="num" style={{ fontSize: 9.5, color: isActive ? INK_4 : '#C0BCB4' }}>
                     {yStateRate > 0 ? yStateRate.toFixed(0) : 'n/a'}

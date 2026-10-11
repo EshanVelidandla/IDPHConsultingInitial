@@ -4,9 +4,9 @@ import {
   Tooltip, ResponsiveContainer, ReferenceLine, Cell,
   ScatterChart, Scatter,
 } from 'recharts';
-import { causeLabels, causes, EXCLUDED_COUNTIES, providerMetricLabels, providerMetrics, providerMetricInverted } from '../data/constants';
+import { causeLabels, causes, EXCLUDED_COUNTIES, providerMetricLabels, providerMetrics, providerMetricInverted, VIEW_HUES } from '../data/constants';
 import { fetchDeathRates, fetchProviderData, usePopulation } from '../data/useDataset';
-import { asRows, TREND_BASE_YEAR, toRate } from '../data/analytics';
+import { asRows, TREND_BASE_YEAR, toRate, yearsOf } from '../data/analytics';
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
 
@@ -32,6 +32,7 @@ const D_HIGH = '#B23A2E';
 const D_LOW = '#4F7A4D';
 const D_MID = '#C68B3C';
 const INK = '#1C1B18';
+const HUE = VIEW_HUES['/insights'].hue;
 const INK_3 = '#6B675F';
 const INK_4 = '#9A968C';
 const RULE = '#E6E3DC';
@@ -83,7 +84,7 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
     let live = true;
     fetchProviderData(corrMetric)
       .then(r => { if (live) setProviderData(asRows(r.data)); })
-      .catch(() => {})
+      .catch(() => { if (live) setError('Failed to load provider data for the access comparison.'); })
       .finally(() => { if (live) setProviderLoading(false); });
     return () => { live = false; };
   }, [corrMetric]);
@@ -163,10 +164,13 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
   const stateTrend = useMemo(() => {
     const row = deathData.find(d => d.County === 'ILLINOIS');
     if (!row) return null;
-    const r2009 = Number(row['2009']);
-    const rLatest = latestYear ? Number(row[latestYear]) : 0;
-    if (!r2009 || !rLatest) return null;
-    return { pct: ((rLatest - r2009) / r2009) * 100, from: r2009, to: rLatest };
+    // Starts at the first year this cause was published, not a fixed 2009:
+    // COVID-19 begins in 2020 and the series as a whole in 2008.
+    const fromYear = yearsOf([row as never]).find(y => toRate(row as never, y) !== null);
+    const rFirst = fromYear !== undefined ? toRate(row as never, fromYear) : null;
+    const rLatest = latestYear ? toRate(row as never, latestYear) : null;
+    if (!rFirst || rLatest === null) return null;
+    return { pct: ((rLatest - rFirst) / rFirst) * 100, from: rFirst, to: rLatest, fromYear: fromYear!, toYear: latestYear };
   }, [deathData, latestYear]);
 
   const highest = useMemo(() => {
@@ -322,7 +326,7 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
               <div className="stat-meta"><span>{lowest?.county ?? 'n/a'} · {selectedYear}</span></div>
             </div>
             <div className="stat fade-in fade-in-3">
-              <div className="stat-label">State trend 2009–2022</div>
+              <div className="stat-label">State trend {stateTrend ? `${stateTrend.fromYear}–${stateTrend.toYear}` : ''}</div>
               <div className="stat-value num" style={{ color: stateTrend ? (stateTrend.pct < 0 ? D_LOW : D_HIGH) : 'var(--ink-5)' }}>
                 {stateTrend ? `${stateTrend.pct > 0 ? '+' : ''}${stateTrend.pct.toFixed(1)}%` : 'n/a'}
               </div>
@@ -358,8 +362,8 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
                         formatter={(v: unknown, name: unknown) => [`${Number(v).toFixed(1)} per 100k`, String(name)]} />
                       <Line type="monotone" dataKey="high" stroke={RULE} strokeWidth={1} dot={false} name="County max" />
                       <Line type="monotone" dataKey="low" stroke={RULE} strokeWidth={1} dot={false} name="County min" />
-                      <Line type="monotone" dataKey="rate" stroke={INK} strokeWidth={2}
-                        dot={{ r: 3, fill: INK }} activeDot={{ r: 5, fill: INK }} connectNulls={false} name="IL avg" />
+                      <Line type="monotone" dataKey="rate" stroke={HUE} strokeWidth={2}
+                        dot={{ r: 3, fill: HUE }} activeDot={{ r: 5, fill: HUE }} connectNulls={false} name="IL avg" />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>

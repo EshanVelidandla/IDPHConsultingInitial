@@ -74,3 +74,40 @@ export const providerMetricInverted: Record<string, boolean> = {
 
 
 /** Linear regression slope over a series of [year, rate] points. */
+
+
+// ── View hues ────────────────────────────────────────────────
+// Each view has one hue, used for its Home card, its sidebar marker and the
+// chrome and primary series on its own page. Every hue passes 4.5:1 on white,
+// on --paper and on its own tint, so it can carry text.
+
+export interface ViewHue { hue: string; tint: string; }
+
+export const VIEW_HUES: Record<string, ViewHue> = {
+  '/map':       { hue: '#1F5C5A', tint: '#E3EEED' },
+  '/insights':  { hue: '#2F5D8A', tint: '#E4ECF5' },
+  '/scorecard': { hue: '#A3472F', tint: '#F5E6E1' },
+  '/priority':  { hue: '#8A6416', tint: '#F4ECDB' },
+  '/pulse':     { hue: '#6B4C8A', tint: '#EDE7F3' },
+  '/providers': { hue: '#3F6E3D', tint: '#E5EEE3' },
+  '/access':    { hue: '#8A3D5C', tint: '#F3E4EA' },
+};
+
+/**
+ * The hue for the page at this location. A county profile takes the hue of
+ * the view it was opened from (Scorecard passes fromScorecard), else Map's.
+ * Home and Admin have none and stay in ink.
+ */
+export function hueForLocation(pathname: string, state?: unknown): ViewHue | undefined {
+  if (pathname.startsWith('/county/')) {
+    const fromScorecard = !!(state as { fromScorecard?: boolean } | null)?.fromScorecard;
+    return VIEW_HUES[fromScorecard ? '/scorecard' : '/map'];
+  }
+  const key = Object.keys(VIEW_HUES).find(k => pathname === k || pathname.startsWith(k + '/'));
+  return key ? VIEW_HUES[key] : undefined;
+}
+
+/** Inline style that sets --hue and --hue-tint for a subtree. */
+export function hueVars(h?: ViewHue): Record<string, string> | undefined {
+  return h ? { '--hue': h.hue, '--hue-tint': h.tint } : undefined;
+}

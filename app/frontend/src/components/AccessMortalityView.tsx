@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import {
   causeLabels, causes, providerMetricLabels, continuousProviderMetrics,
-  EXCLUDED_COUNTIES, providerMetricInverted,
+  EXCLUDED_COUNTIES, providerMetricInverted, VIEW_HUES,
 } from '../data/constants';
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
@@ -25,6 +25,7 @@ const INK_3   = '#6B675F';
 const INK_4   = '#9A968C';
 const RULE    = '#E6E3DC';
 const ACCENT  = '#1F5C5A';
+const HUE     = VIEW_HUES['/access'].hue;
 
 const TIP_STYLE = {
   fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
@@ -171,6 +172,7 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
   const [hpsaData,      setHpsaData]      = useState<ProviderRow[]>([]);
   const [allMortality,  setAllMortality]  = useState<Record<string, DeathRow[]>>({});
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch mortality + provider on cause/metric change
   useEffect(() => {
@@ -188,20 +190,29 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
       setMortalityData(asRows(mr.data));
       setProviderData(asRows(pr.data));
       setHpsaData(asRows(hr.data));
-    }).catch(() => {})
+      setError(null);
+    }).catch(() => { if (live) setError('Failed to load mortality or provider data. Ensure the backend is running.'); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [cause, metric]);
 
   // Fetch all causes for the correlation matrix, lazily on tab mount
   useEffect(() => {
-    Promise.all(
+    // allSettled, not all: one missing cause dataset used to leave the whole
+    // matrix blank. Now the matrix shows every cause that did load and says
+    // which did not.
+    Promise.allSettled(
       causes.map(c => fetchDeathRates(c).then(r => ({ c, data: r.data as DeathRow[] })))
     ).then(results => {
       const m: Record<string, DeathRow[]> = {};
-      results.forEach(({ c, data }) => { m[c] = data; });
+      const missing: string[] = [];
+      results.forEach((res, i) => {
+        if (res.status === 'fulfilled') m[res.value.c] = res.value.data;
+        else missing.push(causeLabels[causes[i]] ?? causes[i]);
+      });
       setAllMortality(m);
-    }).catch(() => {});
+      if (missing.length) setError(`Correlation matrix is missing: ${missing.join(', ')}`);
+    });
   }, []);
 
   const yearStr  = selectedYear.toString();
@@ -317,6 +328,7 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
   return (
     <div className="view fade-in" style={{ overflowY: 'auto' }}>
       {/* View head */}
+      {error && <div className="error-banner" role="alert">{error}</div>}
       <div className="view-head">
         <div className="titles">
           <div className="eyebrow eyebrow-ink">Access × Mortality · Correlation analysis</div>
@@ -463,7 +475,7 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
                         <ReferenceLine y={0} stroke={INK_4} strokeWidth={1} />
                         <ReferenceLine y={0.3} stroke={RULE} strokeDasharray="3 3" strokeWidth={1} />
                         <ReferenceLine y={-0.3} stroke={RULE} strokeDasharray="3 3" strokeWidth={1} />
-                        <Line type="monotone" dataKey="r" stroke={ACCENT} strokeWidth={2}
+                        <Line type="monotone" dataKey="r" stroke={HUE} strokeWidth={2}
                           dot={(p) => {
                             if (!p || p.cx == null) return <g />;
                             const r = p.payload?.r ?? 0;

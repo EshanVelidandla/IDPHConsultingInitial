@@ -901,7 +901,7 @@ if os.path.isdir(_ui_dir):
 # namespace (/admin/users); the real API routes are matched before this
 # fallback is ever reached, so only the bare client route arrives here.
 _SPA_ROUTES = frozenset({
-    "", "insights", "scorecard", "priority", "pulse", "providers", "access",
+    "", "map", "insights", "scorecard", "priority", "pulse", "providers", "access",
     "admin",
 })
 # The only client route that carries a parameter.

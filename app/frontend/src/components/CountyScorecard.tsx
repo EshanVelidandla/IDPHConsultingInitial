@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { causeLabels, causes, EXCLUDED_COUNTIES, providerMetricLabels, providerMetricShort, providerMetricInverted } from '../data/constants';
+import { causeLabels, causes, EXCLUDED_COUNTIES, providerMetricLabels, providerMetricShort, providerMetricInverted, HPSA_METRIC } from '../data/constants';
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
-import { asRows, TREND_BASE_YEAR, calcSlope, stateRow as findStateRow, toRate } from '../data/analytics';
+import { asRows, calcSlope, stateRow as findStateRow, toRate, trendBase } from '../data/analytics';
 import { fetchDeathRates, fetchProviderData } from '../data/useDataset';
 
 interface ProviderRow { County: string; [year: string]: number | string; }
+
+const HPSA = HPSA_METRIC;
 
 const PROVIDER_COLS = [
   'primary_care_physicians_per_100k',
@@ -36,8 +38,8 @@ const D_LOW = '#4F7A4D';
 const D_LOW_TINT = '#E4ECDF';
 const INK = '#1C1B18';
 
-function heatBg(ratio: number): string {
-  if (!ratio) return 'transparent';
+function heatBg(ratio: number | null): string {
+  if (ratio === null) return 'transparent';
   if (ratio > 1.4) return D_HIGH_TINT;
   if (ratio > 1.2) return '#FBF0EE';
   if (ratio < 0.6) return D_LOW_TINT;
@@ -45,8 +47,8 @@ function heatBg(ratio: number): string {
   return '#FDF6EE';
 }
 
-function heatColor(ratio: number): string {
-  if (!ratio) return 'var(--ink-5)';
+function heatColor(ratio: number | null): string {
+  if (ratio === null) return 'var(--ink-5)';
   if (ratio > 1.4) return D_HIGH;
   if (ratio > 1.2) return '#C85A4E';
   if (ratio < 0.6) return D_LOW;
@@ -55,20 +57,31 @@ function heatColor(ratio: number): string {
 }
 
 // For provider columns: good access = green, poor access = red (inverted for HPSA)
-function provHeatBg(val: number, stateVal: number, inverted: boolean): string {
-  if (!val || !stateVal) return 'transparent';
+function provHeatBg(val: number | null, stateVal: number | null, inverted: boolean): string {
+  if (val === null || !stateVal) return 'transparent';
+  if (val === 0) return inverted ? '#ECF3EB' : '#FBF0EE';
   const r = inverted ? stateVal / val : val / stateVal;
   if (r > 1.2) return '#ECF3EB';
   if (r < 0.8) return '#FBF0EE';
   return '#FDF6EE';
 }
-function provHeatColor(val: number, stateVal: number, inverted: boolean): string {
-  if (!val || !stateVal) return 'var(--ink-5)';
+function provHeatColor(val: number | null, stateVal: number | null, inverted: boolean): string {
+  if (val === null || !stateVal) return 'var(--ink-5)';
+  if (val === 0) return inverted ? D_LOW : D_HIGH;
   const r = inverted ? stateVal / val : val / stateVal;
   if (r > 1.2) return D_LOW;
   if (r < 0.8) return D_HIGH;
   return D_MID;
 }
+
+// HPSA codes are categories (0 none, 1 whole county, 2 part of county), not a
+// scale, so the column shows the category and sorts by severity rather than by
+// code, which used to rank "partial" as worse than "whole".
+const HPSA_CATEGORY: Record<number, { label: string; color: string; bg: string; severity: number }> = {
+  0: { label: 'None',    color: D_LOW,  bg: 'transparent', severity: 0 },
+  1: { label: 'Whole',   color: D_HIGH, bg: D_HIGH_TINT,   severity: 2 },
+  2: { label: 'Partial', color: D_MID,  bg: '#FDF6EE',     severity: 1 },
+};
 
 function TrendArrow({ slope, threshold }: { slope: number | null; threshold: number }) {
   if (slope === null) return <span style={{ marginLeft: 3, color: 'var(--ink-4)', fontSize: 9 }}>·</span>;
@@ -93,6 +106,7 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { selectedYear } = shared;
+  const trendFrom = trendBase(shared.dataYearRange);
   const [allData, setAllData] = useState<AllData>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -130,15 +144,20 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
 
   useEffect(() => {
     if (!showProvider || Object.keys(providerData).length > 0) return;
-    Promise.all(
+    Promise.allSettled(
       PROVIDER_COLS.map(m =>
-        fetchProviderData(m).then(r => ({ m, data: r.data as ProviderRow[] }))
+        fetchProviderData(m).then(r => ({ m, data: asRows(r.data) as ProviderRow[] }))
       )
     ).then(results => {
       const map: Record<string, ProviderRow[]> = {};
-      results.forEach(({ m, data }) => { map[m] = data; });
+      const missing: string[] = [];
+      results.forEach((res, i) => {
+        if (res.status === 'fulfilled') map[res.value.m] = res.value.data;
+        else missing.push(providerMetricLabels[PROVIDER_COLS[i]] ?? PROVIDER_COLS[i]);
+      });
       setProviderData(map);
-    }).catch(() => {});
+      if (missing.length) setError(`Could not load provider data: ${missing.join(', ')}`);
+    });
   }, [showProvider, providerData]);
 
   const slopeMap = useMemo<Record<string, Record<string, number | null>>>(() => {
@@ -147,11 +166,11 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
       (allData[cause] ?? []).forEach(d => {
         if (EXCLUDED_COUNTIES.includes(d.County)) return;
         if (!m[d.County]) m[d.County] = {};
-        m[d.County][cause] = calcSlope(d as never, TREND_BASE_YEAR, selectedYear);
+        m[d.County][cause] = calcSlope(d as never, trendFrom, selectedYear);
       });
     });
     return m;
-  }, [allData, selectedYear]);
+  }, [allData, selectedYear, trendFrom]);
 
   // What counts as a visible trend differs by cause. 1.5 per 100k per year is
   // noise against all-cause mortality (~900) and a doubling against suicide
@@ -172,23 +191,28 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
       .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
       .map(d => d.County);
     return counties.map(county => {
-      const row: Record<string, number | string> = { county };
+      // null means "not published" and stays distinct from a real zero. A
+      // county with no deaths from a cause is a ratio of 0 (-100%), not n/a.
+      const row: Record<string, number | string | null> = { county };
       causes.forEach(cause => {
         const data = allData[cause] ?? [];
-        const stateRate = Number(data.find(d => d.County === 'ILLINOIS')?.[yrStr]) || 0;
-        const countyRate = Number(data.find(d => d.County === county)?.[yrStr]) || 0;
-        row[cause] = stateRate > 0 ? countyRate / stateRate : 0;
+        const stateRate = toRate(data.find(d => d.County === 'ILLINOIS') as never, yrStr);
+        const countyRate = toRate(data.find(d => d.County === county) as never, yrStr);
+        row[cause] = stateRate && countyRate !== null ? countyRate / stateRate : null;
       });
       // HPSA badge value (0/1/2)
-      const hpsaRows = providerData['hpsa_primary_care_designation'] ?? [];
-      row['__hpsa'] = Number(hpsaRows.find(d => d.County === county)?.[yrStr]) || 0;
-      // Provider column values
+      const hpsaRows = providerData[HPSA] ?? [];
+      row['__hpsa'] = toRate(hpsaRows.find(d => d.County === county) as never, yrStr) ?? 0;
+      // Provider column values. Zero-provider counties keep their 0: they are
+      // the provider deserts this column exists to show.
       PROVIDER_COLS.forEach(m => {
         const pRows = providerData[m] ?? [];
-        const stateVal = Number(pRows.find(d => d.County === 'ILLINOIS')?.[yrStr]) || 0;
-        const countyVal = Number(pRows.find(d => d.County === county)?.[yrStr]) || 0;
-        row[`__prov_${m}`] = countyVal;
-        row[`__prov_state_${m}`] = stateVal;
+        const countyVal = toRate(pRows.find(d => d.County === county) as never, yrStr);
+        row[`__prov_${m}`] = m === HPSA && countyVal !== null
+          ? HPSA_CATEGORY[countyVal]?.severity ?? null
+          : countyVal;
+        row[`__prov_raw_${m}`] = countyVal;
+        row[`__prov_state_${m}`] = toRate(pRows.find(d => d.County === 'ILLINOIS') as never, yrStr);
       });
       return row;
     });
@@ -198,8 +222,7 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
   const missingCauses = useMemo(() => {
     if (!Object.keys(allData).length) return [];
     return causes.filter(c => {
-      const stateRate = Number((allData[c] ?? []).find(d => d.County === 'ILLINOIS')?.[selectedYear.toString()]) || 0;
-      return stateRate === 0;
+      return toRate((allData[c] ?? []).find(d => d.County === 'ILLINOIS') as never, selectedYear) === null;
     });
   }, [allData, selectedYear]);
 
@@ -212,11 +235,12 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
         const av = a.county as string, bv = b.county as string;
         return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
       }
-      const av = a[sortCol] as number, bv = b[sortCol] as number;
-      // Zero/suppressed rows always at bottom regardless of sort direction
-      if (av === 0 && bv === 0) return 0;
-      if (av === 0) return 1;
-      if (bv === 0) return -1;
+      const av = a[sortCol] as number | null, bv = b[sortCol] as number | null;
+      // Rows with no data stay at the bottom whichever way the column sorts.
+      // Real zeros sort as values.
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
       return sortAsc ? av - bv : bv - av;
     });
   }, [tableData, sortCol, sortAsc, search]);
@@ -300,7 +324,7 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
         </div>
         <div style={{ flex: 1 }} />
         <span className="caption" style={{ color: 'var(--ink-4)' }}>
-          Trend arrows: regression slope, {TREND_BASE_YEAR} to {selectedYear}
+          Trend arrows: regression slope, {trendFrom} to {selectedYear}
         </span>
         <button
           className={`seg-btn${showProvider ? ' active' : ''}`}
@@ -379,8 +403,8 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
                     </div>
                   </td>
                   {causes.map(c => {
-                    const ratio = row[c] as number;
-                    const pct = ratio > 0 ? ((ratio - 1) * 100) : null;
+                    const ratio = row[c] as number | null;
+                    const pct = ratio !== null ? ((ratio - 1) * 100) : null;
                     return (
                       <td
                         key={c}
@@ -407,16 +431,26 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
                     );
                   })}
                   {showProvider && PROVIDER_COLS.map((m, i) => {
-                    const val = Number(row[`__prov_${m}`]) || 0;
-                    const stateVal = Number(row[`__prov_state_${m}`]) || 0;
+                    const val = row[`__prov_raw_${m}`] as number | null;
+                    const stateVal = row[`__prov_state_${m}`] as number | null;
                     const inv = providerMetricInverted[m] ?? false;
+                    if (m === HPSA) {
+                      const cat = val !== null ? HPSA_CATEGORY[val] : undefined;
+                      return (
+                        <td key={m} style={{ background: cat?.bg ?? 'transparent' }}>
+                          <div className="h-fill" style={{ color: cat?.color ?? 'var(--ink-5)' }}>
+                            {cat ? cat.label : 'n/a'}
+                          </div>
+                        </td>
+                      );
+                    }
                     return (
                       <td key={m} style={{
                         background: provHeatBg(val, stateVal, inv),
                         borderLeft: i === 0 ? `2px solid ${D_LOW}` : undefined,
                       }}>
                         <div className="h-fill" style={{ color: provHeatColor(val, stateVal, inv) }}>
-                          {val > 0 ? (m === 'hpsa_primary_care_designation' ? val.toFixed(0) : val.toFixed(1)) : 'n/a'}
+                          {val !== null ? val.toFixed(1) : 'n/a'}
                         </div>
                       </td>
                     );
@@ -435,7 +469,7 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
 
       {/* Footer */}
       <div style={{ padding: '10px 24px', borderTop: '1px solid var(--rule)', flexShrink: 0 }}>
-        <span className="tiny">{sorted.length} counties · Trend: 2015–2022 linear regression · Data: IDPH Vital Statistics</span>
+        <span className="tiny">{sorted.length} counties · Trend: {trendFrom}–{selectedYear} linear regression · Data: IDPH Vital Statistics</span>
       </div>
     </div>
   );

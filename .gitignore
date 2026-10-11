@@ -46,3 +46,14 @@ app/backend/ui/
 # clone. See data/source/idph_death_reports/README.md.
 *.pdf
 !data/source/idph_death_reports/*.pdf
+
+# ── AHRF release extras the pipeline does not read ───────────────────────
+# process_hrsa.py reads three .asc data files and their three SAS layouts
+# (see data/source/ahrf/README.md). The other layouts and the 2022-23 CSV
+# release (~180 MB) were committed but never used.
+data/source/ahrf/22-23/
+data/source/ahrf/08-09/doc/
+data/source/ahrf/20-21/AHRF_2020-2021/DOC/
+data/source/ahrf/*/Technical Documentation/*.sas
+!data/source/ahrf/09-10/Technical Documentation/arf2009.sas
+!data/source/ahrf/12-13/Technical Documentation/AHRF2012.sas

@@ -13,8 +13,18 @@
  * different from zero. `toRate` is the single place that distinction is made.
  */
 
-/** Earliest year to use when fitting a trend line, for every view. */
-export const TREND_BASE_YEAR = 2009;
+/**
+ * Fallback start of the trend window, used only until /meta has loaded. Views
+ * call `trendBase(shared.dataYearRange)` so the window starts at the first year
+ * the pipeline actually published. It used to be a fixed 2009 while the data
+ * began in 2008, so every trend silently dropped the first year.
+ */
+export const TREND_BASE_YEAR = 2008;
+
+/** First year of the trend window: the earliest year in the served data. */
+export function trendBase(range: { min: number } | null | undefined): number {
+  return range?.min ?? TREND_BASE_YEAR;
+}
 
 /** A county is "above state" once it exceeds the state rate by this factor. */
 export const HIGH_RATIO = 1.2;

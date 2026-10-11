@@ -31,6 +31,7 @@ const SETTLE_MS = Number(process.env.SMOKE_SETTLE_MS ?? 5000);
 /** Route, and the minimum rendered characters that means "it actually filled in". */
 const ROUTES = [
   ['/', 900],
+  ['/map', 900],
   ['/insights', 900],
   ['/scorecard', 2000],
   ['/priority', 900],

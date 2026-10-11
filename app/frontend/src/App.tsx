@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type CSSProperties } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import HomeView from './components/HomeView';
 import MapView from './components/MapView';
 import InsightsView from './components/InsightsView';
 import CountyScorecard from './components/CountyScorecard';
@@ -11,7 +12,7 @@ import ProvidersView from './components/ProvidersView';
 import AccessMortalityView from './components/AccessMortalityView';
 import AdminPanel from './pages/AdminPanel';
 import { AuthProvider, useAuth } from './auth/AuthContext';
-import { API_BASE } from './data/constants';
+import { API_BASE, VIEW_HUES, hueForLocation, hueVars, type ViewHue } from './data/constants';
 
 export interface SharedState {
   selectedCause: string;
@@ -22,6 +23,14 @@ export interface SharedState {
 }
 
 // ── Icons ────────────────────────────────────────────────────
+
+const IconHome = () => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
+    <path d="M2 7.5L8 2.5l6 5"/>
+    <path d="M3.5 6.5V13.5h9V6.5"/>
+    <path d="M6.5 13.5v-4h3v4"/>
+  </svg>
+);
 
 const IconMap = () => (
   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
@@ -98,14 +107,34 @@ const IconLogout = () => (
 
 // ── Nav items ────────────────────────────────────────────────
 
-const NAV_ITEMS = [
-  { path: '/', label: 'Map', num: '01', Icon: IconMap, exact: true, sub: 'Choropleth · 102 counties' },
-  { path: '/insights', label: 'Insights', num: '02', Icon: IconInsights, exact: false, sub: 'Statewide patterns' },
-  { path: '/scorecard', label: 'Scorecard', num: '03', Icon: IconTable, exact: false, sub: 'Heatmap table' },
-  { path: '/priority', label: 'Priority', num: '04', Icon: IconScatter, exact: false, sub: 'Quadrant matrix' },
-  { path: '/pulse', label: 'Pulse', num: '05', Icon: IconPulse, exact: false, sub: 'Annotated timeline' },
-  { path: '/providers', label: 'Providers', num: '06', Icon: IconProviders, exact: false, sub: 'Access density' },
-  { path: '/access', label: 'Access × Mortality', num: '07', Icon: IconCorrelation, exact: false, sub: 'Correlation analysis' },
+export interface NavItem {
+  path: string;
+  label: string;
+  num: string;
+  Icon: () => JSX.Element;
+  exact: boolean;
+  sub: string;
+  desc: string;
+  hue?: ViewHue;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { path: '/', label: 'Home', num: '00', Icon: IconHome, exact: true, sub: 'Overview of every view',
+    desc: 'Start here. A short guide to each view and what it answers.' },
+  { path: '/map', hue: VIEW_HUES['/map'], label: 'Map', num: '01', Icon: IconMap, exact: false, sub: 'Choropleth · 102 counties',
+    desc: 'Color every county by its death rate for one cause and year. Hover for a trend line; click for a full county profile.' },
+  { path: '/insights', hue: VIEW_HUES['/insights'], label: 'Insights', num: '02', Icon: IconInsights, exact: false, sub: 'Statewide patterns',
+    desc: 'How a cause has moved statewide over time, how counties compare to the state average, and which are improving or worsening.' },
+  { path: '/scorecard', hue: VIEW_HUES['/scorecard'], label: 'Scorecard', num: '03', Icon: IconTable, exact: false, sub: 'Heatmap table',
+    desc: 'Every county against every cause in one heatmap, each cell shown as a multiple of the statewide rate.' },
+  { path: '/priority', hue: VIEW_HUES['/priority'], label: 'Priority', num: '04', Icon: IconScatter, exact: false, sub: 'Quadrant matrix',
+    desc: 'Plots each county by how high its rate is and whether it is rising, so the high and worsening counties stand out first.' },
+  { path: '/pulse', hue: VIEW_HUES['/pulse'], label: 'Pulse', num: '05', Icon: IconPulse, exact: false, sub: 'Annotated timeline',
+    desc: 'Step through the series year by year with key events marked, and compare chosen counties side by side.' },
+  { path: '/providers', hue: VIEW_HUES['/providers'], label: 'Providers', num: '06', Icon: IconProviders, exact: false, sub: 'Access density',
+    desc: 'Physician supply, hospital beds and primary care shortage designations by county, with below-average counties flagged.' },
+  { path: '/access', hue: VIEW_HUES['/access'], label: 'Access × Mortality', num: '07', Icon: IconCorrelation, exact: false, sub: 'Correlation analysis',
+    desc: 'Tests whether counties with fewer doctors or beds tend to have higher death rates, for any cause and provider metric.' },
 ];
 
 // ── Presets flyout ───────────────────────────────────────────
@@ -123,9 +152,11 @@ function PresetsPopover({
 }) {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [saveName, setSaveName] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    axios.get(`${API_BASE}/presets`).then(r => setPresets(r.data)).catch(() => {});
+    axios.get(`${API_BASE}/presets`).then(r => { setPresets(r.data); setLoadError(null); })
+      .catch(() => setLoadError('Could not load presets.'));
   }, []);
 
   function loadPreset(p: Preset) {
@@ -135,17 +166,24 @@ function PresetsPopover({
 
   async function savePreset() {
     if (!saveName || !shared.selectedCause) return;
-    await axios.post(`${API_BASE}/presets`, {
-      name: saveName, cause: shared.selectedCause, year: shared.selectedYear,
-      district: shared.selectedDistrict || null, is_public: true,
-    });
+    try {
+      await axios.post(`${API_BASE}/presets`, {
+        name: saveName, cause: shared.selectedCause, year: shared.selectedYear,
+        district: shared.selectedDistrict || null, is_public: true,
+      });
+    } catch {
+      setLoadError('Could not save the preset.');
+      return;
+    }
     setSaveName('');
-    axios.get(`${API_BASE}/presets`).then(r => setPresets(r.data)).catch(() => {});
+    axios.get(`${API_BASE}/presets`).then(r => { setPresets(r.data); setLoadError(null); })
+      .catch(() => setLoadError('Could not load presets.'));
   }
 
   return (
     <div className="popover" style={{ width: 280 }}>
       <div className="eyebrow" style={{ marginBottom: 10 }}>Load preset</div>
+      {loadError && <p className="caption" role="alert" style={{ color: 'var(--d-high)', marginBottom: 8 }}>{loadError}</p>}
       {presets.length === 0
         ? <p className="caption" style={{ color: 'var(--ink-4)' }}>No presets saved yet.</p>
         : presets.map(p => (
@@ -190,11 +228,12 @@ function Sidebar({ shared }: { shared: SharedState }) {
       </div>
       <nav className="nav">
         <div className="nav-section-label">Views</div>
-        {NAV_ITEMS.map(({ path, label, num, Icon, exact }) => (
+        {NAV_ITEMS.map(({ path, label, num, Icon, exact, hue }) => (
           <NavLink
             key={path}
             to={path}
             end={exact}
+            style={hueVars(hue) as CSSProperties | undefined}
             className={({ isActive }) => {
               const extraActive = path === '/scorecard' && !isActive && fromScorecard;
               return `nav-item${isActive || extraActive ? ' active' : ''}`;
@@ -239,6 +278,9 @@ function Sidebar({ shared }: { shared: SharedState }) {
             </button>
           </div>
         )}
+        <div className="rf-credit">
+          Built by the<br /><span className="v">Center for Health Informatics</span>
+        </div>
       </div>
     </aside>
   );
@@ -249,7 +291,7 @@ function Sidebar({ shared }: { shared: SharedState }) {
 function TopStrip({ shared, setShared }: { shared: SharedState; setShared: (s: SharedState) => void }) {
   const { pathname } = useLocation();
   const { user } = useAuth();
-  const active = NAV_ITEMS.find(n => n.exact ? pathname === n.path : pathname.startsWith(n.path)) ?? NAV_ITEMS[0];
+  const active = NAV_ITEMS.find(n => n.exact ? pathname === n.path : pathname.startsWith(n.path)) ?? NAV_ITEMS[1];
   const [showPresets, setShowPresets] = useState(false);
   const presetsRef = useRef<HTMLDivElement>(null);
 
@@ -314,18 +356,23 @@ function AppShell() {
   useEffect(() => {
     axios.get(`${API_BASE}/meta`)
       .then(r => setShared(s => ({ ...s, dataYearRange: { min: r.data.year_min, max: r.data.year_max } })))
-      .catch(() => {});
+      // Views fall back to the 2008-2022 range when /meta is unreachable, and
+      // each view reports its own failed data load, so this only logs.
+      .catch(err => console.warn('Could not load /meta; using the default year range.', err));
   }, []);
 
   const props = { shared, setShared };
+  const location = useLocation();
+  const pageHue = hueForLocation(location.pathname, location.state);
 
   return (
     <div className="app">
       <Sidebar shared={shared} />
-      <div className="main">
+      <div className={`main${pageHue ? ' hued' : ''}`} style={hueVars(pageHue) as CSSProperties | undefined}>
         <TopStrip shared={shared} setShared={setShared} />
         <Routes>
-          <Route path="/" element={<MapView {...props} />} />
+          <Route path="/" element={<HomeView items={NAV_ITEMS.filter(n => n.path !== '/')} />} />
+          <Route path="/map" element={<MapView {...props} />} />
           <Route path="/insights" element={<InsightsView {...props} />} />
           <Route path="/scorecard" element={<CountyScorecard {...props} />} />
           <Route path="/priority" element={<PriorityMatrix {...props} />} />

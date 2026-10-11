@@ -4,9 +4,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, LineChart, Line, Legend, LabelList,
 } from 'recharts';
-import { causeLabels, causes, providerMetricLabels, providerMetrics, providerMetricInverted } from '../data/constants';
+import { causeLabels, causes, providerMetricLabels, providerMetrics, providerMetricInverted, hueForLocation } from '../data/constants';
 import { fetchDeathRates, fetchProviderData, usePopulation } from '../data/useDataset';
-import { asRows, TREND_BASE_YEAR, calcSlope } from '../data/analytics';
+import { asRows, calcSlope, toRate, trendBase, yearsOf } from '../data/analytics';
 import type { SharedState } from '../App';
 
 interface DeathRate  { County: string; [key: string]: number | string; }
@@ -36,9 +36,12 @@ const TIP_STYLE = {
 };
 
 const CountyDrillDown = ({ shared }: ViewProps) => {
+  const trendFrom = trendBase(shared.dataYearRange);
   const { countyName } = useParams<{ countyName: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  // The county line takes the hue of the view this profile was opened from.
+  const HUE = hueForLocation(location.pathname, location.state)?.hue ?? INK;
   const decoded = decodeURIComponent(countyName ?? '');
 
   // Pre-select cause if navigated from Scorecard cell click
@@ -47,6 +50,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
   const [allData, setAllData] = useState<AllData>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [provError, setProvError] = useState<string | null>(null);
   const [selectedCause, setSelectedCause] = useState<string | null>(incomingCause);
   const [providerRows, setProviderRows] = useState<Record<string, ProvRow[]>>({});
   const [provLoading, setProvLoading] = useState(false);
@@ -75,18 +79,28 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
       const map: Record<string, ProvRow[]> = {};
       results.forEach(r => { if (r.status === 'fulfilled') map[r.value.m] = asRows(r.value.data); });
       setProviderRows(map);
-    }).catch(() => {})
+      if (results.some(r => r.status === 'rejected')) setProvError('Some provider metrics could not be loaded.');
+    })
       .finally(() => setProvLoading(false));
   }, []);
 
-  const getDataYears = (data: DeathRate[]) =>
-    Object.keys(data.find(d => d.County === 'ILLINOIS') ?? {})
-      .filter(k => k !== 'County' && k !== '2008').sort();
+  // Every year in the table, 2008 included. 2008 used to be dropped here by
+  // name, so the profile could never show the first year of the series.
+  const getDataYears = (data: DeathRate[]) => yearsOf(data as never).map(String);
 
-  const getLatestNonZeroYear = (row: DeathRate | undefined, years: string[]) => {
+  // Latest year the statewide provider row has a value for.
+  const latestProvYear = (rows: DeathRate[]): string => {
+    const state = rows.find(r => r.County === 'ILLINOIS');
+    const ys = yearsOf(rows as never).filter(y => toRate(state as never, y) !== null);
+    return String(ys[ys.length - 1] ?? shared.dataYearRange?.max ?? 2022);
+  };
+
+  // Latest year with a published value. A real zero (no deaths from that
+  // cause that year) counts as published; only null means "not reported".
+  const getLatestPublishedYear = (row: DeathRate | undefined, years: string[]) => {
     if (!row) return null;
     for (const y of [...years].reverse()) {
-      if (Number(row[y]) > 0) return y;
+      if (toRate(row as never, y) !== null) return y;
     }
     return null;
   };
@@ -98,13 +112,14 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
     const latestYear = years[years.length - 1] ?? '2022';
     const stateRow = data.find(d => d.County === 'ILLINOIS');
     const countyRow = data.find(d => d.County === decoded);
-    // Use latest year where county has non-zero data; fall back to state's latest year
-    const countyYear = getLatestNonZeroYear(countyRow, years) ?? latestYear;
-    const stateRate = Number(stateRow?.[countyYear]) || 0;
-    const countyRate = Number(countyRow?.[countyYear]) || 0;
-    const ratio = stateRate > 0 && countyRate > 0 ? countyRate / stateRate : 0;
-    const slope = calcSlope(countyRow as never, TREND_BASE_YEAR, Number(countyYear));
-    const hasData = countyRate > 0;
+    // Use the latest year the county has a published value; fall back to the state's latest year
+    const countyYear = getLatestPublishedYear(countyRow, years) ?? latestYear;
+    const stateRate = toRate(stateRow as never, countyYear) ?? 0;
+    const countyValue = toRate(countyRow as never, countyYear);
+    const hasData = countyValue !== null;
+    const countyRate = countyValue ?? 0;
+    const ratio = stateRate > 0 && hasData ? countyRate / stateRate : 0;
+    const slope = calcSlope(countyRow as never, trendFrom, Number(countyYear));
     return { cause, countyRate, stateRate, ratio, slope, latestYear: countyYear, hasData };
   }).filter(d => d.stateRate > 0); // keep causes that have any statewide data
 
@@ -160,7 +175,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
   })();
 
   const trendSlope = selectedCause
-    ? calcSlope(allData[selectedCause]?.find(d => d.County === decoded) as never, TREND_BASE_YEAR, latestDataYear)
+    ? calcSlope(allData[selectedCause]?.find(d => d.County === decoded) as never, trendFrom, latestDataYear)
     : null;
 
   // Custom label for zero-data bars
@@ -261,7 +276,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
                 className={`chip${cause === selectedCause ? ' active' : ' priority'}`}
                 onClick={() => setSelectedCause(cause === selectedCause ? null : cause)}>
                 {causeLabels[cause].split('(')[0].trim()}
-                {ratio > 0 && <span style={{ marginLeft: 4 }}>{ratio > 1 ? '+' : ''}{((ratio - 1) * 100).toFixed(0)}%</span>}
+                {<span style={{ marginLeft: 4 }}>{ratio > 1 ? '+' : ''}{((ratio - 1) * 100).toFixed(0)}%</span>}
               </button>
             ))}
           </div>
@@ -341,8 +356,8 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
                     <Tooltip contentStyle={TIP_STYLE}
                       formatter={(v: unknown, name: string) => [`${Number(v).toFixed(1)} /100k`, name === 'County' ? decoded : 'IL avg']} />
                     <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v: string) => v === 'County' ? decoded : 'IL avg'} />
-                    <Line type="monotone" dataKey="County" stroke={INK} strokeWidth={2.5}
-                      dot={{ r: 3, fill: INK }} activeDot={{ r: 5 }} connectNulls={false} />
+                    <Line type="monotone" dataKey="County" stroke={HUE} strokeWidth={2.5}
+                      dot={{ r: 3, fill: HUE }} activeDot={{ r: 5 }} connectNulls={false} />
                     <Line type="monotone" dataKey="State" stroke={INK_4} strokeWidth={1.5}
                       strokeDasharray="5 3" dot={false} connectNulls={false} />
                   </LineChart>
@@ -385,7 +400,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
             </div>
             {!provLoading && (() => {
               const hpsaRows = providerRows['hpsa_primary_care_designation'] ?? [];
-              const hpsaVal = Number(hpsaRows.find(r => r.County === decoded)?.['2022']) || 0;
+              const hpsaVal = toRate(hpsaRows.find(r => r.County === decoded) as never, latestProvYear(hpsaRows)) ?? 0;
               if (!hpsaVal) return null;
               return (
                 <span style={{ fontSize: 11, fontFamily: 'var(--mono)', padding: '3px 8px',
@@ -396,6 +411,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
             })()}
           </div>
           <div className="panel-body-flat">
+            {provError && <div className="error-banner" role="alert" style={{ margin: 12 }}>{provError}</div>}
             {provLoading ? (
               <div className="loading-center" style={{ minHeight: 80 }}><div className="spinner" /></div>
             ) : (
@@ -411,21 +427,24 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
                 <tbody>
                   {providerMetrics.filter(m => m !== 'hpsa_primary_care_designation').map(m => {
                     const rows = providerRows[m] ?? [];
-                    const yr = '2022';
-                    const countyVal = Number(rows.find(r => r.County === decoded)?.[yr]) || 0;
-                    const stateVal  = Number(rows.find(r => r.County === 'ILLINOIS')?.[yr]) || 0;
+                    const yr = latestProvYear(rows);
+                    const countyVal = toRate(rows.find(r => r.County === decoded) as never, yr);
+                    const stateVal  = toRate(rows.find(r => r.County === 'ILLINOIS') as never, yr);
                     const inverted  = providerMetricInverted[m] ?? false;
-                    const ratio     = stateVal > 0 && countyVal > 0 ? countyVal / stateVal : 0;
+                    // A county with no providers is a real 0 (-100%), the
+                    // case this table most needs to show, not "n/a".
+                    const hasRatio  = !!stateVal && countyVal !== null;
+                    const ratio     = hasRatio ? countyVal / stateVal : 0;
                     const good      = inverted ? ratio < 1 : ratio > 1;
                     const neutral   = ratio >= 0.9 && ratio <= 1.1;
                     const color     = neutral ? INK_4 : good ? D_LOW : D_HIGH;
                     return (
                       <tr key={m}>
                         <td className="col-left">{providerMetricLabels[m]}</td>
-                        <td>{countyVal > 0 ? countyVal.toFixed(1) : 'n/a'}</td>
-                        <td style={{ color: INK_4 }}>{stateVal > 0 ? stateVal.toFixed(1) : 'n/a'}</td>
+                        <td>{countyVal !== null ? `${countyVal.toFixed(1)}` : 'n/a'}<span className="tiny" style={{ marginLeft: 6 }}>{yr}</span></td>
+                        <td style={{ color: INK_4 }}>{stateVal !== null ? stateVal.toFixed(1) : 'n/a'}</td>
                         <td style={{ color }}>
-                          {ratio > 0 ? `${ratio > 1 ? '+' : ''}${((ratio - 1) * 100).toFixed(0)}%` : 'n/a'}
+                          {hasRatio ? `${ratio > 1 ? '+' : ''}${((ratio - 1) * 100).toFixed(0)}%` : 'n/a'}
                         </td>
                       </tr>
                     );
@@ -488,7 +507,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
                       <td>{d.countyRate > 0 ? d.countyRate.toFixed(1) : 'n/a'}</td>
                       <td style={{ color: INK_4 }}>{d.stateRate.toFixed(1)}</td>
                       <td style={{ color: d.ratio > 1.2 ? D_HIGH : d.ratio < 0.8 ? D_LOW : D_MID }}>
-                        {d.ratio > 0 ? `${d.ratio > 1 ? '+' : ''}${((d.ratio - 1) * 100).toFixed(0)}%` : 'n/a'}
+                        {d.hasData ? `${d.ratio > 1 ? '+' : ''}${((d.ratio - 1) * 100).toFixed(0)}%` : 'n/a'}
                       </td>
                       <td style={{ color: d.slope === null ? INK_4 : d.slope > 0 ? D_HIGH : d.slope < 0 ? D_LOW : INK_4 }}>
                         {d.slope === null || d.slope === 0 ? 'n/a' : `${d.slope > 0 ? '+' : ''}${d.slope.toFixed(2)}`}

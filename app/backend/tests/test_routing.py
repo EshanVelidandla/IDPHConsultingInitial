@@ -31,7 +31,7 @@ XHR = {"accept": "application/json, text/plain, */*"}
 
 # Every route declared in frontend/src/App.tsx.
 SPA_ROUTES = [
-    "/", "/insights", "/scorecard", "/priority", "/pulse", "/providers",
+    "/", "/map", "/insights", "/scorecard", "/priority", "/pulse", "/providers",
     "/access", "/admin", "/county/DuPage", "/county/Jo%20Daviess",
 ]
 
