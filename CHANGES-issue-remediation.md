@@ -1,3 +1,9 @@
+> **This file covers review passes 1 and 2 only and is partly out of date.** Current
+> status of every issue, including pass 3, is in
+> [docs/ncsa-review/README.md](docs/ncsa-review/README.md). Claims below that were
+> later corrected include "nothing remains partially fixed", the `--ink-5` contrast
+> claim, and "nothing in history is a live credential once auth is rebuilt".
+
 # What changed in the published numbers
 
 Regenerated tables against the pre-fix baseline. ILLINOIS row, 2019.
