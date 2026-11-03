@@ -10,14 +10,16 @@ Run: python -m pytest app/pipeline/tests -q
 """
 
 import csv
+import json
 import os
+import re
 import sys
 
 import pytest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PIPELINE = os.path.dirname(HERE)
-REPO = os.path.join(PIPELINE, "..", "..")
+REPO = os.path.normpath(os.path.join(PIPELINE, "..", ".."))
 sys.path.insert(0, PIPELINE)
 
 import extract_pdf_data as ex  # noqa: E402
@@ -91,6 +93,15 @@ def test_suppression_marker_holds_its_column():
     assert ex._parse_nums("Pope 45 12 * 3") == [45.0, 12.0, None, 3.0]
 
 
+def test_dot_marker_holds_its_column():
+    # rstrip('.,;') used to empty a bare '.', so it lost its column.
+    assert ex._parse_nums("Pope 45 12 . 3") == [45.0, 12.0, None, 3.0]
+
+
+def test_trailing_punctuation_and_county_abbreviation_still_parse():
+    assert ex._parse_nums("St. Clair 843, 199.") == [843.0, 199.0]
+
+
 def test_row_with_too_few_values_raises():
     with pytest.raises(ex.SchemaError):
         ex._build_row("Pope", [1.0, 2.0, 3.0], ex.YEAR_SCHEMAS[2022], 2022)
@@ -106,6 +117,81 @@ def test_header_guard_rejects_a_wrong_schema(monkeypatch):
     wrong[3], wrong[4] = wrong[4], wrong[3]
     with pytest.raises(ex.SchemaError):
         ex.verify_header_order(pdf, 2009, wrong)
+
+
+def _labels_for(year):
+    """Labels a clean header would give, using each cause's first keyword."""
+    return [ex.HEADER_KEYWORDS[c][0] for c in ex.YEAR_SCHEMAS[year]]
+
+
+def test_new_unreadable_header_label_fails():
+    labels = _labels_for(2015)
+    labels[4] = "garbled"
+    with pytest.raises(ex.SchemaError, match="unreadable"):
+        ex._check_labels(labels, ex.YEAR_SCHEMAS[2015], 2015)
+
+
+@pytest.mark.parametrize("year,column", sorted(ex.UNREADABLE_HEADERS))
+def test_known_unreadable_labels_pass_with_a_note(year, column):
+    labels = _labels_for(year)
+    labels[column] = ""
+    assert len(ex._check_labels(labels, ex.YEAR_SCHEMAS[year], year)) == 1
+
+
+def test_known_unreadable_column_still_pins_its_cause():
+    # The 2008 header merges two labels into column 9, so swapping nephritis and
+    # septicemia used to pass: column 9 still matched and column 10 was skipped.
+    schema = list(ex.YEAR_SCHEMAS[2008])
+    schema[9], schema[10] = schema[10], schema[9]
+    labels = _labels_for(2008)
+    labels[9] = "nephritis,nephroticsyndromesepticemiaandnephrosis"
+    labels[10] = ""
+    with pytest.raises(ex.SchemaError):
+        ex._check_labels(labels, schema, 2008)
+
+
+def test_later_pages_fail_on_contradiction_but_allow_no_header():
+    schema = ex.YEAR_SCHEMAS[2015]
+    assert ex._check_labels([""] * len(schema), schema, 2015, page=2) == []
+    labels = [""] * len(schema)
+    labels[3] = ex.HEADER_KEYWORDS[schema[4]][0]
+    with pytest.raises(ex.SchemaError):
+        ex._check_labels(labels, schema, 2015, page=2)
+
+
+@pytest.mark.skipif(not os.path.isdir(PDF_DIR), reason="source PDFs not present")
+def test_header_guard_passes_on_every_pdf():
+    years = {}
+    for name in os.listdir(PDF_DIR):
+        if name.endswith(".pdf"):
+            years[int(re.search(r"20[012]\d", name).group())] = name
+    assert sorted(years) == list(range(2008, 2023))
+    notes = []
+    for year, name in years.items():
+        notes += ex.verify_header_order(
+            os.path.abspath(os.path.join(PDF_DIR, name)), year, ex.YEAR_SCHEMAS[year]
+        )
+    assert len(notes) == 2
+
+
+# ── Line endings ──────────────────────────────────────────────────────────────
+
+def test_provider_csv_has_no_carriage_returns(tmp_path):
+    import process_hrsa
+    out = tmp_path / "t.csv"
+    process_hrsa.write_csv({"Adams": {2020: 10.0}}, [2020], str(out), {"Adams": {2020: 100}})
+    assert b"\r" not in out.read_bytes()
+
+
+@pytest.mark.parametrize("module", [
+    "build_population", "deaths_pipeline", "extract_pdf_data", "process_hrsa",
+])
+def test_every_csv_writer_sets_the_line_ending(module):
+    # csv.writer defaults to CRLF and to_csv to the platform's line ending.
+    with open(os.path.join(PIPELINE, f"{module}.py"), encoding="utf-8") as f:
+        source = f.read()
+    for call in re.findall(r"(?:csv\.writer|\.to_csv)\(.*\)", source):
+        assert "lineterminator" in call, call
 
 
 # ── Denominators ──────────────────────────────────────────────────────────────
@@ -236,6 +322,25 @@ def test_provider_state_row_is_population_weighted():
     assert float(mds["ILLINOIS"][year]) > 200  # a plain mean gives ~106
 
 
+def test_provider_state_row_weights_by_the_population_it_is_given(tmp_path):
+    import process_hrsa
+    out = tmp_path / "t.csv"
+    table = {"A": {2020: 100.0}, "B": {2020: 200.0}}
+    process_hrsa.write_csv(table, [2020], str(out), {"A": {2020: 3000}, "B": {2020: 1000}})
+    assert float(_table(str(out))["ILLINOIS"]["2020"]) == 125.0
+
+
+def test_provider_state_row_uses_ahrf_population():
+    """
+    County rates divide by AHRF population, so the state row must too. Weighting
+    by Census population gave 315.23 and 81.42 for 2020.
+    """
+    mds = _table(os.path.join(PROVIDERS, "total_active_mds_per_100k_by_county_year.csv"))
+    pc = _table(os.path.join(PROVIDERS, "primary_care_physicians_per_100k_by_county_year.csv"))
+    assert float(mds["ILLINOIS"]["2020"]) == pytest.approx(313.43, abs=0.02)
+    assert float(pc["ILLINOIS"]["2020"]) == pytest.approx(81.15, abs=0.02)
+
+
 def test_hpsa_has_no_state_average():
     """Category codes must not be averaged into a statewide number."""
     hpsa = _table(os.path.join(PROVIDERS, "hpsa_primary_care_designation_by_county_year.csv"))
@@ -251,18 +356,58 @@ def test_hpsa_summary_counts_add_up():
             assert int(row["counties_designated"]) == int(row["whole_county"]) + int(row["part_of_county"])
 
 
+def _provenance():
+    with open(os.path.join(PROVIDERS, "metric_provenance.json")) as f:
+        return json.load(f)
+
+
 def test_provenance_marks_interpolated_years_honestly():
     """
-    Beds and psychiatry come from three AHRF survey years. The old validator
-    counted every filled cell as observed and reported no gaps at all.
+    Each metric names exactly the years no AHRF release carries. The old
+    validator counted every filled cell as observed and reported no gaps at all.
     """
-    import json
-    with open(os.path.join(PROVIDERS, "metric_provenance.json")) as f:
-        prov = json.load(f)
-    assert prov["hospital_beds_per_100k"]["source_years"] == [2010, 2015, 2020]
-    assert len(prov["hospital_beds_per_100k"]["imputed_years"]) == 12
-    # 2013 and 2014 are the only HPSA years not recoverable from the repo.
-    assert prov["hpsa_primary_care_designation"]["imputed_years"] == [2013, 2014]
+    prov = _provenance()
+    assert prov["hospital_beds_per_100k"]["source_years"] == [
+        2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2019, 2020,
+    ]
+    assert prov["hospital_beds_per_100k"]["imputed_years"] == [2018, 2021, 2022]
+    assert prov["psychiatry_mds_per_100k"]["imputed_years"] == [2009, 2018, 2021, 2022]
+    assert prov["total_active_mds_per_100k"]["imputed_years"] == [2009, 2021, 2022]
+    assert prov["primary_care_physicians_per_100k"]["imputed_years"] == [2008, 2009, 2021, 2022]
+    # f0978713 is in the 13-14 layout, read with 14-15's data. f0978714 is nowhere.
+    assert prov["hpsa_primary_care_designation"]["imputed_years"] == [2014]
+
+
+def test_psychiatrists_never_exceed_total_mds_in_measured_years():
+    """Interpolation once gave Cumberland 2011 psychiatrists but no MDs at all."""
+    prov = _provenance()
+    psych = _table(os.path.join(PROVIDERS, "psychiatry_mds_per_100k_by_county_year.csv"))
+    mds = _table(os.path.join(PROVIDERS, "total_active_mds_per_100k_by_county_year.csv"))
+    both = set(prov["psychiatry_mds_per_100k"]["source_years"]) & set(prov["total_active_mds_per_100k"]["source_years"])
+    assert len(both) >= 10
+    over = [
+        (county, y) for county, row in psych.items() if county != "ILLINOIS"
+        for y in map(str, both) if float(row[y]) > float(mds[county][y])
+    ]
+    assert not over, over
+
+
+@pytest.mark.parametrize("name, county, year, expected", [
+    ("hospital_beds_per_100k", "Hamilton", 2011, 296.74),   # was 865.04
+    ("hospital_beds_per_100k", "Bond", 2014, 868.61),       # was 367.07
+    ("hospital_beds_per_100k", "Randolph", 2008, 1439.91),  # was 985.78
+    ("psychiatry_mds_per_100k", "Cumberland", 2011, 0.0),   # was 1.84
+    ("psychiatry_mds_per_100k", "Stark", 2019, 18.72),      # was 0.0
+])
+def test_backfilled_years_are_measured_not_interpolated(name, county, year, expected):
+    table = _table(os.path.join(PROVIDERS, f"{name}_by_county_year.csv"))
+    assert float(table[county][str(year)]) == pytest.approx(expected, abs=0.01)
+
+
+def test_hpsa_2013_is_measured_and_2014_inherits_it():
+    hpsa = _table(os.path.join(PROVIDERS, "hpsa_primary_care_designation_by_county_year.csv"))
+    assert float(hpsa["Kane"]["2013"]) == 2
+    assert float(hpsa["Kane"]["2014"]) == 2
 
 
 def test_zero_provider_counties_are_kept():

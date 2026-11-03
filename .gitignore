@@ -24,13 +24,26 @@ app/frontend/dist/
 Thumbs.db
 
 # ── Backend runtime state ────────────────────────────────────────────────
-# Everything the running app writes lives in app/backend/var/. It is instance
-# state, not source: annotations, thresholds, presets, users, the audit log and
-# pre-overwrite dataset backups. The old rules pointed at paths that did not
+# Everything the running app writes lives in app/backend/var/ (or wherever
+# IDPH_VAR_DIR points). It is instance state, not source: annotations,
+# thresholds, presets, users, the audit log, uploaded datasets and their
+# backups. Uploads shadow the committed tables in static/ and never rewrite
+# them. The old rules pointed at paths that did not
 # exist (backend/audit.json, backend/annotations.json) while the real files sat
 # in backend/static/, so runtime data including a plaintext user store was
 # committable.
 app/backend/var/
+
+# ── Secrets ─────────────────────────────────────────────────────────────────────
+# .env was covered but .env.local and .env.production were not. The two exceptions
+# hold no real values. A user store or audit log belongs in app/backend/var/, and
+# these names keep a copy made anywhere else out of the repo too.
+.env.*
+!.env.development
+!.env.example
+users.json
+audit.json
+audit.jsonl
 
 # Built SPA copied in for single-origin serving
 app/backend/ui/
@@ -48,12 +61,20 @@ app/backend/ui/
 !data/source/idph_death_reports/*.pdf
 
 # ── AHRF release extras the pipeline does not read ───────────────────────
-# process_hrsa.py reads three .asc data files and their three SAS layouts
-# (see data/source/ahrf/README.md). The other layouts and the 2022-23 CSV
-# release (~180 MB) were committed but never used.
+# process_hrsa.py reads ten .asc data files and their ten SAS layouts (see
+# data/source/ahrf/README.md). The other layouts and the 2022-23 CSV release
+# (~180 MB) were committed but never used. DOC/* rather than DOC/ because git
+# cannot re-include a file from inside an excluded directory.
 data/source/ahrf/22-23/
 data/source/ahrf/08-09/doc/
-data/source/ahrf/20-21/AHRF_2020-2021/DOC/
+data/source/ahrf/20-21/AHRF_2020-2021/DOC/*
+!data/source/ahrf/20-21/AHRF_2020-2021/DOC/AHRF2020-2021.sas
 data/source/ahrf/*/Technical Documentation/*.sas
 !data/source/ahrf/09-10/Technical Documentation/arf2009.sas
 !data/source/ahrf/12-13/Technical Documentation/AHRF2012.sas
+!data/source/ahrf/13-14/Technical Documentation/AHRF2014.sas
+!data/source/ahrf/14-15/Technical Documentation/AHRF2015.sas
+!data/source/ahrf/15-16/Technical Documentation/ahrf2015-16.sas
+!data/source/ahrf/16-17/Technical Documentation/ahrf2016-17.sas
+!data/source/ahrf/17-18/Technical Documentation/AHRF2017-18.sas
+!data/source/ahrf/18-19/Technical Documentation/AHRF2018-19.sas

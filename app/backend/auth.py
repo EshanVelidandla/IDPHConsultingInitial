@@ -11,15 +11,13 @@ import logging
 import os
 from datetime import datetime, timezone
 
-import portalocker
+import storage
 
 logger = logging.getLogger(__name__)
 
 # Runtime state lives in backend/var/ (gitignored), never beside the source or
 # in the served static/ directory.
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "var")
-os.makedirs(DATA_DIR, exist_ok=True)
-USERS_FILE = os.path.join(DATA_DIR, "users.json")
+USERS_FILE = os.path.join(storage.DATA_DIR, "users.json")
 
 
 def hash_password(password: str) -> str:
@@ -53,28 +51,24 @@ def _generate_initial_users() -> list:
 
 def load_users() -> list:
     """
-    Read the user store, seeding it on first use.
+    Read the user store, or the seed users if it does not exist yet.
 
-    Locked like every other store in storage.py. These two functions were the
-    only ones reading and writing a JSON file without a lock, so two concurrent
-    admin writes could interleave and lose a user, or a read could land on a
-    half-written file.
+    Reading never creates the file, the same rule as storage.load. The seed is
+    only saved by update_users, on the first real change.
+
+    Locked like every other store, through the same primitives in storage.py.
     """
     if not os.path.exists(USERS_FILE):
-        initial = _generate_initial_users()
-        save_users(initial)
-        return initial
+        return _generate_initial_users()
     try:
-        with portalocker.Lock(USERS_FILE, "r", timeout=5) as f:
-            return json.load(f)
+        return storage.locked_read(USERS_FILE)
     except json.JSONDecodeError:
         logger.error("users.json is not valid JSON; refusing to overwrite it")
         raise
 
 
 def save_users(users: list) -> None:
-    with portalocker.Lock(USERS_FILE, "w", timeout=5) as f:
-        json.dump(users, f, indent=2)
+    storage.locked_write(USERS_FILE, users)
 
 
 def update_users(mutate_fn) -> object:
@@ -85,12 +79,4 @@ def update_users(mutate_fn) -> object:
     lock across the gap, so a concurrent write in between is silently lost.
     Anything that changes the store should go through here.
     """
-    if not os.path.exists(USERS_FILE):
-        save_users(_generate_initial_users())
-    with portalocker.Lock(USERS_FILE, "r+", timeout=5) as f:
-        users = json.load(f)
-        result = mutate_fn(users)
-        f.seek(0)
-        f.truncate()
-        json.dump(users, f, indent=2)
-    return result
+    return storage.locked_update(USERS_FILE, mutate_fn, _generate_initial_users)

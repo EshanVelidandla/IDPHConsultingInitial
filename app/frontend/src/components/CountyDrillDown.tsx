@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, LineChart, Line, Legend, LabelList,
 } from 'recharts';
-import { causeLabels, causes, providerMetricLabels, providerMetrics, providerMetricInverted, hueForLocation } from '../data/constants';
-import { fetchDeathRates, fetchProviderData, usePopulation } from '../data/useDataset';
-import { asRows, calcSlope, toRate, trendBase, yearsOf } from '../data/analytics';
+import { CANONICAL_COUNTY, causeLabels, causes, COOK_UNITS, providerMetricLabels, providerMetrics, providerMetricInverted, hueForLocation, unitLabel } from '../data/constants';
+import { fetchDeathRates, fetchProviderData, usePopulation, useMeta } from '../data/useDataset';
+import { asRows, calcSlope, toRate, trendBase, yearsOf, TIP_STYLE, INK_4, imputedNote } from '../data/analytics';
 import type { SharedState } from '../App';
 
 interface DeathRate  { County: string; [key: string]: number | string; }
@@ -21,28 +21,29 @@ const D_LOW = '#4F7A4D';
 const D_LOW_TINT = '#E4ECDF';
 const INK = '#1C1B18';
 const INK_3 = '#6B675F';
-const INK_4 = '#9A968C';
 const RULE = '#E6E3DC';
 const GREY_BAR = '#C8C5BC';
 const NO_DATA_BAR = '#E8E5DE';
 
-const TIP_STYLE = {
-  fontSize: 11,
-  fontFamily: "'IBM Plex Mono',monospace",
-  border: 'none',
-  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-  borderRadius: 0,
-  background: '#FFFFFF',
-};
+// The global stylesheet strips link underlines, which would hide these inside a sentence.
+const UNIT_LINK = { textDecoration: 'underline' };
 
 const CountyDrillDown = ({ shared }: ViewProps) => {
+  const { meta } = useMeta();
   const trendFrom = trendBase(shared.dataYearRange);
   const { countyName } = useParams<{ countyName: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   // The county line takes the hue of the view this profile was opened from.
   const HUE = hueForLocation(location.pathname, location.state)?.hue ?? INK;
-  const decoded = decodeURIComponent(countyName ?? '');
+  // The router has already decoded the param. Decoding it again threw on a
+  // literal %, which blanked the whole app.
+  const requested = countyName ?? '';
+  // Rows are matched on the exact table spelling, so /county/SANGAMON has to
+  // resolve here or every figure on the page reads n/a.
+  const canonical: string | undefined = CANONICAL_COUNTY[requested.toLowerCase()];
+  const decoded = canonical ?? requested;
+  const isCookUnit = COOK_UNITS.includes(decoded);
 
   // Pre-select cause if navigated from Scorecard cell click
   const incomingCause = (location.state as { selectedCause?: string } | null)?.selectedCause ?? null;
@@ -50,10 +51,18 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
   const [allData, setAllData] = useState<AllData>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [missingCauses, setMissingCauses] = useState<string[]>([]);
   const [provError, setProvError] = useState<string | null>(null);
   const [selectedCause, setSelectedCause] = useState<string | null>(incomingCause);
   const [providerRows, setProviderRows] = useState<Record<string, ProvRow[]>>({});
   const [provLoading, setProvLoading] = useState(false);
+
+  // State carries the cause and the view this profile was opened from.
+  useEffect(() => {
+    if (canonical && canonical !== requested) {
+      navigate(`/county/${encodeURIComponent(canonical)}`, { replace: true, state: location.state });
+    }
+  }, [canonical, requested, navigate, location.state]);
 
   useEffect(() => {
     setLoading(true);
@@ -63,9 +72,17 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
       )
     ).then(results => {
       const map: AllData = {};
-      results.forEach(r => { if (r.status === 'fulfilled') map[r.value.cause] = asRows(r.value.data); });
+      const missing: string[] = [];
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') map[r.value.cause] = asRows(r.value.data);
+        else missing.push(causes[i]);
+      });
       setAllData(map);
-    }).catch(() => setError('Failed to load county data.'))
+      setMissingCauses(missing);
+      // One lost cause still leaves a useful profile. With none, the page would
+      // be all "n/a" and look like a county without data.
+      setError(missing.length === causes.length ? 'Could not load county data. Check that the backend is running, then reload the page.' : null);
+    })
       .finally(() => setLoading(false));
   }, []);
 
@@ -150,11 +167,10 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
     const countyRow = data.find(d => d.County === decoded);
     const stateRow = data.find(d => d.County === 'ILLINOIS');
     if (!countyRow) return [];
-    const years = Object.keys(countyRow).filter(k => k !== 'County' && k !== '2008').sort();
-    return years.map(year => ({
+    return getDataYears([countyRow]).map(year => ({
       year,
-      County: Number(countyRow[year]) > 0 ? Number(countyRow[year]) : null,
-      State: Number(stateRow?.[year]) > 0 ? Number(stateRow?.[year]) : null,
+      County: toRate(countyRow as never, year),
+      State: toRate(stateRow as never, year),
     }));
   })();
 
@@ -198,11 +214,17 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
     );
   };
 
+  if (!canonical) return <div className="error-banner" role="alert" style={{ margin: 32 }}>No county named "{requested}".</div>;
   if (loading) return <div className="loading-center"><div className="spinner" /><span>Loading county data…</span></div>;
   if (error) return <div className="error-banner" style={{ margin: 32 }}>{error}</div>;
 
   return (
     <div className="view fade-in" style={{ overflowY: 'auto' }}>
+      {missingCauses.length > 0 && (
+        <div className="error-banner" role="alert">
+          Could not load: {missingCauses.map(c => causeLabels[c]).join(', ')}. These causes are left out of this profile.
+        </div>
+      )}
       {/* View head */}
       <div className="view-head">
         <div className="titles">
@@ -213,8 +235,15 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
             </svg>
             Back
           </button>
-          <div className="eyebrow eyebrow-ink">County Profile</div>
-          <h1 className="h-display" style={{ marginTop: 8 }}>{decoded} County</h1>
+          <div className="eyebrow eyebrow-ink">{isCookUnit ? 'IDPH Reporting Unit Profile' : 'County Profile'}</div>
+          <h1 className="h-display" style={{ marginTop: 8 }}>{unitLabel(decoded)}</h1>
+          {decoded === 'Cook' && (
+            <p className="body" style={{ marginTop: 10, color: 'var(--ink-3)' }}>
+              IDPH also reports Cook County as two units:{' '}
+              <Link to="/county/Chicago" state={location.state} style={UNIT_LINK}>Chicago</Link> and{' '}
+              <Link to={`/county/${encodeURIComponent('Suburban Cook')}`} state={location.state} style={UNIT_LINK}>Suburban Cook</Link>.
+            </p>
+          )}
           {pop && (
             <p className="body" style={{ marginTop: 10, color: 'var(--ink-3)' }}>
               Population {pop.toLocaleString()} ({latestDataYear} estimate) · {shared.dataYearRange?.min ?? 2008}–{latestDataYear} mortality data
@@ -237,13 +266,13 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
       {/* KPI strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: `1px solid ${RULE}` }}>
         <div className="stat">
-          <div className="stat-label">Population (2020)</div>
+          <div className="stat-label">Population ({latestDataYear})</div>
           <div className="stat-value num">{pop ? (pop / 1000).toFixed(0) + 'k' : 'n/a'}</div>
           <div className="stat-meta"><span>US Census</span></div>
         </div>
         <div className="stat">
           <div className="stat-label">All-cause rate / 100k</div>
-          <div className="stat-value num">{(totalRow?.countyRate ?? 0) > 0 ? (totalRow?.countyRate ?? 0).toFixed(1) : 'n/a'}</div>
+          <div className="stat-value num">{totalRow?.hasData ? totalRow.countyRate.toFixed(1) : 'n/a'}</div>
           <div className="stat-meta"><span>Latest year</span></div>
         </div>
         <div className="stat">
@@ -259,7 +288,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
             {topCauses[0] ? causeLabels[topCauses[0].cause].split(' ')[0] : 'n/a'}
           </div>
           <div className="stat-meta" style={{ color: topCauses[0]?.ratio > 1.2 ? D_HIGH : D_LOW }}>
-            {topCauses[0]?.ratio > 0 ? `${((topCauses[0].ratio - 1) * 100 > 0 ? '+' : '')}${((topCauses[0].ratio - 1) * 100).toFixed(0)}%` : ''}
+            {topCauses[0] ? `${((topCauses[0].ratio - 1) * 100 > 0 ? '+' : '')}${((topCauses[0].ratio - 1) * 100).toFixed(0)}%` : ''}
           </div>
         </div>
       </div>
@@ -411,8 +440,13 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
             })()}
           </div>
           <div className="panel-body-flat">
-            {provError && <div className="error-banner" role="alert" style={{ margin: 12 }}>{provError}</div>}
-            {provLoading ? (
+            {!isCookUnit && provError && <div className="error-banner" role="alert" style={{ margin: 12 }}>{provError}</div>}
+            {/* Provider tables hold the 102 counties and ILLINOIS, not these two units. */}
+            {isCookUnit ? (
+              <p className="body" style={{ padding: 16, color: 'var(--ink-3)' }}>
+                Provider data is reported for Cook County only. See the <Link to="/county/Cook" state={location.state} style={UNIT_LINK}>Cook County profile</Link>.
+              </p>
+            ) : provLoading ? (
               <div className="loading-center" style={{ minHeight: 80 }}><div className="spinner" /></div>
             ) : (
               <table className="tbl">
@@ -441,7 +475,7 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
                     return (
                       <tr key={m}>
                         <td className="col-left">{providerMetricLabels[m]}</td>
-                        <td>{countyVal !== null ? `${countyVal.toFixed(1)}` : 'n/a'}<span className="tiny" style={{ marginLeft: 6 }}>{yr}</span></td>
+                        <td>{countyVal !== null ? `${countyVal.toFixed(1)}` : 'n/a'}<span className="tiny" style={{ marginLeft: 6 }}>{imputedNote(meta.provider_metrics, m, yr) ?? yr}</span></td>
                         <td style={{ color: INK_4 }}>{stateVal !== null ? stateVal.toFixed(1) : 'n/a'}</td>
                         <td style={{ color }}>
                           {hasRatio ? `${ratio > 1 ? '+' : ''}${((ratio - 1) * 100).toFixed(0)}%` : 'n/a'}
@@ -504,13 +538,13 @@ const CountyDrillDown = ({ shared }: ViewProps) => {
                       <td style={{ color: INK_4, fontFamily: 'var(--mono)', fontSize: 11 }}>
                         {d.hasData ? d.latestYear : 'n/a'}
                       </td>
-                      <td>{d.countyRate > 0 ? d.countyRate.toFixed(1) : 'n/a'}</td>
+                      <td>{d.hasData ? d.countyRate.toFixed(1) : 'n/a'}</td>
                       <td style={{ color: INK_4 }}>{d.stateRate.toFixed(1)}</td>
                       <td style={{ color: d.ratio > 1.2 ? D_HIGH : d.ratio < 0.8 ? D_LOW : D_MID }}>
                         {d.hasData ? `${d.ratio > 1 ? '+' : ''}${((d.ratio - 1) * 100).toFixed(0)}%` : 'n/a'}
                       </td>
                       <td style={{ color: d.slope === null ? INK_4 : d.slope > 0 ? D_HIGH : d.slope < 0 ? D_LOW : INK_4 }}>
-                        {d.slope === null || d.slope === 0 ? 'n/a' : `${d.slope > 0 ? '+' : ''}${d.slope.toFixed(2)}`}
+                        {d.slope === null ? 'n/a' : `${d.slope > 0 ? '+' : ''}${d.slope.toFixed(2)}`}
                       </td>
                     </tr>
                   ))}

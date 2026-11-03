@@ -84,8 +84,9 @@ export default function YearTimeline({ years, value, onChange, events }: Props) 
     return Math.min(max, Math.max(min, Math.round(min + t * span)));
   }, [min, max, span]);
 
-  const active = hoverYear ?? value;
-  const activeEvent = events[active];
+  // The slider announces the selected year only. Hovering must not change what
+  // a screen reader hears, so this never reads hoverYear.
+  const selectedEvent = events[value];
 
   return (
     <div className="tl" ref={trackRef}>
@@ -132,7 +133,7 @@ export default function YearTimeline({ years, value, onChange, events }: Props) 
           step={1}
           value={value}
           aria-label="Year"
-          aria-valuetext={activeEvent ? `${value}, ${activeEvent.t}` : String(value)}
+          aria-valuetext={selectedEvent ? `${value}, ${selectedEvent.t}` : String(value)}
           style={{ left: EDGE_INSET, right: EDGE_INSET }}
           onChange={e => onChange(Number(e.target.value))}
           onMouseMove={e => setHoverYear(yearAtClientX(e.clientX))}

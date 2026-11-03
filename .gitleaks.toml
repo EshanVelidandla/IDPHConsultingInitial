@@ -1,0 +1,49 @@
+# Secret scanning rules (review issue #8). gitleaks loads this file by name from
+# the repo root. Nothing runs it yet: see .pre-commit-config.example.yaml.
+#
+# These rules describe the shape of each past leak. Never add a historical value
+# here, because that would commit it again.
+
+title = "IDPH mortality dashboard"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "idph-jwt-default-fallback"
+description = "Signing secret with a default value, used whenever the variable is unset"
+regex = '''(?i)(?:getenv|environ\.get)\(\s*["'](?:JWT_SECRET|SECRET_KEY)["']\s*,\s*["'][^"']+["']'''
+
+[[rules]]
+id = "idph-jwt-literal"
+description = "Signing secret assigned a string literal"
+regex = '''(?i)\b(?:JWT_SECRET|SECRET_KEY)\s*=\s*["'][^"']+["']'''
+
+# Also matches the seed users in app/backend/auth.py at 3775601. That is meant:
+# they must go before the first commit of a fresh repo (see issue #1).
+[[rules]]
+id = "idph-password-literal"
+description = "Password or password hash stored as a non-empty string literal"
+regex = '''(?i)["'](?:password|passwd|password_hash)["']\s*:\s*["'][^"']+["']'''
+
+[[rules]]
+id = "idph-user-store-file"
+description = "User store committed to the repo"
+path = '''(?:^|/)users\.json$'''
+
+[[rules]]
+id = "idph-audit-log-file"
+description = "Audit log with user activity and IPs committed to the repo"
+path = '''(?:^|/)audit\.jsonl?$'''
+
+[[rules]]
+id = "idph-env-file"
+description = "Environment file that may hold real values"
+path = '''(?:^|/)\.env(?:\.local|\.production|\.staging|\.test|\.[^/]*\.local)?$'''
+
+[allowlist]
+description = "LFS pointers and lockfile integrity hashes are not secrets"
+paths = [
+  '''\.asc(?:\.txt)?$''',
+  '''(?:^|/)package-lock\.json$''',
+]

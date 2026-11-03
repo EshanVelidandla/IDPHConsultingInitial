@@ -13,6 +13,12 @@
   outline: 2px solid var(--ink);
   outline-offset: 1px;
 }
+/* A focused county stays in place in the DOM so it keeps focus, so a neighbour
+   painted later can overlap part of this stroke. */
+path.leaflet-interactive:focus-visible {
+  stroke: var(--ink);
+  stroke-width: 3px;
+}
 
 /* Custom tooltip */
 .idph-tip {

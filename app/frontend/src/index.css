@@ -12,10 +12,13 @@
   --ink:          #1C1B18;
   --ink-2:        #3A3833;
   --ink-3:        #6B675F;
-  /* ink-4 was #9A968C at 2.83:1 on paper and is used for body-sized captions
-     in dozens of places; ink-5 was #C4C0B6 at 1.74:1. WCAG 2.1 AA wants 4.5:1
-     for body text and 3:1 for UI. These pass both. */
-  --ink-4:        #757168;
+  /* Measured with the WCAG formula, on paper / paper-2 / card:
+     ink-4 4.94 / 4.65 / 5.16, which passes the 4.5:1 AA text minimum on all
+     three. It was #9A968C at 2.83:1 on paper. data/analytics.ts exports the
+     same value as INK_4 for inline styles and chart text.
+     ink-5 3.99 / 3.75 / 4.16, which FAILS AA for text. Use it for non-text
+     only, such as separators, where 3:1 applies. */
+  --ink-4:        #716D64;
   --ink-5:        #807C72;
 
   --accent:       #1F5C5A;
@@ -336,6 +339,9 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
 .topstrip .actions > :first-child .a-btn,
 .topstrip .actions > .a-btn:first-child { border-left: none; }
 .topstrip .a-btn:hover { color: var(--ink); background: var(--paper-2); }
+.topstrip .a-btn:disabled { color: var(--ink-4); background: none; cursor: not-allowed; }
+.topstrip .export-note { align-self: center; padding-right: 16px; color: var(--ink-4); white-space: nowrap; }
+.topstrip .export-note.error { color: var(--d-high); }
 
 /* ─── Page hue ───────────────────────────────────────────── */
 /* .main carries the current view's --hue. Scoped to .hued so Home and Admin
@@ -425,7 +431,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-vis
   width: 100%;
 }
 .sel:focus, .inp:focus { border-color: var(--hue); }
-.inp::placeholder { color: var(--ink-5); }
+.inp::placeholder { color: var(--ink-4); }
 
 .sel {
   appearance: none;

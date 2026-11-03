@@ -18,7 +18,10 @@ app/
     auth.py         user store (authentication is currently bypassed, see below)
     storage.py      small JSON document store for runtime state
     static/         data the API serves (pipeline output, committed)
-    var/            runtime state written by the app (gitignored)
+    var/            runtime state written by the app (gitignored), moved by
+                    IDPH_VAR_DIR. var/datasets/ holds admin uploads, which take
+                    priority over static/ until removed, including over a newer
+                    pipeline build
   frontend/         React + TypeScript + Vite single-page app
     src/data/       shared analytics, data hooks and constants
     src/components/ views
@@ -49,7 +52,8 @@ Backend:
 
 ```bash
 cd app/backend
-python -m venv venv && source venv/Scripts/activate   # Windows: venv\Scripts\activate
+python -m venv venv
+source venv/bin/activate                              # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
@@ -59,12 +63,13 @@ Frontend, in a second terminal:
 ```bash
 cd app/frontend
 npm install
-VITE_API_BASE=http://127.0.0.1:8000 npm run dev      # http://localhost:5173
+npm run dev      # http://localhost:5173
 ```
 
-`VITE_API_BASE` is required in development because the SPA and the API run on
-different ports. In production the SPA is built directly into `app/backend/ui/`
-and served from the same origin, so `API_BASE` stays empty.
+In development the SPA and the API run on different ports, so
+`app/frontend/.env.development` sets `VITE_API_BASE` for `npm run dev`. In
+production the SPA is built directly into `app/backend/ui/` and served from the
+same origin, so `API_BASE` stays empty.
 
 To build for single-origin serving:
 
@@ -80,14 +85,24 @@ pip install -r requirements.txt
 python run_pipeline.py
 ```
 
+Use Python 3.13 (`.python-version`); the pins are tested on it. The provider
+stage reads AHRF `.asc` files stored in Git LFS, so run
+`git lfs install && git lfs pull` first. Without them it stops and says so. The
+population and deaths stages need only the committed files.
+
 Every stage is a pure function of committed inputs. Nothing reads its own
 previous output, so two runs from a clean checkout produce identical numbers.
 
-Run the tests before trusting a change to any stage:
+The AHRF `.asc` inputs are stored in Git LFS. Without
+[git-lfs](https://git-lfs.com) they are small pointer files and the provider
+stage stops with a county-count error; run `git lfs pull` to fetch them.
+
+Run the tests from the repository root before trusting a change to any stage:
 
 ```bash
 python -m pytest app/pipeline/tests -q    # the published numbers
 python -m pytest app/backend/tests -q     # API and SPA routing
+PIPELINE_REGEN=1 python -m pytest app/pipeline/tests -q -k regen   # rebuild into a temp folder, compare with committed
 cd app/frontend && npm run smoke          # every route renders (backend must be up)
 ```
 
@@ -106,7 +121,9 @@ records extract or CDC WONDER.
 
 **Denominators** come from the Census Population Estimates Program, committed
 under `data/source/census/` and compiled by `build_population.py`. The vintage
-changes at 2010 and 2020 because Census rebases after each decennial count.
+changes at 2010 and 2020 because Census rebases after each decennial count. The
+2020 change is large for some counties, so trends across 2019-2020 are partly a
+denominator effect. `data/source/census/README.md` has the measured figures.
 
 **Chicago and Suburban Cook** are IDPH reporting units, not Census geographies.
 IDPH reports Cook County three ways: the whole county, Chicago, and the
@@ -117,12 +134,16 @@ Cook is not counted twice.
 
 **Statewide rates** use IDPH's own published ILLINOIS count over the state
 population. `deaths_pipeline.py` cross-checks that against the sum of the 102
-counties and reports the drift, which currently runs under 0.1% in every year.
+counties and fails the run above 0.5%. The drift currently runs under 0.1% in
+every year. A missing county fails the run too, before any file is written.
 
 **Missing data is blank, never zero.** IDPH stopped publishing several causes
-partway through the series: suicide and chronic liver disease after 2014, "all
-other causes" after 2012, septicemia after 2019. Those cells are empty end to
-end, and the UI renders them as "no data". Nothing in this dataset is
+partway through the series: suicide after 2014, chronic liver disease after
+2014 apart from a single year of values in 2021, "all other causes" after 2012,
+septicemia after 2019. Influenza and pneumonia has no values for 2021 alone, and
+COVID-19 begins in 2020. Those cells are empty end to end, and the UI renders
+them as "no data". A rate of 0 is a real value, meaning no deaths from that
+cause in that county and year, and is shown as 0. Nothing in this dataset is
 suppressed for small counts.
 
 **Column order changes between report years.** `YEAR_SCHEMAS` in
@@ -132,7 +153,8 @@ PDF's own header at extraction time and fails the run on a mismatch.
 
 **Provider metrics are not all annual.** Total MDs and primary care physicians
 come from twelve and eleven AHRF years respectively; hospital beds and
-psychiatry come from only 2010, 2015 and 2020. `metric_provenance.json` records
+psychiatry come from twelve and eleven, read across ten AHRF releases.
+`metric_provenance.json` records
 which years are measured and which are interpolated, and the UI labels the
 difference. HPSA designation is a category (0 not designated, 1 whole county,
 2 part of county), so it is counted rather than averaged or ranked.

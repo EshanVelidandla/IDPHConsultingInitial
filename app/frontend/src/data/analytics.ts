@@ -13,6 +13,8 @@
  * different from zero. `toRate` is the single place that distinction is made.
  */
 
+import type { ProviderProvenance } from './useDataset';
+
 /**
  * Fallback start of the trend window, used only until /meta has loaded. Views
  * call `trendBase(shared.dataYearRange)` so the window starts at the first year
@@ -42,6 +44,7 @@ export const D_NULL_TINT = '#E0DDD5';
 export const INK = '#1C1B18';
 export const INK_2 = '#3A3833';
 export const INK_3 = '#6B675F';
+export const INK_4 = '#716D64';
 export const RULE = '#E6E3DC';
 
 /** Shared Recharts tooltip styling, previously copy-pasted into six files. */
@@ -69,6 +72,47 @@ export function toRate(row: Row | undefined, year: number | string): number | nu
   if (raw === null || raw === undefined || raw === '') return null;
   const n = Number(raw);
   return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * One year's rates keyed by lower-case county name, for geometry lookups.
+ * A real zero stays 0 and an unpublished cell stays null.
+ */
+export function rateMapOf(
+  rows: ReadonlyArray<{ County: string }>,
+  year: number | string,
+  excluded: readonly string[],
+): Record<string, number | null> {
+  const m: Record<string, number | null> = {};
+  rows.forEach((d) => {
+    if (!excluded.includes(d.County)) m[d.County.toLowerCase()] = toRate(d as Row, year);
+  });
+  return m;
+}
+
+/** Counties with a published value for a year, zeros included. */
+export function ratedCounties(
+  rows: ReadonlyArray<{ County: string }>,
+  year: number | string,
+  excluded: readonly string[],
+): Array<{ county: string; rate: number }> {
+  const out: Array<{ county: string; rate: number }> = [];
+  rows.forEach((d) => {
+    if (excluded.includes(d.County)) return;
+    const rate = toRate(d as Row, year);
+    if (rate !== null) out.push({ county: d.County, rate });
+  });
+  return out;
+}
+
+/** County minimum and maximum for a year, or null if none was published. */
+export function rateRange(
+  rows: ReadonlyArray<{ County: string }>,
+  year: number | string,
+  excluded: readonly string[],
+): { min: number; max: number } | null {
+  const vals = ratedCounties(rows, year, excluded).map((d) => d.rate);
+  return vals.length ? { min: Math.min(...vals), max: Math.max(...vals) } : null;
 }
 
 /** Years present in a rate table, ascending. */
@@ -110,6 +154,28 @@ export function calcSlope(row: Row | undefined, from: number, to: number): numbe
   return denom === 0 ? null : (n * sxy - sx * sy) / denom;
 }
 
+/** First year on the newer Census population series. See /meta population_note. */
+export const POPULATION_SEAM_YEAR = 2020;
+
+/**
+ * Does a trend over [from, to] span the 2019-2020 population series change?
+ *
+ * With a row, it also needs published data on both sides, the same points
+ * `calcSlope` would fit: COVID-19 starts in 2020, so its trends never cross.
+ */
+export function crossesPopulationSeam(from: number, to: number, row?: Row): boolean {
+  const [lo, hi] = from <= to ? [from, to] : [to, from];
+  if (lo >= POPULATION_SEAM_YEAR || hi < POPULATION_SEAM_YEAR) return false;
+  if (!row) return true;
+  let before = false, after = false;
+  for (let y = lo; y <= hi; y++) {
+    if (toRate(row, y) === null) continue;
+    if (y < POPULATION_SEAM_YEAR) before = true;
+    else after = true;
+  }
+  return before && after;
+}
+
 /** Pearson correlation over complete pairs. Null if fewer than three pairs. */
 export function pearsonR(xs: number[], ys: number[]): number | null {
   const pairs = xs.map((x, i) => [x, ys[i]] as const).filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
@@ -127,6 +193,83 @@ export function pearsonR(xs: number[], ys: number[]): number | null {
   return denom === 0 ? null : num / denom;
 }
 
+export type QuadrantKey = 'priority' | 'watch' | 'recovering' | 'stable' | 'nodata';
+
+/**
+ * Priority Matrix quadrant for a rate ratio and a slope. The split is at
+ * HIGH_RATIO, the same line `classifyCounty` uses, not at the state rate.
+ */
+export function quadrantOf(x: number, y: number | null): QuadrantKey {
+  if (y === null) return 'nodata';
+  if (x > HIGH_RATIO) return y > 0 ? 'priority' : 'recovering';
+  return y > 0 ? 'watch' : 'stable';
+}
+
+/**
+ * Legend wording, generated from the split `quadrantOf` applies. It used to say
+ * "at or below the state rate" while the code split at 1.2x, so a county 15%
+ * above the state rate was described as at or below it. A slope of exactly 0
+ * falls on the improving side, hence "flat or improving".
+ */
+export const QUADRANT_DESC: Record<QuadrantKey, string> = {
+  priority:   `Above ${HIGH_RATIO}x state and worsening`,
+  watch:      `At or below ${HIGH_RATIO}x state but worsening`,
+  recovering: `Above ${HIGH_RATIO}x state but flat or improving`,
+  stable:     `At or below ${HIGH_RATIO}x state and flat or improving`,
+  nodata:     'Too few years to fit a trend',
+};
+
+/**
+ * One cell of the mortality by access overlay, as `<mortality>-<access>`.
+ *
+ * Only a true null is 'nodata'. A real zero rate is low mortality, and zero
+ * providers is low access: those counties used to fall through to plain
+ * mortality tints that appeared nowhere in the legend. HPSA is a category with
+ * no statewide value, so its access reading is designated (1 or 2, low) against
+ * not designated (0, high).
+ */
+export type BivariateCell = 'high-low' | 'high-high' | 'low-low' | 'low-high' | 'nodata';
+
+export function bivariateCell(
+  rate: number | null,
+  stateRate: number | null,
+  provVal: number | null,
+  stateProvVal: number | null,
+  categorical: boolean,
+): BivariateCell {
+  if (rate === null || provVal === null || stateRate === null || stateRate <= 0) return 'nodata';
+  if (!categorical && (stateProvVal === null || stateProvVal <= 0)) return 'nodata';
+  const mortality = rate / stateRate > 1 ? 'high' : 'low';
+  const goodAccess = categorical ? provVal === 0 : provVal / (stateProvVal as number) > 1;
+  return `${mortality}-${goodAccess ? 'high' : 'low'}`;
+}
+
+/**
+ * How a provider value for this year was obtained, or null if it was measured.
+ *
+ * Reads the pipeline's provenance rather than a list of years here, so a later
+ * backfill relabels every view without a code change. Also null when provenance
+ * has not loaded or does not name the metric: no label is better than a guess.
+ */
+export function imputedNote(
+  provenance: Record<string, ProviderProvenance> | null | undefined,
+  metric: string,
+  year: number | string,
+): string | null {
+  const p = provenance?.[metric];
+  const y = Number(year);
+  if (!p || !p.imputed_years.includes(y)) return null;
+  const before = p.source_years.filter((s) => s < y);
+  const after = p.source_years.filter((s) => s > y);
+  const prev = before.length ? before[before.length - 1] : null;
+  const next = after.length ? after[0] : null;
+  if (p.kind === 'rate' && prev !== null && next !== null) {
+    return `${y} interpolated between ${prev} and ${next}`;
+  }
+  const from = prev ?? next;
+  return from === null ? `${y} not measured` : `${y} carried from ${from}`;
+}
+
 export type Band = 'high' | 'near' | 'low' | 'nodata';
 
 /**
@@ -141,15 +284,20 @@ export const PRIORITY_BANDS: Array<{
   border: string;
   /** Border dash pattern. A second, non-colour channel for the same reading. */
   dash?: string;
+  /** Outline color on the map and legend, when it has to differ from border. */
+  line?: string;
 }> = [
   // The high and low tints used to be #EDCAC5 and #C2D9B0, whose luminance
   // ratio was 1.00: identical lightness, differing only in red against green,
   // which is invisible to a red-green colour blind reader. They now differ in
   // lightness as well, and high carries a dashed border on top of that.
+  // Near and no-data tints differ by only 1.01, so no-data carries its own
+  // dashed outline, in a gray that reads 3.9:1 against its fill. D_NULL only
+  // reached 1.34, which left the dash invisible.
   { band: 'high',   label: 'Above state',  sub: `More than ${Math.round((HIGH_RATIO - 1) * 100)}% above the state rate`, fill: D_HIGH_TINT, border: D_HIGH, dash: '5 3' },
   { band: 'near',   label: 'Near state',   sub: `Within ${Math.round((HIGH_RATIO - 1) * 100)}% of the state rate`,       fill: D_MID_TINT,  border: D_MID  },
   { band: 'low',    label: 'Below state',  sub: `More than ${Math.round((1 - LOW_RATIO) * 100)}% below the state rate`,  fill: D_LOW_TINT,  border: D_LOW  },
-  { band: 'nodata', label: 'No data',      sub: 'Not published for this county and year',                                fill: D_NULL_TINT, border: D_NULL, dash: '1 3' },
+  { band: 'nodata', label: 'No data',      sub: 'Not published for this county and year',                                fill: D_NULL_TINT, border: D_NULL, dash: '3 3', line: INK_4 },
 ];
 
 export function bandOf(rate: number | null, state: number | null): Band {
@@ -162,6 +310,11 @@ export function bandOf(rate: number | null, state: number | null): Band {
 
 export function bandStyle(band: Band) {
   return PRIORITY_BANDS.find((b) => b.band === band) ?? PRIORITY_BANDS[3];
+}
+
+/** Map fill for one county. A real zero is "low"; only null is "no data". */
+export function tileColor(rate: number | null, state: number | null): string {
+  return bandStyle(bandOf(rate, state || null)).fill;
 }
 
 export interface CountyClass {
