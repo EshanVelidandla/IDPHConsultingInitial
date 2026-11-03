@@ -8,51 +8,43 @@ import type { TooltipProps } from 'recharts';
 import { causeLabels, causes, EXCLUDED_COUNTIES, IDPH_DISTRICTS, providerMetricLabels, providerMetrics, VIEW_HUES } from '../data/constants';
 import { IL_GRID } from '../data/ilGrid';
 import type { SharedState } from '../App';
-import { asRows, bandOf, bandStyle, toRate, yearsOf } from '../data/analytics';
+import { asRows, bandOf, bandStyle, tileColor, toRate, yearsOf, TIP_STYLE, INK_4 } from '../data/analytics';
 import YearTimeline from './YearTimeline';
 import type { TimelineEvent } from './YearTimeline';
 import { fetchDeathRates, fetchProviderData } from '../data/useDataset';
+import { causeExportTarget, type SetExportTarget } from '../data/exportTarget';
 
 interface DeathRate { County: string; [key: string]: number | string; }
 interface ProviderRow { County: string; [year: string]: number | string; }
-interface ViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
+interface ViewProps { shared: SharedState; setShared: (s: SharedState) => void; setExportTarget: SetExportTarget; }
 
 const D_HIGH = '#B23A2E';
 const D_LOW = '#4F7A4D';
 const D_NULL_TINT = '#EFEDE7';
 const INK = '#1C1B18';
 const HUE = VIEW_HUES['/pulse'].hue;
-const INK_4 = '#9A968C';
 const RULE = '#E6E3DC';
 
 // The selected mini-map uses the band's full-strength colour; the others use
 // its tint. Both classify through the shared band table, so these grids read
 // the same way as the main map and its legend. They used to carry their own
 // hardcoded red/green pair with no lightness difference between high and low.
-function tileColorRich(rate: number, stateRate: number): string {
-  return bandStyle(bandOf(rate || null, stateRate || null)).border;
-}
-
-function tileColor(rate: number, stateRate: number): string {
-  return bandStyle(bandOf(rate || null, stateRate || null)).fill;
+function tileColorRich(rate: number | null, stateRate: number): string {
+  return bandStyle(bandOf(rate, stateRate || null)).border;
 }
 
 // `short` is the timeline label and is written out rather than derived. The
 // timeline used to show the first word of `t`, which rendered
 // "Last pre-pandemic year" as the meaningless "Last".
 const EVENTS: Record<number, TimelineEvent> = {
-  2009: { short: 'Baseline', t: 'Baseline year', d: 'Tracking begins. Statewide all-cause rate is the starting reference.' },
   2014: { short: 'ACA', t: 'ACA full implementation', d: 'Medicaid expansion in IL; uninsured rate drops sharply.' },
   2019: { short: 'Pre-COVID', t: 'Last pre-pandemic year', d: 'The final year before COVID-19 affects the series.' },
-  2020: { short: 'COVID-19', t: 'COVID-19 onset', d: 'Sharpest single-year increase in IL mortality on record.' },
+  2020: { short: 'COVID-19', t: 'COVID-19 onset', d: 'Sharpest single-year increase in IL mortality in this series.' },
   2022: { short: 'Latest', t: 'Latest available', d: 'Rate remains elevated above pre-pandemic baseline.' },
 };
 
-const TIP_STYLE = {
-  fontSize: 11, fontFamily: "'IBM Plex Mono',monospace",
-  border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-  borderRadius: 0, background: '#FFFFFF',
-};
+// Placed on the first year of the loaded series, not on a fixed year.
+const BASELINE_EVENT: TimelineEvent = { short: 'Baseline', t: 'Baseline year', d: 'Tracking begins. Statewide all-cause rate is the starting reference.' };
 
 
 // Distinct palette for multi-county lines
@@ -63,7 +55,7 @@ const MULTI_PALETTE = [
   '#7F8C8D',
 ];
 
-const PulseView = (_props: ViewProps) => {
+const PulseView = ({ setExportTarget }: ViewProps) => {
   const navigate = useNavigate();
   const [year, setYear] = useState(2022);
   const [deathData, setDeathData] = useState<DeathRate[]>([]);
@@ -78,6 +70,11 @@ const PulseView = (_props: ViewProps) => {
   const [hoveredCounty, setHoveredCounty] = useState<string | null>(null);
   const [providerMetric, setProviderMetric] = useState('');
   const [providerData, setProviderData] = useState<ProviderRow[]>([]);
+
+  useEffect(() => {
+    setExportTarget(causeExportTarget(multiCause));
+    return () => setExportTarget(null);
+  }, [multiCause, setExportTarget]);
 
   // Load Total Deaths for mini-map and fixed trend chart
   useEffect(() => {
@@ -125,7 +122,7 @@ const PulseView = (_props: ViewProps) => {
 
   const stateRate = useMemo(() => {
     const row = deathData.find(d => d.County === 'ILLINOIS');
-    return Number(row?.[year.toString()]) || 0;
+    return toRate(row as never, year) ?? 0;
   }, [deathData, year]);
 
   // Rates for any year, not just the selected one. The mini-map grid needs all
@@ -163,9 +160,7 @@ const PulseView = (_props: ViewProps) => {
 
   const yearRate = statewideTrend.find(d => d.year === year)?.rate ?? null;
   const prevYearRate = statewideTrend.find(d => d.year === year - 1)?.rate ?? null;
-  const deltaYoY = yearRate && prevYearRate ? ((yearRate - prevYearRate) / prevYearRate * 100) : null;
-
-  const activeEvent = EVENTS[year] ?? null;
+  const deltaYoY = yearRate !== null && prevYearRate ? ((yearRate - prevYearRate) / prevYearRate * 100) : null;
 
   // Years come from the loaded series rather than a hardcoded 2009..2022, so
   // the scale always matches what the pipeline published.
@@ -173,6 +168,12 @@ const PulseView = (_props: ViewProps) => {
     () => statewideTrend.map(d => d.year),
     [statewideTrend],
   );
+
+  const events = useMemo<Record<number, TimelineEvent>>(
+    () => (timelineYears.length ? { ...EVENTS, [timelineYears[0]]: BASELINE_EVENT } : EVENTS),
+    [timelineYears],
+  );
+  const activeEvent = events[year] ?? null;
 
   // Mini-map tile constants
   const MINI_TILE = 8;
@@ -217,8 +218,7 @@ const PulseView = (_props: ViewProps) => {
         point[row.County] = toRate(row as never, yrStr);
         if (providerData.length) {
           const provRow = providerData.find(p => p.County === row.County);
-          const pVal = provRow ? Number(provRow[yrStr]) : 0;
-          point[`${row.County}__prov`] = pVal > 0 ? pVal : null;
+          point[`${row.County}__prov`] = toRate(provRow as never, yrStr);
         }
       });
       return point;
@@ -260,7 +260,7 @@ const PulseView = (_props: ViewProps) => {
         <div className="titles">
           <div className="eyebrow eyebrow-ink">Pulse · Annotated timeline</div>
           <h1 className="h-display" style={{ marginTop: 8 }}>
-            Fourteen years,<br />
+            {timelineYears.length} years,<br />
             <span style={{ color: 'var(--ink-3)' }}>read year by year.</span>
           </h1>
           <p className="body" style={{ marginTop: 12, maxWidth: 540, color: 'var(--ink-3)' }}>
@@ -280,7 +280,7 @@ const PulseView = (_props: ViewProps) => {
           years={timelineYears}
           value={year}
           onChange={setYear}
-          events={EVENTS}
+          events={events}
         />
       </div>
 
@@ -306,7 +306,7 @@ const PulseView = (_props: ViewProps) => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', border: `1px solid ${RULE}` }}>
             <div className="stat">
               <div className="stat-label">State rate / 100k</div>
-              <div className="stat-value num">{yearRate ? yearRate.toFixed(1) : 'n/a'}</div>
+              <div className="stat-value num">{yearRate !== null ? yearRate.toFixed(1) : 'n/a'}</div>
               <div className="stat-meta"><span>All causes</span></div>
             </div>
             <div className="stat">
@@ -525,7 +525,7 @@ const PulseView = (_props: ViewProps) => {
                     fontWeight: isActive ? 600 : 400,
                     color: isActive ? HUE : INK_4,
                   }}>{y}</span>
-                  <span className="num" style={{ fontSize: 9.5, color: isActive ? INK_4 : '#C0BCB4' }}>
+                  <span className="num" style={{ fontSize: 9.5, color: INK_4 }}>
                     {yStateRate > 0 ? yStateRate.toFixed(0) : 'n/a'}
                   </span>
                 </div>

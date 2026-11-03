@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type CSSProperties } from 'react';
-import { BrowserRouter as Router, Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import HomeView from './components/HomeView';
 import MapView from './components/MapView';
@@ -13,6 +13,9 @@ import AccessMortalityView from './components/AccessMortalityView';
 import AdminPanel from './pages/AdminPanel';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { API_BASE, VIEW_HUES, hueForLocation, hueVars, type ViewHue } from './data/constants';
+import { fetchMeta } from './data/useDataset';
+import { trendBase } from './data/analytics';
+import { resolveExport, toCsv, type ExportTarget } from './data/exportTarget';
 
 export interface SharedState {
   selectedCause: string;
@@ -201,6 +204,7 @@ function PresetsPopover({
           <button className="a-btn" onClick={savePreset} disabled={!saveName || !shared.selectedCause}>Save</button>
         </div>
         {!shared.selectedCause && <p className="tiny" style={{ marginTop: 6, color: 'var(--ink-4)' }}>Select a cause first.</p>}
+        <p className="tiny" style={{ marginTop: 8, color: 'var(--ink-4)' }}>Presets set the cause on Map, Insights and Priority. Access and Pulse keep their own cause.</p>
       </div>
     </div>
   );
@@ -260,9 +264,7 @@ function Sidebar({ shared }: { shared: SharedState }) {
         <div className="rf-row">
           <span>Years</span>
           <span className="v">
-            {shared.dataYearRange
-              ? `${shared.dataYearRange.min} – ${shared.dataYearRange.max}`
-              : '2009 – 2022'}
+            {`${trendBase(shared.dataYearRange)} – ${shared.dataYearRange?.max ?? 2022}`}
           </span>
         </div>
         <div className="rf-row"><span>Counties</span><span className="v">102</span></div>
@@ -288,12 +290,32 @@ function Sidebar({ shared }: { shared: SharedState }) {
 
 // ── TopStrip ─────────────────────────────────────────────────
 
-function TopStrip({ shared, setShared }: { shared: SharedState; setShared: (s: SharedState) => void }) {
+/** Label for the top strip, matching what the router will actually render. */
+function stripLabelFor(pathname: string): { label: string; sub: string } {
+  // The router ignores case and a trailing slash, so this does too.
+  const path = pathname.toLowerCase().replace(/\/+$/, '') || '/';
+  const item = NAV_ITEMS.find(n => n.path === path);
+  if (item) return item;
+  if (path === '/admin') return { label: 'Admin', sub: 'Data, annotations and settings' };
+  if (/^\/county\/[^/]+$/.test(path)) return { label: 'County profile', sub: 'One county in detail' };
+  return { label: 'Not found', sub: 'No such page' };
+}
+
+function TopStrip({ shared, setShared, exportTarget }: {
+  shared: SharedState;
+  setShared: (s: SharedState) => void;
+  exportTarget: ExportTarget | null;
+}) {
   const { pathname } = useLocation();
   const { user } = useAuth();
-  const active = NAV_ITEMS.find(n => n.exact ? pathname === n.path : pathname.startsWith(n.path)) ?? NAV_ITEMS[1];
+  const active = stripLabelFor(pathname);
   const [showPresets, setShowPresets] = useState(false);
   const presetsRef = useRef<HTMLDivElement>(null);
+  const { target, reason } = resolveExport(pathname, exportTarget, shared.selectedCause);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  // A failure message describes one target; do not leave it beside another.
+  useEffect(() => setExportError(null), [pathname, target?.filename]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -304,16 +326,19 @@ function TopStrip({ shared, setShared }: { shared: SharedState; setShared: (s: S
   }, []);
 
   async function handleExport() {
-    if (!shared.selectedCause) { alert('Select a cause first.'); return; }
+    if (!target) return;
+    setExportError(null);
     try {
-      const r = await axios.get(`${API_BASE}/export/csv?cause=${shared.selectedCause}`, { responseType: 'blob' });
-      const url = URL.createObjectURL(new Blob([r.data]));
+      const data = target.rows
+        ? toCsv(target.rows)
+        : (await axios.get(target.url, { responseType: 'blob' })).data;
+      const url = URL.createObjectURL(new Blob([data], { type: 'text/csv' }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = `idph_${shared.selectedCause}_death_rates.csv`;
+      a.download = target.filename;
       a.click();
       URL.revokeObjectURL(url);
-    } catch { alert('Export failed. Select a cause first.'); }
+    } catch { setExportError(`Could not export ${target.label}.`); }
   }
 
   return (
@@ -325,6 +350,11 @@ function TopStrip({ shared, setShared }: { shared: SharedState; setShared: (s: S
         <span className="sep">·</span>
         <span className="caption" style={{ color: 'var(--ink-4)' }}>{active.sub}</span>
       </div>
+      {user && (exportError || reason) && (
+        <span className={`caption export-note${exportError ? ' error' : ''}`} role={exportError ? 'alert' : undefined}>
+          {exportError ?? reason}
+        </span>
+      )}
       <div className="actions" style={{ position: 'relative' }}>
         <div ref={presetsRef} style={{ position: 'relative' }}>
           <button className="a-btn" onClick={() => setShowPresets(v => !v)}><IconFilter /> Presets</button>
@@ -335,9 +365,23 @@ function TopStrip({ shared, setShared }: { shared: SharedState; setShared: (s: S
           )}
         </div>
         {user && (
-          <button className="a-btn" onClick={handleExport}><IconDownload /> Export</button>
+          <button className="a-btn" onClick={handleExport} disabled={!target} title={reason ?? undefined}>
+            <IconDownload /> {target ? `Export ${target.label}` : 'Export'}
+          </button>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── NotFound ─────────────────────────────────────────────────
+
+function NotFoundView() {
+  return (
+    <div className="not-found" style={{ padding: 32 }}>
+      <div className="eyebrow eyebrow-ink">Page not found</div>
+      <p className="caption" style={{ margin: '8px 0 12px' }}>This address does not match any view.</p>
+      <Link to="/">Go to the home page</Link>
     </div>
   );
 }
@@ -352,10 +396,11 @@ function AppShell() {
     searchTarget: '',
     dataYearRange: null,
   });
+  const [exportTarget, setExportTarget] = useState<ExportTarget | null>(null);
 
   useEffect(() => {
-    axios.get(`${API_BASE}/meta`)
-      .then(r => setShared(s => ({ ...s, dataYearRange: { min: r.data.year_min, max: r.data.year_max } })))
+    fetchMeta()
+      .then(m => setShared(s => ({ ...s, dataYearRange: { min: m.year_min, max: m.year_max } })))
       // Views fall back to the 2008-2022 range when /meta is unreachable, and
       // each view reports its own failed data load, so this only logs.
       .catch(err => console.warn('Could not load /meta; using the default year range.', err));
@@ -369,18 +414,19 @@ function AppShell() {
     <div className="app">
       <Sidebar shared={shared} />
       <div className={`main${pageHue ? ' hued' : ''}`} style={hueVars(pageHue) as CSSProperties | undefined}>
-        <TopStrip shared={shared} setShared={setShared} />
+        <TopStrip shared={shared} setShared={setShared} exportTarget={exportTarget} />
         <Routes>
           <Route path="/" element={<HomeView items={NAV_ITEMS.filter(n => n.path !== '/')} />} />
           <Route path="/map" element={<MapView {...props} />} />
           <Route path="/insights" element={<InsightsView {...props} />} />
           <Route path="/scorecard" element={<CountyScorecard {...props} />} />
           <Route path="/priority" element={<PriorityMatrix {...props} />} />
-          <Route path="/pulse" element={<PulseView {...props} />} />
-          <Route path="/providers" element={<ProvidersView {...props} />} />
-          <Route path="/access" element={<AccessMortalityView {...props} />} />
+          <Route path="/pulse" element={<PulseView {...props} setExportTarget={setExportTarget} />} />
+          <Route path="/providers" element={<ProvidersView {...props} setExportTarget={setExportTarget} />} />
+          <Route path="/access" element={<AccessMortalityView {...props} setExportTarget={setExportTarget} />} />
           <Route path="/county/:countyName" element={<CountyDrillDown {...props} />} />
           <Route path="/admin" element={<AdminPanel />} />
+          <Route path="*" element={<NotFoundView />} />
         </Routes>
       </div>
     </div>

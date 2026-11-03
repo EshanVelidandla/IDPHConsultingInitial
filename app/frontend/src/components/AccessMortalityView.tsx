@@ -6,47 +6,28 @@ import {
 } from 'recharts';
 import {
   causeLabels, causes, providerMetricLabels, continuousProviderMetrics,
-  EXCLUDED_COUNTIES, providerMetricInverted, VIEW_HUES,
+  EXCLUDED_COUNTIES, HPSA_METRIC, providerMetricInverted, VIEW_HUES,
 } from '../data/constants';
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
-import { asRows, toRate, yearsOf } from '../data/analytics';
-import { fetchDeathRates, fetchProviderData } from '../data/useDataset';
+import { TIP_STYLE, asRows, pearsonR, toRate, yearsOf, INK_4, D_NULL, imputedNote } from '../data/analytics';
+import { fetchDeathRates, fetchProviderData, useMeta } from '../data/useDataset';
+import { causeExportTarget, type SetExportTarget } from '../data/exportTarget';
 
 interface DeathRow   { County: string; [year: string]: number | string; }
 interface ProviderRow { County: string; [year: string]: number | string; }
-interface ViewProps   { shared: SharedState; setShared: (s: SharedState) => void; }
+interface ViewProps   { shared: SharedState; setShared: (s: SharedState) => void; setExportTarget: SetExportTarget; }
 
 const D_HIGH  = '#B23A2E';
 const D_MID   = '#C68B3C';
 const D_LOW   = '#4F7A4D';
 const INK     = '#1C1B18';
 const INK_3   = '#6B675F';
-const INK_4   = '#9A968C';
 const RULE    = '#E6E3DC';
 const ACCENT  = '#1F5C5A';
 const HUE     = VIEW_HUES['/access'].hue;
 
-const TIP_STYLE = {
-  fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
-  border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-  borderRadius: 0, background: '#FFFFFF',
-};
-
 // ── Statistics helpers ──────────────────────────────────────────────────────
-
-function pearsonR(xs: number[], ys: number[]): number {
-  const n = xs.length;
-  if (n < 3) return 0;
-  const sx  = xs.reduce((s, x) => s + x, 0);
-  const sy  = ys.reduce((s, y) => s + y, 0);
-  const sxy = xs.reduce((s, x, i) => s + x * ys[i], 0);
-  const sx2 = xs.reduce((s, x) => s + x * x, 0);
-  const sy2 = ys.reduce((s, y) => s + y * y, 0);
-  const num = n * sxy - sx * sy;
-  const den = Math.sqrt((n * sx2 - sx * sx) * (n * sy2 - sy * sy));
-  return den === 0 ? 0 : num / den;
-}
 
 function linReg(xs: number[], ys: number[]): { slope: number; intercept: number } {
   const n  = xs.length;
@@ -70,7 +51,7 @@ function pValue(r: number, n: number): string {
 
 // ── Scatter dot ─────────────────────────────────────────────────────────────
 
-interface ScatterPoint { county: string; x: number; y: number; hpsa: number; }
+interface ScatterPoint { county: string; x: number; y: number; hpsa: number | null; }
 
 /**
  * The four quadrants, defined once. The legend is rendered from this list and
@@ -108,14 +89,18 @@ function Mark({ shape, cx, cy, r, ...rest }: {
   return <circle cx={cx} cy={cy} r={r} {...rest} />;
 }
 
-function quadrantFor(hpsa: number, y: number, stateY: number) {
+/** A missing HPSA value is unknown, not "not designated", so it gets no quadrant. */
+const HPSA_UNKNOWN = { color: D_NULL, shape: 'circle' } as const;
+
+function quadrantFor(hpsa: number | null, y: number, stateY: number) {
+  if (hpsa === null) return HPSA_UNKNOWN;
   const aboveAvg = y > stateY;
   const designated = hpsa > 0;
   return ACCESS_QUADRANTS.find(q => q.aboveAvg === aboveAvg && q.designated === designated)
     ?? ACCESS_QUADRANTS[3];
 }
 
-function dotColor(hpsa: number, y: number, stateY: number): string {
+function dotColor(hpsa: number | null, y: number, stateY: number): string {
   return quadrantFor(hpsa, y, stateY).color;
 }
 
@@ -133,13 +118,13 @@ const CustomDot = (props: { cx?: number; cy?: number; payload?: ScatterPoint; st
   );
 };
 
-const ScatterTip = ({ active, payload, metricLabel }: { active?: boolean; payload?: { payload: ScatterPoint }[]; metricLabel: string }) => {
+const ScatterTip = ({ active, payload, metricLabel, stateY = 0 }: { active?: boolean; payload?: { payload: ScatterPoint }[]; metricLabel: string; stateY?: number }) => {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
     <div style={{ background: '#FFF', border: `1px solid ${RULE}`, padding: '12px 14px', minWidth: 200,
       fontFamily: "'IBM Plex Mono',monospace", fontSize: 11,
-      borderTop: `3px solid ${dotColor(d.hpsa, d.y, 0)}`,
+      borderTop: `3px solid ${dotColor(d.hpsa, d.y, stateY)}`,
       boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>
       <div style={{ fontSize: 13, fontWeight: 500, color: INK, marginBottom: 8, fontFamily: "'Inter Tight',sans-serif" }}>
         {d.county} County
@@ -152,9 +137,14 @@ const ScatterTip = ({ active, payload, metricLabel }: { active?: boolean; payloa
         <span style={{ color: INK_3 }}>Mortality /100k</span>
         <span style={{ color: INK }}>{d.y.toFixed(1)}</span>
       </div>
-      {d.hpsa > 0 && (
+      {d.hpsa !== null && d.hpsa > 0 && (
         <div style={{ marginTop: 6, fontSize: 10, color: D_HIGH, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           ● HPSA designated
+        </div>
+      )}
+      {d.hpsa === null && (
+        <div style={{ marginTop: 6, fontSize: 10, color: INK_3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          HPSA status unknown
         </div>
       )}
     </div>
@@ -163,8 +153,9 @@ const ScatterTip = ({ active, payload, metricLabel }: { active?: boolean; payloa
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
+const AccessMortalityView = ({ shared, setShared, setExportTarget }: ViewProps) => {
   const { selectedYear } = shared;
+  const { meta } = useMeta();
   const [cause,  setCause]  = useState('Diseases_of_Heart');
   const [metric, setMetric] = useState('primary_care_physicians_per_100k');
   const [mortalityData, setMortalityData] = useState<DeathRow[]>([]);
@@ -173,6 +164,11 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
   const [allMortality,  setAllMortality]  = useState<Record<string, DeathRow[]>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setExportTarget(causeExportTarget(cause));
+    return () => setExportTarget(null);
+  }, [cause, setExportTarget]);
 
   // Fetch mortality + provider on cause/metric change
   useEffect(() => {
@@ -231,7 +227,7 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
       .map(d => {
         const x = toRate(providerData.find(p => p.County === d.County) as never, yearStr);
         const y = toRate(d as never, yearStr);
-        const hpsa = toRate(hpsaData.find(h => h.County === d.County) as never, yearStr) ?? 0;
+        const hpsa = toRate(hpsaData.find(h => h.County === d.County) as never, yearStr);
         // x === 0 is a real observation: no providers at all. Only a missing
         // value is excluded. Dropping zeros removed the provider deserts and
         // biased every correlation on this page.
@@ -243,12 +239,12 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
 
   // Pearson r, r², slope, intercept, p
   const stats = useMemo(() => {
-    if (scatterPoints.length < 3) return { r: 0, r2: 0, slope: 0, intercept: 0, p: 'n/a', n: 0 };
+    if (scatterPoints.length < 3) return { r: null, r2: 0, slope: 0, intercept: 0, p: 'n/a', n: 0 };
     const xs = scatterPoints.map(p => p.x);
     const ys = scatterPoints.map(p => p.y);
     const r = pearsonR(xs, ys);
     const { slope, intercept } = linReg(xs, ys);
-    return { r, r2: r * r, slope, intercept, p: pValue(r, xs.length), n: xs.length };
+    return { r, r2: r === null ? 0 : r * r, slope, intercept, p: r === null ? 'n/a' : pValue(r, xs.length), n: xs.length };
   }, [scatterPoints]);
 
   // Regression line points spanning x range
@@ -363,11 +359,11 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid var(--rule)' }}>
             <div className="stat fade-in fade-in-1">
               <div className="stat-label">Pearson r · {selectedYear}</div>
-              <div className="stat-value num" style={{ color: rColor(stats.r) }}>
-                {stats.r !== 0 ? stats.r.toFixed(3) : 'n/a'}
+              <div className="stat-value num" style={{ color: stats.r === null ? INK_4 : rColor(stats.r) }}>
+                {stats.r !== null ? stats.r.toFixed(3) : 'n/a'}
               </div>
               <div className="stat-meta">
-                <span>{stats.r > 0 ? 'Positive' : stats.r < 0 ? 'Negative' : ''} correlation · {stats.n} counties</span>
+                <span>{stats.r === null ? 'No' : stats.r > 0 ? 'Positive' : stats.r < 0 ? 'Negative' : ''} correlation · {stats.n} counties</span>
               </div>
             </div>
             <div className="stat fade-in fade-in-2">
@@ -431,7 +427,7 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
                         <ReferenceLine x={stateProvVal} stroke={INK_4} strokeDasharray="5 3" strokeWidth={1}
                           label={{ value: 'IL avg provider', position: 'top', fontSize: 9, fill: INK_4 }} />
                       )}
-                      <Tooltip content={<ScatterTip metricLabel={providerMetricLabels[metric]} />} cursor={{ fill: 'transparent' }} />
+                      <Tooltip content={<ScatterTip metricLabel={providerMetricLabels[metric]} stateY={stateDeathRate} />} cursor={{ fill: 'transparent' }} />
                       <Scatter data={scatterPoints} shape={<CustomDot stateY={stateDeathRate} />}>
                         {scatterPoints.map((p, i) => <Cell key={i} fill={dotColor(p.hpsa, p.y, stateDeathRate)} />)}
                       </Scatter>
@@ -446,7 +442,10 @@ const AccessMortalityView = ({ shared, setShared }: ViewProps) => {
                   </ResponsiveContainer>
                 </div>
                 <p className="tiny" style={{ marginTop: 8 }}>
-                  Dashed line: OLS regression. r = {stats.r.toFixed(3)}, p {stats.p}. Each dot = one county.
+                  Dashed line: OLS regression. r = {stats.r === null ? 'n/a' : stats.r.toFixed(3)}, p {stats.p}. Each dot = one county.
+                  {scatterPoints.some(p => p.hpsa === null) ? ' Grey dots: HPSA status unknown.' : ''}
+                  {imputedNote(meta.provider_metrics, metric, selectedYear) ? ` Provider values: ${imputedNote(meta.provider_metrics, metric, selectedYear)}.` : ''}
+                  {imputedNote(meta.provider_metrics, HPSA_METRIC, selectedYear) ? ` HPSA: ${imputedNote(meta.provider_metrics, HPSA_METRIC, selectedYear)}.` : ''}
                   {inverted ? ' Note: for HPSA, higher value = greater shortage.' : ''}
                 </p>
               </div>

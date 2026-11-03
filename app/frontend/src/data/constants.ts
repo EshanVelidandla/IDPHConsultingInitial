@@ -20,6 +20,14 @@ export const causes = Object.keys(causeLabels);
 
 export const EXCLUDED_COUNTIES = ['ILLINOIS', 'Chicago', 'Suburban Cook'];
 
+/** Display name for a table row: Chicago, Suburban Cook and ILLINOIS are not counties. */
+export function unitLabel(name: string): string {
+  return EXCLUDED_COUNTIES.includes(name) ? name : `${name} County`;
+}
+
+/** IDPH reporting units inside Cook County. They are not Census counties. */
+export const COOK_UNITS = ['Chicago', 'Suburban Cook'];
+
 
 export const IDPH_DISTRICTS: Record<number, { name: string; counties: string[] }> = {
   1: { name: 'District 1: Metro Chicago', counties: ['Lake','McHenry','Cook','Kane','DuPage','Will'] },
@@ -33,8 +41,23 @@ export const IDPH_DISTRICTS: Record<number, { name: string; counties: string[] }
   9: { name: 'District 9: Southeast', counties: ['Jefferson','White','Hamilton','Perry','Franklin','Jackson','Gallatin','Saline','Williamson','Hardin','Pope','Johnson','Union','Massac','Pulaski','Alexander'] },
 };
 
+/**
+ * Lowercase name to the spelling the rate tables use, for the 102 counties and
+ * the three special units. Names only: it reuses the list in IDPH_DISTRICTS and
+ * says nothing about whether those districts are right. No prototype, so a URL
+ * like /county/constructor finds nothing.
+ */
+export const CANONICAL_COUNTY: Record<string, string> = Object.assign(
+  Object.create(null),
+  Object.fromEntries(
+    [...Object.values(IDPH_DISTRICTS).flatMap(d => d.counties), ...EXCLUDED_COUNTIES]
+      .map(name => [name.toLowerCase(), name]),
+  ),
+);
+
 // Empty string = same-origin requests (API served by the same host as the SPA)
-export const API_BASE = import.meta.env.VITE_API_BASE ?? '';
+// The ?. is for tests that import this file under Node, where there is no env.
+export const API_BASE = import.meta.env?.VITE_API_BASE ?? '';
 
 export const providerMetricLabels: Record<string, string> = {
   total_active_mds_per_100k: 'Total Active MDs /100k',

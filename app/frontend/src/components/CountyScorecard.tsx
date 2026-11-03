@@ -48,7 +48,7 @@ function heatBg(ratio: number | null): string {
 }
 
 function heatColor(ratio: number | null): string {
-  if (ratio === null) return 'var(--ink-5)';
+  if (ratio === null) return 'var(--ink-4)';
   if (ratio > 1.4) return D_HIGH;
   if (ratio > 1.2) return '#C85A4E';
   if (ratio < 0.6) return D_LOW;
@@ -66,7 +66,7 @@ function provHeatBg(val: number | null, stateVal: number | null, inverted: boole
   return '#FDF6EE';
 }
 function provHeatColor(val: number | null, stateVal: number | null, inverted: boolean): string {
-  if (val === null || !stateVal) return 'var(--ink-5)';
+  if (val === null || !stateVal) return 'var(--ink-4)';
   if (val === 0) return inverted ? D_LOW : D_HIGH;
   const r = inverted ? stateVal / val : val / stateVal;
   if (r > 1.2) return D_LOW;
@@ -96,7 +96,7 @@ function TrendArrow({ slope, threshold }: { slope: number | null; threshold: num
     </svg>
   );
   return (
-    <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="var(--ink-5)" strokeWidth="1.5" style={{ marginLeft: 3 }}>
+    <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="var(--ink-4)" strokeWidth="1.5" style={{ marginLeft: 3 }}>
       <path d="M2 6h8M7.5 3.5L10 6l-2.5 2.5"/>
     </svg>
   );
@@ -115,6 +115,8 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
   const [search, setSearch] = useState('');
   const [showProvider, setShowProvider] = useState(false);
   const [providerData, setProviderData] = useState<Record<string, ProviderRow[]>>({});
+  const [providerStatus, setProviderStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [providerMissing, setProviderMissing] = useState<string[]>([]);
 
   // Auto-filter to highlighted county when arriving from multi-county chart
   useEffect(() => {
@@ -142,8 +144,14 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
       .finally(() => setLoading(false));
   }, []);
 
+  // Only 'idle' fetches, and a settled request never returns to 'idle' by itself,
+  // so a failure cannot refetch. Keying on providerData used to loop: each failed
+  // round stored a new empty object, which re-ran this effect. The retry is the
+  // user toggling the columns again. No cleanup flag here: setting 'loading' re-runs
+  // this effect, and a cleanup would discard the response it is waiting for.
   useEffect(() => {
-    if (!showProvider || Object.keys(providerData).length > 0) return;
+    if (!showProvider || providerStatus !== 'idle') return;
+    setProviderStatus('loading');
     Promise.allSettled(
       PROVIDER_COLS.map(m =>
         fetchProviderData(m).then(r => ({ m, data: asRows(r.data) as ProviderRow[] }))
@@ -156,9 +164,10 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
         else missing.push(providerMetricLabels[PROVIDER_COLS[i]] ?? PROVIDER_COLS[i]);
       });
       setProviderData(map);
-      if (missing.length) setError(`Could not load provider data: ${missing.join(', ')}`);
+      setProviderMissing(missing);
+      setProviderStatus(missing.length ? 'error' : 'done');
     });
-  }, [showProvider, providerData]);
+  }, [showProvider, providerStatus]);
 
   const slopeMap = useMemo<Record<string, Record<string, number | null>>>(() => {
     const m: Record<string, Record<string, number | null>> = {};
@@ -329,10 +338,29 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
         <button
           className={`seg-btn${showProvider ? ' active' : ''}`}
           style={{ marginLeft: 16 }}
-          onClick={() => setShowProvider(v => !v)}>
+          onClick={() => {
+            setShowProvider(v => !v);
+            // Arms the retry. Loaded metrics are cached, so only failed ones refetch.
+            if (providerStatus === 'error') setProviderStatus('idle');
+          }}>
           {showProvider ? 'Hide access columns' : 'Show access columns'}
         </button>
       </div>
+
+      {/* Inline, not the page-level error: that replaces the page, and with it
+          the mortality table and the toggle that retries. */}
+      {showProvider && providerStatus === 'error' && (
+        <div role="alert" style={{
+          padding: '10px 40px',
+          background: 'var(--d-high-tint)',
+          borderBottom: '1px solid var(--rule)',
+          color: 'var(--d-high)',
+          fontSize: 13,
+          flexShrink: 0,
+        }}>
+          Could not load provider data: {providerMissing.join(', ')}. Hide and show the access columns to retry.
+        </div>
+      )}
 
       {/* Table */}
       <div style={{ flex: 1, overflow: 'auto' }}>
@@ -438,7 +466,7 @@ const CountyScorecard = ({ shared, setShared }: ViewProps) => {
                       const cat = val !== null ? HPSA_CATEGORY[val] : undefined;
                       return (
                         <td key={m} style={{ background: cat?.bg ?? 'transparent' }}>
-                          <div className="h-fill" style={{ color: cat?.color ?? 'var(--ink-5)' }}>
+                          <div className="h-fill" style={{ color: cat?.color ?? 'var(--ink-4)' }}>
                             {cat ? cat.label : 'n/a'}
                           </div>
                         </td>

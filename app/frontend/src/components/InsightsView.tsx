@@ -4,24 +4,13 @@ import {
   Tooltip, ResponsiveContainer, ReferenceLine, Cell,
   ScatterChart, Scatter,
 } from 'recharts';
-import { causeLabels, causes, EXCLUDED_COUNTIES, providerMetricLabels, providerMetrics, providerMetricInverted, VIEW_HUES } from '../data/constants';
-import { fetchDeathRates, fetchProviderData, usePopulation } from '../data/useDataset';
-import { asRows, TREND_BASE_YEAR, toRate, yearsOf } from '../data/analytics';
+import { causeLabels, causes, EXCLUDED_COUNTIES, providerMetricLabels, providerMetricInverted, VIEW_HUES, continuousProviderMetrics } from '../data/constants';
+import { fetchDeathRates, fetchProviderData, useMeta, usePopulation } from '../data/useDataset';
+import { asRows, TREND_BASE_YEAR, crossesPopulationSeam, toRate, yearsOf, rateRange, ratedCounties, TIP_STYLE, pearsonR, INK_4, imputedNote } from '../data/analytics';
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
 
 interface ProviderRow { County: string; [year: string]: number | string; }
-
-function pearsonR(xs: number[], ys: number[]): number {
-  const n = xs.length;
-  if (n < 3) return 0;
-  const sx = xs.reduce((s, x) => s + x, 0), sy = ys.reduce((s, y) => s + y, 0);
-  const sxy = xs.reduce((s, x, i) => s + x * ys[i], 0);
-  const sx2 = xs.reduce((s, x) => s + x * x, 0), sy2 = ys.reduce((s, y) => s + y * y, 0);
-  const num = n * sxy - sx * sy;
-  const den = Math.sqrt((n * sx2 - sx * sx) * (n * sy2 - sy * sy));
-  return den === 0 ? 0 : +(num / den).toFixed(3);
-}
 
 interface DeathRate { County: string; [key: string]: number | string; }
 
@@ -34,22 +23,16 @@ const D_MID = '#C68B3C';
 const INK = '#1C1B18';
 const HUE = VIEW_HUES['/insights'].hue;
 const INK_3 = '#6B675F';
-const INK_4 = '#9A968C';
 const RULE = '#E6E3DC';
 
-const TIP_STYLE = {
-  fontSize: 11,
-  fontFamily: "'IBM Plex Mono', monospace",
-  border: 'none',
-  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-  borderRadius: 0,
-  background: '#FFFFFF',
-};
+// The last full year before COVID-19, so a fixed reference rather than a data bound.
+const COVID_BASE_YEAR = 2019;
 
 
 const InsightsView = ({ shared, setShared }: ViewProps) => {
   const { selectedCause, selectedYear } = shared;
   const { pop: countyPop } = usePopulation();
+  const { meta } = useMeta();
   // Series endpoints come from the data range the server reports, so the copy
   // and the charts cannot drift apart from what was actually loaded.
   const firstYear = shared.dataYearRange?.min ?? TREND_BASE_YEAR;
@@ -63,7 +46,9 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
   const [providerLoading, setProviderLoading] = useState(false);
 
   useEffect(() => {
-    if (!selectedCause) return;
+    // Clearing the cause cancels any request in flight, so nothing else would
+    // clear `loading`.
+    if (!selectedCause) { setLoading(false); return; }
     setLoading(true);
     // A slower earlier request must not land after a newer one and
     // overwrite it. Switching cause or metric quickly can otherwise leave
@@ -92,17 +77,17 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
   const latestYear = (() => {
     const row = deathData.find(d => d.County === 'ILLINOIS');
     if (!row) return null;
-    return Object.keys(row).filter(k => k !== 'County' && k !== '2008').sort().pop() ?? null;
+    return Object.keys(row).filter(k => k !== 'County').sort().pop() ?? null;
   })();
 
-  const stateRate = Number(deathData.find(d => d.County === 'ILLINOIS')?.[selectedYear.toString()]) || 0;
+  const stateRate = toRate(deathData.find(d => d.County === 'ILLINOIS') as never, selectedYear) ?? 0;
 
   const statewideTrend = useMemo(() => {
     const row = deathData.find(d => d.County === 'ILLINOIS');
     if (!row) return [];
     return Object.entries(row)
-      .filter(([k]) => k !== 'County' && k !== '2008')
-      .map(([year, val]) => ({ year, rate: Number(val) > 0 ? Number(val) : null }))
+      .filter(([k]) => k !== 'County')
+      .map(([year]) => ({ year, rate: toRate(row as never, year) }))
       .sort((a, b) => a.year.localeCompare(b.year));
   }, [deathData]);
 
@@ -111,11 +96,8 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
     const years = statewideTrend.map(d => d.year);
     const result: Record<string, { min: number; max: number }> = {};
     years.forEach(y => {
-      const vals = deathData
-        .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
-        .map(d => Number(d[y]))
-        .filter(v => v > 0);
-      if (vals.length) result[y] = { min: Math.min(...vals), max: Math.max(...vals) };
+      const range = rateRange(deathData, y, EXCLUDED_COUNTIES);
+      if (range) result[y] = range;
     });
     return result;
   }, [deathData, statewideTrend]);
@@ -131,10 +113,7 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
 
   const topCounties = useMemo(() => {
     if (!latestYear) return [];
-    const sorted = deathData
-      .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
-      .map(d => ({ county: d.County, rate: Number(d[selectedYear.toString()]) || 0 }))
-      .filter(d => d.rate > 0)
+    const sorted = ratedCounties(deathData, selectedYear, EXCLUDED_COUNTIES)
       .sort((a, b) => b.rate - a.rate);
     return showBottom ? sorted.slice(-5).reverse() : sorted.slice(0, 5);
   }, [deathData, selectedYear, showBottom, latestYear]);
@@ -152,8 +131,8 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
       const count = deathData
         .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
         .filter(d => {
-          const rate = Number(d[selectedYear.toString()]);
-          if (!rate) return false;
+          const rate = toRate(d as never, selectedYear);
+          if (rate === null) return false;
           const ratio = rate / stateRate;
           return ratio >= cat.min && ratio < cat.max;
         }).length;
@@ -175,26 +154,20 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
 
   const highest = useMemo(() => {
     if (!latestYear) return null;
-    return deathData
-      .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
-      .map(d => ({ county: d.County, rate: Number(d[selectedYear.toString()]) || 0 }))
-      .filter(d => d.rate > 0)
+    return ratedCounties(deathData, selectedYear, EXCLUDED_COUNTIES)
       .sort((a, b) => b.rate - a.rate)[0] ?? null;
   }, [deathData, selectedYear, latestYear]);
 
   const lowest = useMemo(() => {
     if (!latestYear) return null;
-    return deathData
-      .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
-      .map(d => ({ county: d.County, rate: Number(d[selectedYear.toString()]) || 0 }))
-      .filter(d => d.rate > 0)
+    return ratedCounties(deathData, selectedYear, EXCLUDED_COUNTIES)
       .sort((a, b) => a.rate - b.rate)[0] ?? null;
   }, [deathData, selectedYear, latestYear]);
 
   const aboveAvg = useMemo(() => {
     if (!stateRate) return null;
-    return deathData.filter(d => !EXCLUDED_COUNTIES.includes(d.County))
-      .filter(d => Number(d[selectedYear.toString()]) > stateRate).length;
+    return ratedCounties(deathData, selectedYear, EXCLUDED_COUNTIES)
+      .filter(d => d.rate > stateRate).length;
   }, [deathData, stateRate, selectedYear]);
 
   // Excess deaths use the population of the year being shown. They used to be
@@ -233,22 +206,27 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
       improved: rows.slice(0, 8).map(d => ({ county: d.county, change: Math.abs(d.change) })),
       declined: rows.slice(-8).reverse().map(d => ({ county: d.county, change: d.change })),
     };
-  }, [deathData]);
+  }, [deathData, firstYear, lastYear]);
 
   const covidImpact = useMemo(() => {
     if (!deathData.length) return [];
     return deathData
       .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
       .map(d => {
-        const r19 = Number(d['2019']) || 0;
-        const r22 = Number(d['2022']) || 0;
-        if (!r19 || !r22) return null;
-        return { county: d.County, change: +(r22 - r19).toFixed(1), pct: +((r22 - r19) / r19 * 100).toFixed(1) };
+        const base = toRate(d as never, COVID_BASE_YEAR);
+        const latest = toRate(d as never, lastYear);
+        if (base === null || latest === null) return null;
+        // A real zero in the base year still has a change, but no percentage.
+        return {
+          county: d.County,
+          change: +(latest - base).toFixed(1),
+          pct: base > 0 ? +((latest - base) / base * 100).toFixed(1) : null,
+        };
       })
-      .filter((d): d is { county: string; change: number; pct: number } => d !== null)
+      .filter((d): d is { county: string; change: number; pct: number | null } => d !== null)
       .sort((a, b) => b.change - a.change)
       .slice(0, 12);
-  }, [deathData]);
+  }, [deathData, lastYear]);
 
   const corrScatter = useMemo(() => {
     if (!deathData.length || !providerData.length) return [];
@@ -256,21 +234,23 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
     return deathData
       .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
       .map(d => {
-        const x = Number(providerData.find(p => p.County === d.County)?.[yrStr]) || 0;
-        const y = Number(d[yrStr]) || 0;
-        return x > 0 && y > 0 ? { county: d.County, x, y } : null;
+        // Zero is a real observation, here as in the Access view: dropping it
+        // removed the provider deserts and left the two views disagreeing on n.
+        const x = toRate(providerData.find(p => p.County === d.County) as never, yrStr);
+        const y = toRate(d as never, yrStr);
+        return x !== null && y !== null ? { county: d.County, x, y } : null;
       })
       .filter(Boolean) as { county: string; x: number; y: number }[];
   }, [deathData, providerData, selectedYear]);
 
   const corrR = useMemo(() => {
-    if (corrScatter.length < 3) return null;
-    return pearsonR(corrScatter.map(p => p.x), corrScatter.map(p => p.y));
+    const r = pearsonR(corrScatter.map(p => p.x), corrScatter.map(p => p.y));
+    return r === null ? null : +r.toFixed(3);
   }, [corrScatter]);
 
   const inverted = providerMetricInverted[corrMetric] ?? false;
   const stateProvVal = useMemo(
-    () => Number(providerData.find(d => d.County === 'ILLINOIS')?.[selectedYear.toString()]) || 0,
+    () => toRate(providerData.find(d => d.County === 'ILLINOIS') as never, selectedYear) ?? 0,
     [providerData, selectedYear]
   );
 
@@ -327,7 +307,7 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
             </div>
             <div className="stat fade-in fade-in-3">
               <div className="stat-label">State trend {stateTrend ? `${stateTrend.fromYear}–${stateTrend.toYear}` : ''}</div>
-              <div className="stat-value num" style={{ color: stateTrend ? (stateTrend.pct < 0 ? D_LOW : D_HIGH) : 'var(--ink-5)' }}>
+              <div className="stat-value num" style={{ color: stateTrend ? (stateTrend.pct < 0 ? D_LOW : D_HIGH) : 'var(--ink-4)' }}>
                 {stateTrend ? `${stateTrend.pct > 0 ? '+' : ''}${stateTrend.pct.toFixed(1)}%` : 'n/a'}
               </div>
               <div className="stat-meta"><span>{stateTrend ? `${stateTrend.from.toFixed(1)} → ${stateTrend.to.toFixed(1)} /100k` : ''}</span></div>
@@ -367,6 +347,9 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
+                {stateTrend && crossesPopulationSeam(stateTrend.fromYear, Number(stateTrend.toYear)) && (
+                  <p className="caption" style={{ marginTop: 8 }}>{meta.population_note}</p>
+                )}
               </div>
             </div>
 
@@ -380,12 +363,14 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <select className="sel" style={{ width: 240, fontSize: 12 }}
                     value={corrMetric} onChange={e => setCorrMetric(e.target.value)}>
-                    {providerMetrics.map(m => <option key={m} value={m}>{providerMetricLabels[m]}</option>)}
+                    {continuousProviderMetrics.map(m => <option key={m} value={m}>{providerMetricLabels[m]}</option>)}
                   </select>
-                  {corrR !== null && (
+                  {corrR !== null ? (
                     <span className="num" style={{ fontSize: 12, color: Math.abs(corrR) > 0.4 ? (corrR < 0 ? D_LOW : D_HIGH) : D_MID, whiteSpace: 'nowrap' }}>
                       r = {corrR > 0 ? '+' : ''}{corrR.toFixed(3)}
                     </span>
+                  ) : (
+                    <span className="num" style={{ fontSize: 12, color: INK_4, whiteSpace: 'nowrap' }}>r = n/a</span>
                   )}
                 </div>
               </div>
@@ -425,7 +410,7 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
                   </div>
                 )}
                 <p className="tiny" style={{ marginTop: 6 }}>
-                  Dashed lines = statewide averages. {corrR !== null ? `r = ${corrR.toFixed(3)} (${corrScatter.length} counties).` : ''} Visit the Access × Mortality tab for full regression analysis.
+                  Dashed lines = statewide averages. {corrR !== null ? `r = ${corrR.toFixed(3)} (${corrScatter.length} counties).` : 'r = n/a.'} {imputedNote(meta.provider_metrics, corrMetric, selectedYear) && `Provider values: ${imputedNote(meta.provider_metrics, corrMetric, selectedYear)}. `}Visit the Access × Mortality tab for full regression analysis.
                 </p>
               </div>
             </div>
@@ -476,7 +461,7 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
                           <div style={{ color: INK, fontSize: 12.5 }}>{label}</div>
                           <div className="num" style={{ fontSize: 10, color: INK_4, marginTop: 1 }}>{sub}</div>
                         </div>
-                        <span className="num" style={{ color: count > 0 ? INK : 'var(--ink-5)', fontSize: 13, textAlign: 'right' }}>{count || 'n/a'}</span>
+                        <span className="num" style={{ color: count > 0 ? INK : 'var(--ink-4)', fontSize: 13, textAlign: 'right' }}>{count}</span>
                       </div>
                     ))}
                   </div>
@@ -566,6 +551,10 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
                 </div>
               </div>
             </div>
+            {/* The COVID-era panel below carries this caveat when it renders. */}
+            {covidImpact.length === 0 && trajectory.improved.length > 0 && crossesPopulationSeam(firstYear, lastYear) && (
+              <p className="caption">{meta.population_note}</p>
+            )}
 
             {/* COVID-era impact */}
             {covidImpact.length > 0 && (
@@ -573,7 +562,7 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
                 <div className="panel-head">
                   <div className="titles">
                     <div className="eyebrow">COVID-era impact</div>
-                    <div className="h3">Rate shift, 2019 to {lastYear}</div>
+                    <div className="h3">Rate shift, {COVID_BASE_YEAR} to {lastYear}</div>
                   </div>
                   <span className="caption">Sorted by absolute change</span>
                 </div>
@@ -588,14 +577,18 @@ const InsightsView = ({ shared, setShared }: ViewProps) => {
                           tickFormatter={v => `${v > 0 ? '+' : ''}${Number(v).toFixed(0)}`} />
                         <ReferenceLine y={0} stroke={INK_3} strokeWidth={1.5} />
                         <Tooltip contentStyle={TIP_STYLE}
-                          formatter={(v: unknown, _: unknown, props: { payload?: { pct?: number } }) =>
-                            [`${Number(v) > 0 ? '+' : ''}${Number(v).toFixed(1)} /100k (${(props.payload?.pct ?? 0) > 0 ? '+' : ''}${(props.payload?.pct ?? 0).toFixed(1)}%)`, 'Rate change']} />
+                          formatter={(v: unknown, _: unknown, props: { payload?: { pct?: number | null } }) => {
+                            const pct = props.payload?.pct ?? null;
+                            const pctText = pct === null ? '' : ` (${pct > 0 ? '+' : ''}${pct.toFixed(1)}%)`;
+                            return [`${Number(v) > 0 ? '+' : ''}${Number(v).toFixed(1)} /100k${pctText}`, 'Rate change'];
+                          }} />
                         <Bar dataKey="change" radius={[2, 2, 0, 0]}>
                           {covidImpact.map((d, i) => <Cell key={i} fill={d.change > 0 ? D_HIGH : D_LOW} />)}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
+                  <p className="caption" style={{ marginTop: 8 }}>{meta.population_note}</p>
                 </div>
               </div>
             )}

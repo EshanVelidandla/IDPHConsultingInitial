@@ -18,6 +18,7 @@ import os
 import sys
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -74,6 +75,49 @@ def test_unknown_paths_404_for_an_xhr(route):
     """An XHR asking for JSON must never be handed HTML with a 200."""
     r = client.get(route, headers=XHR)
     assert r.status_code == 404, f"{route} -> {r.status_code} {r.headers.get('content-type')}"
+
+
+@pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
+@pytest.mark.parametrize("headers", [XHR, BROWSER])
+@pytest.mark.parametrize("route", ["/nope", "/admin/nope", "/map"])
+def test_other_methods_on_a_path_with_no_api_route_are_404(method, headers, route):
+    """The catch-all used to be GET-only, which made these 405."""
+    r = getattr(client, method)(route, headers=headers)
+    assert r.status_code == 404, f"{method} {route} -> {r.status_code}"
+
+
+def test_wrong_method_on_a_real_api_path_stays_405():
+    r = client.delete("/meta", headers=XHR)
+    assert r.status_code == 405
+    assert "GET" in r.headers["allow"]
+
+
+def test_head_on_a_real_api_path_stays_405():
+    assert client.head("/meta", headers=XHR).status_code == 405
+
+
+def test_unknown_browser_path_gets_the_shell_for_the_client_not_found(tmp_path, monkeypatch):
+    """The client's * route renders the not-found page, so the shell must load."""
+    index = tmp_path / "index.html"
+    index.write_text('<div id="root"></div>', encoding="utf-8")
+    monkeypatch.setattr(main, "_index", str(index))
+    r = client.get("/nope", headers=BROWSER)
+    assert r.status_code == 200 and 'id="root"' in r.text
+    assert client.head("/map", headers=BROWSER).status_code == 200
+
+
+def test_ui_directory_without_assets_does_not_crash(tmp_path):
+    """StaticFiles raised RuntimeError here, which stopped the API importing."""
+    target = FastAPI()
+    assert main._mount_ui_assets(target, str(tmp_path)) is False
+    assert not [r for r in target.routes if getattr(r, "name", "") == "assets"]
+
+
+def test_ui_directory_with_assets_is_mounted(tmp_path):
+    (tmp_path / "assets").mkdir()
+    target = FastAPI()
+    assert main._mount_ui_assets(target, str(tmp_path)) is True
+    assert [r for r in target.routes if getattr(r, "name", "") == "assets"]
 
 
 def test_admin_is_both_a_client_route_and_an_api_namespace():

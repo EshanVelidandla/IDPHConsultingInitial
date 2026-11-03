@@ -7,24 +7,18 @@ import { providerMetricLabels, providerMetrics, EXCLUDED_COUNTIES, HPSA_METRIC, 
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
 import { fetchProviderData, useHpsaSummary, useMeta } from '../data/useDataset';
-import { asRows, toRate } from '../data/analytics';
+import { asRows, rateRange, toRate, TIP_STYLE, INK_4 } from '../data/analytics';
+import { providerExportTarget, type SetExportTarget } from '../data/exportTarget';
 
 interface ProviderRow { County: string; [year: string]: number | string; }
-interface ViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
+interface ViewProps { shared: SharedState; setShared: (s: SharedState) => void; setExportTarget: SetExportTarget; }
 
 const D_HIGH = '#B23A2E';
 const D_MID  = '#C68B3C';
 const D_LOW  = '#4F7A4D';
 const INK_3 = '#6B675F';
-const INK_4 = '#9A968C';
 const RULE  = '#E6E3DC';
 const HUE = VIEW_HUES['/providers'].hue;
-
-const TIP_STYLE = {
-  fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
-  border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-  borderRadius: 0, background: '#FFFFFF',
-};
 
 const ALL_YEARS = Array.from({ length: 15 }, (_, i) => 2008 + i);
 
@@ -44,14 +38,14 @@ const HPSA_CATEGORY_LABEL: Record<number, string> = {
 };
 
 function metricColor(val: number, stateVal: number, inverted: boolean): string {
-  if (!val || !stateVal) return INK_4;
+  if (!stateVal) return INK_4;
   const r = inverted ? stateVal / val : val / stateVal;
   if (r >= 1.2) return D_LOW;
   if (r <= 0.8) return D_HIGH;
   return D_MID;
 }
 
-const ProvidersView = ({ shared, setShared }: ViewProps) => {
+const ProvidersView = ({ shared, setShared, setExportTarget }: ViewProps) => {
   const { selectedYear } = shared;
   const [metric, setMetric] = useState('primary_care_physicians_per_100k');
   const [providerData, setProviderData] = useState<ProviderRow[]>([]);
@@ -82,6 +76,14 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
     return () => { live = false; };
   }, [metric]);
 
+  // While loading or after a failure the rows belong to the previous metric,
+  // so there is nothing correct to offer.
+  useEffect(() => {
+    const ready = !loading && !error && providerData.length > 0;
+    setExportTarget(ready ? providerExportTarget(metric, selectedYear, providerData) : null);
+    return () => setExportTarget(null);
+  }, [metric, selectedYear, providerData, loading, error, setExportTarget]);
+
   const isHpsaMetric = isHpsa(metric);
   const yearStr = selectedYear.toString();
   const { meta } = useMeta();
@@ -106,22 +108,20 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
   );
 
   const stateRow = useMemo(() => providerData.find(d => d.County === 'ILLINOIS'), [providerData]);
-  const stateVal = useMemo(() => Number(stateRow?.[yearStr]) || 0, [stateRow, yearStr]);
+  const stateVal = useMemo(() => toRate(stateRow as never, yearStr) ?? 0, [stateRow, yearStr]);
 
   // Statewide trend with county band
   const trend = useMemo(() => {
     if (!stateRow) return [];
     return ALL_YEARS.map(y => {
       const yr = y.toString();
-      const vals = providerData
-        .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
-        .map(d => Number(d[yr]))
-        .filter(v => v > 0);
+      // A county with no providers sets the bottom of the band.
+      const range = rateRange(providerData, yr, EXCLUDED_COUNTIES);
       return {
         year: yr,
-        state: Number(stateRow[yr]) || null,
-        low: vals.length ? Math.min(...vals) : null,
-        high: vals.length ? Math.max(...vals) : null,
+        state: toRate(stateRow as never, yr),
+        low: range?.min ?? null,
+        high: range?.max ?? null,
       };
     });
   }, [stateRow, providerData]);
@@ -451,7 +451,7 @@ const ProvidersView = ({ shared, setShared }: ViewProps) => {
                                   {d.hpsa === 1 ? 'Whole' : 'Partial'}
                                 </span>
                               ) : (
-                                <span style={{ color: 'var(--ink-5)', fontSize: 10 }}>n/a</span>
+                                <span style={{ color: 'var(--ink-4)', fontSize: 10 }}>n/a</span>
                               )}
                             </td>
                           )}

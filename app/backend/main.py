@@ -1,9 +1,13 @@
+import codecs
+import csv
 import io
 import json
 import logging
+import math
 import os
 import re
 import uuid
+from collections import Counter
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -12,10 +16,12 @@ import portalocker
 from fastapi import FastAPI, Depends, HTTPException, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
+from starlette.routing import Match
 
 from auth import load_users, update_users, hash_password
 import storage
@@ -42,8 +48,18 @@ VALID_PROVIDER_METRICS = frozenset([
 ])
 
 UPLOAD_MAX_BYTES = 100 * 1024 * 1024  # 100 MB
+UPLOAD_MAX_PROBLEMS = 5  # shown in a refused upload's 400 detail
 
-# ── County allowlist (loaded from GeoJSON at startup) ─────────
+# The years every published rate table holds, and so the range the UI offers.
+# A new release year means updating this one constant.
+EXPECTED_YEARS = range(2008, 2023)
+
+# Copied from app/pipeline/deaths_pipeline.py, which refuses to write tables
+# outside this band. An all-cause crude rate beyond it means a wrong denominator.
+ALL_CAUSE_RATE_MIN = 100.0
+ALL_CAUSE_RATE_MAX = 3_000.0
+
+# ── County allowlist (loaded from population at startup) ──────
 
 def _load_county_names() -> dict:
     """
@@ -53,17 +69,18 @@ def _load_county_names() -> dict:
     their .title() form, so "DUPAGE".title() gave "Dupage" and the real data
     name "DuPage" was rejected with a 422. Ten counties failed that way,
     including DuPage, McHenry, McLean, DeKalb, LaSalle, Chicago and
-    Suburban Cook. Building from the death rate table instead means the
+    Suburban Cook. Building from the population table instead means the
     allowlist is exactly the set of names the rest of the app uses, and
     lookups are case-insensitive so the UI and the data cannot drift apart.
+    It used to read the first rate table, so replacing that table by upload
+    changed the valid counties at the next start. Population is not uploadable.
     """
     names: set[str] = set()
-    tables = os.path.join(os.path.dirname(__file__), "static", "death_rate_tables")
+    population = os.path.join(os.path.dirname(__file__), "static", "population_by_county_year.csv")
     try:
-        any_table = next(f for f in sorted(os.listdir(tables)) if f.endswith(".csv"))
-        names.update(pd.read_csv(os.path.join(tables, any_table), usecols=["County"])["County"])
+        names.update(pd.read_csv(population, usecols=["County"])["County"])
     except Exception as e:
-        logger.warning("Could not load county names from the rate tables: %s", e)
+        logger.warning("Could not load county names from the population table: %s", e)
 
     geo_path = os.path.join(os.path.dirname(__file__), "static", "illinois-counties.geojson")
     try:
@@ -75,7 +92,7 @@ def _load_county_names() -> dict:
 
     canonical: dict[str, str] = {}
     for name in names:
-        # A name from the rate tables wins over the GeoJSON's uppercase form.
+        # A name from the population table wins over the GeoJSON's uppercase form.
         key = name.strip().lower()
         if key not in canonical or not name.isupper():
             canonical[key] = name.strip()
@@ -98,7 +115,7 @@ def _canonical_county(value: str) -> str:
 
 # ── Audit log (append-only JSONL) ─────────────────────────────
 
-AUDIT_FILE = os.path.join(os.path.dirname(__file__), "var", "audit.jsonl")
+AUDIT_FILE = os.path.join(storage.DATA_DIR, "audit.jsonl")
 
 # ── App setup ─────────────────────────────────────────────────
 
@@ -147,7 +164,6 @@ os.makedirs(provider_dir, exist_ok=True)
 
 # ── Auth (bypassed: every request is treated as the built-in admin) ──
 
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _PASS_RE = re.compile(r'^(?=.*[0-9])(?=.*[^a-zA-Z0-9]).{8,}$')
 
 _FAKE_USER = {"id": "1", "username": "admin", "name": "IDPH Admin", "role": "admin", "token_version": 0}
@@ -199,7 +215,66 @@ def _read_table(path: str) -> pd.DataFrame:
     return df
 
 
-DATASET_BACKUP_DIR = os.path.join(os.path.dirname(__file__), "var", "dataset_backups")
+DATASET_BACKUP_DIR = os.path.join(storage.DATA_DIR, "dataset_backups")
+DATASET_OVERLAY_DIR = os.path.join(storage.DATA_DIR, "datasets")
+DATASET_SUFFIX = "_death_rates_by_county_year.csv"
+
+
+def _dataset_path(cause: str) -> Optional[str]:
+    """
+    Where a cause's table is served from, or None if it has none.
+
+    The committed tables in static/ are never written at runtime. An upload
+    goes to var/datasets/ and shadows the committed file, and a delete leaves a
+    <cause>.deleted tombstone that hides both. The caller validates cause.
+    """
+    if os.path.exists(os.path.join(DATASET_OVERLAY_DIR, f"{cause}.deleted")):
+        return None
+    for folder in (DATASET_OVERLAY_DIR, death_rates_dir):
+        path = os.path.join(folder, f"{cause}{DATASET_SUFFIX}")
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def _effective_datasets() -> dict[str, str]:
+    """Every cause with a table being served, mapped to its path, sorted by cause."""
+    names = set(os.listdir(death_rates_dir))
+    if os.path.isdir(DATASET_OVERLAY_DIR):
+        names.update(os.listdir(DATASET_OVERLAY_DIR))
+    causes = sorted(n.removesuffix(DATASET_SUFFIX) for n in names if n.endswith(DATASET_SUFFIX))
+    paths = {cause: _dataset_path(cause) for cause in causes}
+    return {cause: path for cause, path in paths.items() if path}
+
+
+DATASET_BACKUP_KEEP = 10  # newest backups kept per cause, plus the oldest
+
+# Group 1 is the time stamp. The microseconds and the short uuid are absent from
+# names written before retention was added, and those still have to sort.
+_BACKUP_STAMP = re.compile(r"\.(\d{8}T\d{6}(?:\d{6})?)Z(?:\.[0-9a-f]{8})?\.csv$")
+
+
+def _prune_dataset_backups(table: str) -> None:
+    """
+    Keep the newest DATASET_BACKUP_KEEP backups of one table, plus the oldest.
+
+    The oldest is the closest thing to the pipeline's original output, so it
+    outlives the limit. Order comes from the stamp in the name, not the mtime,
+    which a restore or a volume copy can change. A name that does not parse is
+    left alone, and a failed removal only logs, because the admin's write has
+    already been made safe by the new backup.
+    """
+    stamped = []
+    for fname in os.listdir(DATASET_BACKUP_DIR):
+        match = _BACKUP_STAMP.search(fname)
+        if match and fname[:match.start()] == table:
+            stamped.append((match.group(1), fname))
+    stamped.sort()  # a stamp without microseconds sorts first within its second
+    for _, fname in stamped[1:-DATASET_BACKUP_KEEP]:
+        try:
+            os.remove(os.path.join(DATASET_BACKUP_DIR, fname))
+        except OSError as e:
+            logger.warning("Could not prune backup %s: %s", fname, e)
 
 
 def _backup_dataset(path: str) -> Optional[str]:
@@ -209,14 +284,20 @@ def _backup_dataset(path: str) -> Optional[str]:
     Uploads used to replace the committed CSV in place with no way back, so a
     bad file meant re-running the pipeline to recover. Backups live under var/
     so they are never served and never committed.
+
+    Names used to have one-second resolution and opened with "wb", so two writes
+    in the same second kept only the first upload and lost the version before
+    it. "xb" means a backup can never replace another one.
     """
     if not os.path.exists(path):
         return None
     os.makedirs(DATASET_BACKUP_DIR, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    name = f"{os.path.basename(path).removesuffix('.csv')}.{stamp}.csv"
-    with open(path, "rb") as src, open(os.path.join(DATASET_BACKUP_DIR, name), "wb") as dst:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    table = os.path.basename(path).removesuffix(".csv")
+    name = f"{table}.{stamp}.{uuid.uuid4().hex[:8]}.csv"
+    with open(path, "rb") as src, open(os.path.join(DATASET_BACKUP_DIR, name), "xb") as dst:
         dst.write(src.read())
+    _prune_dataset_backups(table)
     return name
 
 
@@ -229,6 +310,100 @@ def _validate_cause(cause: str) -> str:
     if cause not in VALID_CAUSES:
         raise HTTPException(status_code=400, detail=f"Unknown cause: {cause}")
     return cause
+
+
+_RATE_CELL_RE = re.compile(r"[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?")
+
+
+def _name_list(names: list[str], limit: int = 5) -> str:
+    """Up to `limit` names for an error message, cut short so a bad file cannot flood it."""
+    shown = ", ".join(n[:40] for n in names[:limit])
+    return shown + (f" and {len(names) - limit} more" if len(names) > limit else "")
+
+
+def validate_rate_csv(contents: bytes, cause: str) -> list[str]:
+    """
+    Every reason this upload cannot be a rate table. Empty means it can.
+
+    Only a County column used to be required, so a two-line file could replace a
+    published table. This reads raw strings with csv, not pandas, because pandas
+    would pass "NA" and "null" as empty, "inf" as a number, and rename a
+    duplicate year column instead of showing it.
+    """
+    try:
+        text = contents.decode("utf-8-sig")
+        rows = [row for row in csv.reader(io.StringIO(text, newline="")) if row]
+    except UnicodeDecodeError:
+        return ["The file is not UTF-8 text"]
+    except csv.Error as e:
+        return [f"Invalid CSV: {e}"]
+    if not rows:
+        return ["The file is empty"]
+
+    years = [str(y) for y in EXPECTED_YEARS]
+    header, body = rows[0], rows[1:]
+    if header != ["County", *years]:
+        return [
+            f"Columns must be exactly County, then {years[0]} to {years[-1]} in order. "
+            f"Found: {', '.join(header)[:80]}"
+        ]
+
+    problems: list[str] = []
+    has_value = False
+    for row in body:
+        county = row[0]
+        if len(row) != len(header):
+            problems.append(f"{county[:40]}: {len(row)} columns, expected {len(header)}")
+            continue
+        for year, cell in zip(years, row[1:]):
+            if cell == "":
+                continue
+            where = f"{county[:40]} {year}: {cell[:40]!r}"
+            value = float(cell) if _RATE_CELL_RE.fullmatch(cell) else math.nan
+            if not math.isfinite(value):
+                problems.append(f"{where} is not a number")
+            elif value < 0:
+                problems.append(f"{where} is negative")
+            elif cause == "Total_Deaths" and not ALL_CAUSE_RATE_MIN <= value <= ALL_CAUSE_RATE_MAX:
+                problems.append(
+                    f"{where} is outside the all-cause band of "
+                    f"{ALL_CAUSE_RATE_MIN:.0f} to {ALL_CAUSE_RATE_MAX:.0f}"
+                )
+            else:
+                has_value = True
+
+    seen = Counter(row[0] for row in body)
+    missing = sorted(VALID_COUNTIES - seen.keys())
+    if missing:
+        problems.append(f"Missing {len(missing)} of {len(VALID_COUNTIES)} reporting areas: {_name_list(missing)}")
+    unknown = sorted(seen.keys() - VALID_COUNTIES)
+    if unknown:
+        problems.append(f"Not a reporting area, spelling must match exactly: {_name_list(unknown)}")
+    repeated = sorted(c for c, n in seen.items() if n > 1)
+    if repeated:
+        problems.append(f"Listed more than once: {_name_list(repeated)}")
+    if not problems and not has_value:
+        problems.append("The table has no values, every cell is empty")
+    return problems
+
+
+def _write_atomic(path: str, contents: bytes) -> None:
+    """
+    Swap a file's contents in one step, so a reader sees the old or the new.
+
+    The temp file sits beside the target because os.replace must stay on one
+    volume, and does not end in .csv so no table listing can pick it up.
+    """
+    tmp = os.path.join(os.path.dirname(path), f".upload-{uuid.uuid4().hex}.tmp")
+    try:
+        with open(tmp, "xb") as f:
+            f.write(contents)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
 
 
 # ── Pydantic models ───────────────────────────────────────────
@@ -299,20 +474,12 @@ class AnnotationUpdate(BaseModel):
 class ThresholdUpsert(BaseModel):
     cause: str
     rate: float
-    notify_email: Optional[str] = None
 
     @field_validator("rate")
     @classmethod
     def positive_rate(cls, v: float) -> float:
         if v <= 0:
             raise ValueError("rate must be positive")
-        return v
-
-    @field_validator("notify_email")
-    @classmethod
-    def valid_email(cls, v: Optional[str]) -> Optional[str]:
-        if v and not _EMAIL_RE.match(v):
-            raise ValueError("Invalid email address")
         return v
 
 
@@ -326,14 +493,24 @@ class PresetCreate(BaseModel):
     @field_validator("year")
     @classmethod
     def valid_year(cls, v: int) -> int:
-        if not (2000 <= v <= 2100):
+        if v not in EXPECTED_YEARS:
             raise ValueError("Invalid year")
         return v
 
     @field_validator("name")
     @classmethod
     def non_empty_name(cls, v: str) -> str:
-        return v.strip()[:100]
+        v = v.strip()[:100]
+        if not v:
+            raise ValueError("Name is required")
+        return v
+
+    @field_validator("district")
+    @classmethod
+    def valid_district(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and not (1 <= v <= 9):
+            raise ValueError("Invalid district")
+        return v
 
 
 class UserCreate(BaseModel):
@@ -404,8 +581,8 @@ def get_geojson(user=Depends(get_current_user)):
 @app.get("/death_rates")
 def get_death_rates(cause: str, user=Depends(get_current_user)):
     _validate_cause(cause)
-    file_path = os.path.join(death_rates_dir, f"{cause}_death_rates_by_county_year.csv")
-    if not os.path.exists(file_path):
+    file_path = _dataset_path(cause)
+    if not file_path:
         raise HTTPException(status_code=404, detail=f"Data not found for cause: {cause}")
     try:
         df = _read_table(file_path)
@@ -440,32 +617,17 @@ def get_meta(user=Depends(get_current_user)):
     Everything the UI needs to avoid hardcoding years, counties or caveats.
 
     The year range used to be fetched but ignored: five views hardcoded
-    2009-2022 sliders while the data starts at 2008.
+    2009-2022 sliders while the data starts at 2008. It also used to be read
+    from the first rate table, so one bad upload moved it for every view.
+    Uploads are now pinned to EXPECTED_YEARS, so that is the range.
     """
-    year_min, year_max = None, None
-    for fname in sorted(os.listdir(death_rates_dir)):
-        if not fname.endswith(".csv"):
-            continue
-        try:
-            df = _read_table(os.path.join(death_rates_dir, fname))
-            year_cols = [int(c) for c in df.columns if re.fullmatch(r"\d{4}", c)]
-            if year_cols:
-                year_min, year_max = min(year_cols), max(year_cols)
-                break
-        except Exception:
-            continue
-
-    causes = sorted(
-        f.removesuffix("_death_rates_by_county_year.csv")
-        for f in os.listdir(death_rates_dir)
-        if f.endswith("_death_rates_by_county_year.csv")
-    )
+    datasets = _effective_datasets()
 
     return {
-        "year_min": year_min or 2008,
-        "year_max": year_max or 2022,
+        "year_min": min(EXPECTED_YEARS),
+        "year_max": max(EXPECTED_YEARS),
         "counties": sorted(VALID_COUNTIES),
-        "available_causes": causes,
+        "available_causes": list(datasets),
         # The pipeline computes deaths / population x 100,000. The IDPH county
         # reports publish totals with no age breakdown, so age standardisation
         # is not possible from this source and the UI must not claim it.
@@ -474,6 +636,16 @@ def get_meta(user=Depends(get_current_user)):
         "rate_note": (
             "Crude rates, not age-adjusted. Counties with older populations "
             "will show higher rates partly because of age."
+        ),
+        # Measured from population_by_county_year.csv. test_population_note.py
+        # recomputes these, so rebuilding the denominators fails until this is
+        # rewritten.
+        "population_note": (
+            "Population estimates change Census series at 2020: vintage 2019 "
+            "through 2019, vintage 2023 from 2020. At that join 25 of 102 "
+            "counties move more than 3% (18 down, 7 up; Cook +2.20%, Illinois "
+            "+0.94%), so rate changes across 2019-2020 partly reflect the "
+            "population series, not only deaths."
         ),
         "provider_metrics": _provider_provenance(),
     }
@@ -528,8 +700,8 @@ def get_provider_summary(user=Depends(get_current_user)):
 @app.get("/export/csv")
 def export_csv(cause: str, request: Request, user=Depends(get_current_user)):
     _validate_cause(cause)
-    file_path = os.path.join(death_rates_dir, f"{cause}_death_rates_by_county_year.csv")
-    if not os.path.exists(file_path):
+    file_path = _dataset_path(cause)
+    if not file_path:
         raise HTTPException(status_code=404, detail="Dataset not found")
     _audit("export", f"datasets/{cause}", "CSV export", user, request)
     return FileResponse(
@@ -580,6 +752,8 @@ def update_annotation(
 ):
     if user.get("role") not in ("admin", "editor"):
         raise HTTPException(status_code=403, detail="Editor access required")
+    if body.cause is not None:
+        _validate_cause(body.cause)
 
     updated = {}
 
@@ -628,9 +802,14 @@ def delete_annotation(annotation_id: str, request: Request, user=Depends(get_cur
 
 # ── Thresholds ────────────────────────────────────────────────
 
+def _threshold_rows(data):
+    # Records saved before notifications were dropped may still hold notify_email.
+    return [{k: v for k, v in t.items() if k != "notify_email"} for t in data]
+
+
 @app.get("/thresholds")
 def list_thresholds(user=Depends(get_current_user)):
-    return storage.load("thresholds", [])
+    return _threshold_rows(storage.load("thresholds", []))
 
 
 @app.post("/thresholds")
@@ -642,18 +821,18 @@ def upsert_threshold(body: ThresholdUpsert, request: Request, user=Depends(requi
     def _upsert(data):
         existing = next((t for t in data if t["cause"] == body.cause), None)
         if existing:
-            existing.update(rate=body.rate, notify_email=body.notify_email, updated_at=now)
+            existing.pop("notify_email", None)
+            existing.update(rate=body.rate, updated_at=now)
         else:
             data.append({
                 "id": str(uuid.uuid4()),
                 "cause": body.cause,
                 "rate": body.rate,
-                "notify_email": body.notify_email,
                 "created_by": user["username"],
                 "created_at": now,
                 "updated_at": now,
             })
-        result["thresholds"] = list(data)
+        result["thresholds"] = _threshold_rows(data)
 
     storage.load_and_save("thresholds", _upsert)
     _audit("upsert", f"thresholds/{body.cause}", f"Set threshold {body.rate}", user, request)
@@ -735,17 +914,15 @@ def delete_preset(preset_id: str, request: Request, user=Depends(get_current_use
 @app.get("/admin/datasets")
 def list_datasets(user=Depends(require_admin)):
     files = []
-    for fname in os.listdir(death_rates_dir):
-        if not fname.endswith(".csv"):
-            continue
-        fpath = os.path.join(death_rates_dir, fname)
+    for cause, fpath in _effective_datasets().items():
         stat = os.stat(fpath)
-        cause = fname.replace("_death_rates_by_county_year.csv", "")
         files.append({
             "cause": cause,
-            "filename": fname,
+            "filename": os.path.basename(fpath),
             "size_kb": round(stat.st_size / 1024, 1),
-            "modified": datetime.fromtimestamp(stat.st_mtime).isoformat() + "Z",
+            "modified": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat().replace("+00:00", "Z"),
+            # An upload shadows the committed table, even after a new pipeline build.
+            "source": "uploaded" if os.path.dirname(fpath) == DATASET_OVERLAY_DIR else "committed",
         })
     return sorted(files, key=lambda x: x["cause"])
 
@@ -763,35 +940,50 @@ async def upload_dataset(
     contents = await file.read(UPLOAD_MAX_BYTES + 1)
     if len(contents) > UPLOAD_MAX_BYTES:
         raise HTTPException(status_code=413, detail=f"File exceeds {UPLOAD_MAX_BYTES // (1024*1024)} MB limit")
-    try:
-        df = pd.read_csv(io.BytesIO(contents))
-        if "County" not in df.columns:
-            raise HTTPException(status_code=400, detail="CSV must contain a 'County' column")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid CSV: {e}")
-    dest = os.path.join(death_rates_dir, f"{cause}_death_rates_by_county_year.csv")
-    backup = _backup_dataset(dest)
-    with open(dest, "wb") as f:
-        f.write(contents)
+    problems = validate_rate_csv(contents, cause)
+    if problems:
+        # A string, not a list: AdminPanel renders detail as it arrives.
+        extra = len(problems) - UPLOAD_MAX_PROBLEMS
+        raise HTTPException(
+            status_code=400,
+            detail="Upload refused, the current table is unchanged. "
+                   + "; ".join(problems[:UPLOAD_MAX_PROBLEMS])
+                   + (f"; and {extra} more" if extra > 0 else ""),
+        )
+    current = _dataset_path(cause)
+    backup = _backup_dataset(current) if current else None
+    os.makedirs(DATASET_OVERLAY_DIR, exist_ok=True)
+    dest = os.path.join(DATASET_OVERLAY_DIR, f"{cause}{DATASET_SUFFIX}")
+    # /export/csv serves this file as is, so an Excel BOM stops here.
+    _write_atomic(dest, contents.removeprefix(codecs.BOM_UTF8))
+    # Cleared only after the write, so a failed upload leaves the delete in force.
+    tombstone = os.path.join(DATASET_OVERLAY_DIR, f"{cause}.deleted")
+    if os.path.exists(tombstone):
+        os.remove(tombstone)
     _TABLE_CACHE.pop(dest, None)
     _audit("upload", f"datasets/{cause}",
            f"Uploaded {file.filename} ({len(contents)} bytes)"
            + (f", previous version kept as {backup}" if backup else ""),
            user, request)
-    return {"ok": True, "cause": cause, "rows": len(df), "backup": backup}
+    return {"ok": True, "cause": cause, "rows": len(VALID_COUNTIES), "backup": backup}
 
 
 @app.delete("/admin/datasets/{cause}")
 def delete_dataset(cause: str, request: Request, user=Depends(require_admin)):
     _validate_cause(cause)
-    fpath = os.path.join(death_rates_dir, f"{cause}_death_rates_by_county_year.csv")
-    if not os.path.exists(fpath):
+    fpath = _dataset_path(cause)
+    if not fpath:
         raise HTTPException(status_code=404, detail="Dataset not found")
     backup = _backup_dataset(fpath)
-    os.remove(fpath)
-    _TABLE_CACHE.pop(fpath, None)
+    # The tombstone goes first: it alone hides the table, and removing the
+    # overlay copy afterwards only tidies up.
+    os.makedirs(DATASET_OVERLAY_DIR, exist_ok=True)
+    with open(os.path.join(DATASET_OVERLAY_DIR, f"{cause}.deleted"), "w"):
+        pass
+    overlay = os.path.join(DATASET_OVERLAY_DIR, f"{cause}{DATASET_SUFFIX}")
+    if os.path.exists(overlay):
+        os.remove(overlay)
+    _TABLE_CACHE.pop(overlay, None)
     _audit("delete", f"datasets/{cause}",
            "Deleted dataset" + (f", kept as {backup}" if backup else ""), user, request)
     return {"ok": True, "backup": backup}
@@ -891,8 +1083,21 @@ def get_audit(limit: int = 100, offset: int = 0, user=Depends(require_admin)):
 _ui_dir = os.path.join(os.path.dirname(__file__), "ui")
 _index = os.path.join(_ui_dir, "index.html")
 
-if os.path.isdir(_ui_dir):
-    app.mount("/assets", StaticFiles(directory=os.path.join(_ui_dir, "assets")), name="assets")
+
+def _mount_ui_assets(target: FastAPI, ui_dir: str) -> bool:
+    """
+    Mount the built bundle if there is one. StaticFiles raises when its
+    directory is missing, so a ui/ without assets/ (an interrupted copy, say)
+    used to stop the whole API from importing.
+    """
+    assets_dir = os.path.join(ui_dir, "assets")
+    if not os.path.isdir(assets_dir):
+        return False
+    target.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+    return True
+
+
+_mount_ui_assets(app, _ui_dir)
 
 
 # The SPA's own routes, as declared in frontend/src/App.tsx. A page load or a
@@ -908,7 +1113,22 @@ _SPA_ROUTES = frozenset({
 _SPA_ROUTE_PREFIXES = ("county/",)
 
 
-@app.get("/{full_path:path}", include_in_schema=False)
+def _allowed_methods(scope) -> set:
+    """Methods of the real routes at this path, empty if the path is unknown."""
+    allowed = set()
+    for route in app.routes:
+        if isinstance(route, APIRoute) and route.matches(scope)[0] == Match.PARTIAL:
+            allowed |= route.methods
+    return allowed
+
+
+# Every method, because a GET-only catch-all made the router answer 405 for a
+# POST to a path that does not exist.
+@app.api_route(
+    "/{full_path:path}",
+    methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    include_in_schema=False,
+)
 async def spa_fallback(full_path: str, request: Request):
     """
     Serve the SPA for client-side routes, and refuse anything API-shaped.
@@ -918,7 +1138,21 @@ async def spa_fallback(full_path: str, request: Request):
     HTML and a 200, and quietly rendered empty panels instead of failing. An
     XHR asks for JSON, so it gets a JSON 404; a browser navigation asks for
     HTML, so it gets the app.
+
+    Only a read can be answered with the page. Any other method gets 404, or
+    405 where the path is real and only the method is wrong.
     """
+    if request.method != "GET":
+        allowed = _allowed_methods(request.scope)
+        if allowed:
+            raise HTTPException(
+                status_code=405,
+                detail="Method Not Allowed",
+                headers={"Allow": ", ".join(sorted(allowed))},
+            )
+    if request.method not in ("GET", "HEAD"):
+        raise HTTPException(status_code=404, detail=f"No such endpoint: /{full_path}")
+
     path = full_path.strip("/").lower()
     accept = request.headers.get("accept", "")
 

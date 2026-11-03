@@ -5,13 +5,13 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapView.css';
 import type { FeatureCollection, Feature } from 'geojson';
-import { causeLabels, causes, EXCLUDED_COUNTIES, IDPH_DISTRICTS, providerMetricLabels, providerMetrics, providerMetricShort, providerMetricInverted } from '../data/constants';
-import { asRows, PRIORITY_BANDS, bandOf, bandStyle, calcSlope, classifyCounty, toRate, trendBase } from '../data/analytics';
-import type { Row } from '../data/analytics';
+import { CANONICAL_COUNTY, causeLabels, causes, EXCLUDED_COUNTIES, IDPH_DISTRICTS, providerMetricLabels, providerMetrics, providerMetricShort, HPSA_METRIC } from '../data/constants';
+import { asRows, PRIORITY_BANDS, bandOf, bandStyle, calcSlope, classifyCounty, crossesPopulationSeam, stateRow, toRate, trendBase, rateMapOf, tileColor, INK_4, bivariateCell, imputedNote } from '../data/analytics';
+import type { Row, BivariateCell } from '../data/analytics';
 import * as A from '../data/analytics';
 import type { SharedState } from '../App';
 import YearScrub from './YearScrub';
-import { fetchAnnotations, fetchDeathRates, fetchGeoJson, fetchProviderData } from '../data/useDataset';
+import { fetchAnnotations, fetchDeathRates, fetchGeoJson, fetchProviderData, useMeta } from '../data/useDataset';
 
 interface Annotation {
   id: string;
@@ -35,13 +35,9 @@ const D_HIGH_TINT = A.D_HIGH_TINT;
 const D_LOW = A.D_LOW;
 const D_NULL_TINT = A.D_NULL_TINT;
 const INK = A.INK;
-const INK_4 = '#757168';
 const RULE = A.RULE;
-
-/** Fill for one county, from the same classifier the legend renders from. */
-function tileColor(rate: number, stateRate: number): string {
-  return bandStyle(bandOf(rate || null, stateRate || null)).fill;
-}
+const NODATA_BAND = bandStyle('nodata');
+const NODATA_SWATCH = { background: NODATA_BAND.fill, border: `1px dashed ${NODATA_BAND.line}` };
 
 // Bivariate 2×2: axis A = mortality (above/below state avg), axis B = access (above/below state avg)
 // High mort + low access → red; High mort + high access → amber; Low mort + low access → blue; Low mort + high access → green
@@ -50,19 +46,20 @@ const BV_HIGH_HIGH = '#D4A55A'; // high mortality, high access: a mortality prob
 const BV_LOW_LOW   = '#5A8BBF'; // low mortality, low access: an access shortage, but resilient
 const BV_LOW_HIGH  = '#5A9A68'; // low mortality, high access: best
 
+const BV_COLORS: Record<BivariateCell, string> = {
+  'high-low': BV_HIGH_LOW,
+  'high-high': BV_HIGH_HIGH,
+  'low-low': BV_LOW_LOW,
+  'low-high': BV_LOW_HIGH,
+  nodata: D_NULL_TINT,
+};
+
 function bivariateColor(
-  rate: number, stateRate: number,
-  provVal: number, stateProvVal: number,
-  inverted: boolean,
+  rate: number | null, stateRate: number | null,
+  provVal: number | null, stateProvVal: number | null,
+  categorical: boolean,
 ): string {
-  if (!rate || !stateRate || !provVal || !stateProvVal) return D_NULL_TINT;
-  const highMort = rate / stateRate > 1.0;
-  // For inverted metrics (HPSA), higher value = worse access
-  const goodAccess = inverted ? provVal / stateProvVal < 1.0 : provVal / stateProvVal > 1.0;
-  if (highMort && !goodAccess) return BV_HIGH_LOW;
-  if (highMort && goodAccess)  return BV_HIGH_HIGH;
-  if (!highMort && !goodAccess) return BV_LOW_LOW;
-  return BV_LOW_HIGH;
+  return BV_COLORS[bivariateCell(rate, stateRate, provVal, stateProvVal, categorical)];
 }
 
 function FitBounds({ geojson, causeSelected }: { geojson: FeatureCollection | null; causeSelected: boolean }) {
@@ -101,6 +98,7 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
   const navigate = useNavigate();
   const { selectedCause, selectedYear, selectedDistrict, searchTarget } = shared;
   const trendFrom = trendBase(shared.dataYearRange);
+  const { meta } = useMeta();
 
   const [countyData, setCountyData] = useState<DeathRate[]>([]);
   const [geoData, setGeoData] = useState<FeatureCollection | null>(null);
@@ -142,7 +140,9 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
   }, [providerOverlay]);
 
   useEffect(() => {
-    if (!selectedCause) return;
+    // Clearing the cause cancels any request in flight, so nothing else would
+    // clear `loading` and the overlay would keep blocking the map.
+    if (!selectedCause) { setLoading(false); return; }
     setLoading(true);
     // A slower earlier request must not land after a newer one and
     // overwrite it. Switching cause or metric quickly can otherwise leave
@@ -157,31 +157,25 @@ const MapView = ({ shared, setShared }: MapViewProps) => {
 
 const stateRate = useMemo(() => {
     const row = countyData.find(d => d.County === 'ILLINOIS');
-    return Number(row?.[selectedYear.toString()]) || 0;
+    return toRate(row as never, selectedYear) ?? 0;
   }, [countyData, selectedYear]);
 
   const stateProvVal = useMemo(() => {
     const row = providerData.find(d => d.County === 'ILLINOIS');
-    return Number(row?.[selectedYear.toString()]) || 0;
+    return toRate(row as never, selectedYear) ?? 0;
   }, [providerData, selectedYear]);
 
-  const providerMap = useMemo<Record<string, number>>(() => {
-    const m: Record<string, number> = {};
-    providerData.forEach(d => {
-      if (!EXCLUDED_COUNTIES.includes(d.County))
-        m[d.County.toLowerCase()] = Number(d[selectedYear.toString()]) || 0;
-    });
-    return m;
-  }, [providerData, selectedYear]);
+  // Both maps hold null for an unpublished cell and 0 for a real zero, so the
+  // fill, the border and the tooltip all read the same value.
+  const providerMap = useMemo(
+    () => rateMapOf(providerData, selectedYear, EXCLUDED_COUNTIES),
+    [providerData, selectedYear],
+  );
 
-  const rateMap = useMemo<Record<string, number>>(() => {
-    const m: Record<string, number> = {};
-    countyData.forEach(d => {
-      if (!EXCLUDED_COUNTIES.includes(d.County))
-        m[d.County.toLowerCase()] = Number(d[selectedYear.toString()]) || 0;
-    });
-    return m;
-  }, [countyData, selectedYear]);
+  const rateMap = useMemo(
+    () => rateMapOf(countyData, selectedYear, EXCLUDED_COUNTIES),
+    [countyData, selectedYear],
+  );
 
   const nameMap = useMemo<Record<string, string>>(() => {
     const m: Record<string, string> = {};
@@ -217,7 +211,7 @@ const stateRate = useMemo(() => {
 
   const priorityList = useMemo(() =>
     Array.from(priorityCounties)
-      .map(n => ({ name: nameMap[n] || n, rate: rateMap[n] || 0 }))
+      .map(n => ({ name: nameMap[n] || n, rate: rateMap[n] ?? 0 }))
       .sort((a, b) => b.rate - a.rate)
       .slice(0, 8),
     [priorityCounties, rateMap, nameMap]
@@ -226,11 +220,13 @@ const stateRate = useMemo(() => {
   const getStyle = useCallback((feature: Feature | undefined): L.PathOptions => {
     if (!feature) return {};
     const key = ((feature.properties?.COUNTY_NAM as string) || '').toLowerCase();
-    const rate = rateMap[key] || 0;
+    // One value for fill and border: 0 is a real rate, null is no data.
+    const rate = rateMap[key] ?? null;
+    const provVal = providerMap[key] ?? null;
     let fill = D_NULL_TINT;
     if (selectedCause) {
-      if (providerOverlay && providerMap[key] && stateProvVal) {
-        fill = bivariateColor(rate, stateRate, providerMap[key], stateProvVal, providerMetricInverted[providerOverlay] ?? false);
+      if (providerOverlay) {
+        fill = bivariateColor(rate, stateRate || null, provVal, stateProvVal || null, providerOverlay === HPSA_METRIC);
       } else {
         fill = tileColor(rate, stateRate);
       }
@@ -238,19 +234,26 @@ const stateRate = useMemo(() => {
     const isPriority = priorityCounties.has(key);
     const isDimmed = districtSet != null && !districtSet.has(key);
     // Border pattern repeats the band, so high/low is readable without colour.
-    const band = selectedCause && !providerOverlay
-      ? bandStyle(bandOf(rateMap[key] ?? null, stateRate || null))
-      : null;
+    // A county filled as no-data always gets the no-data outline, with or
+    // without an overlay, because its tint alone looks like near state.
+    const band = !selectedCause
+      ? null
+      : fill === D_NULL_TINT
+        ? bandStyle('nodata')
+        : providerOverlay
+          ? null
+          : bandStyle(bandOf(rate, stateRate || null));
     const name = (feature.properties?.COUNTY_NAM as string) || '';
     const isSearchHit = searchTarget.length > 1
       && name.toLowerCase().startsWith(searchTarget.toLowerCase());
     if (isSearchHit) {
-      return { fillColor: fill, fillOpacity: 1, color: INK, weight: 2.5 };
+      // dashArray is explicit: setStyle merges, so a priority dash would stay.
+      return { fillColor: fill, fillOpacity: 1, color: INK, weight: 2.5, dashArray: undefined };
     }
     return {
       fillColor: fill,
       fillOpacity: isDimmed ? 0.25 : 0.92,
-      color: isPriority ? D_HIGH : band ? band.border : '#C4C0B6',
+      color: isPriority ? D_HIGH : band ? band.line ?? band.border : '#C4C0B6',
       weight: isPriority ? 1.8 : band && band.dash ? 1.2 : 0.6,
       dashArray: isPriority ? '5 3' : band?.dash,
     };
@@ -265,21 +268,28 @@ const stateRate = useMemo(() => {
     const safeTitle = escHtml(titleName);
     const row = countyData.find(d => d.County.toLowerCase() === key) as unknown as Row | undefined;
     const rateVal = toRate(row, selectedYear);
-    const rate = rateVal ?? 0;
-    const ratio = rateVal !== null && stateRate ? rateVal / stateRate : 0;
+    const ratio = rateVal !== null && stateRate ? rateVal / stateRate : null;
     const isPriority = priorityCounties.has(key);
     // Same trend window as every other view. The tooltip used to read
     // "Slope 2015-2012" for early years because the window ran backwards.
     const slope = calcSlope(row, Math.min(trendFrom, selectedYear), selectedYear);
-    const provVal = providerMap[key] || 0;
-    const provRatio = provVal && stateProvVal ? provVal / stateProvVal : 0;
+    const provVal = providerMap[key] ?? null;
+    const isHpsa = providerOverlay === HPSA_METRIC;
+    const provRatio = !isHpsa && provVal !== null && stateProvVal ? provVal / stateProvVal : null;
+    const provText = provVal === null
+      ? 'n/a'
+      : isHpsa
+        ? (meta.provider_metrics[HPSA_METRIC]?.categories?.[String(provVal)] ?? String(provVal))
+        : provVal.toFixed(1);
+    const provColor = provRatio === null ? INK : provRatio > 1.1 ? D_LOW : provRatio < 0.9 ? D_HIGH : INK;
+    const provNote = providerOverlay ? imputedNote(meta.provider_metrics, providerOverlay, selectedYear) : null;
 
-    const pctStr = ratio > 0
+    const pctStr = ratio !== null
       ? `${(ratio - 1) * 100 > 0 ? '+' : ''}${((ratio - 1) * 100).toFixed(0)}%`
       : 'n/a';
     const slopeStr = slope === null ? 'n/a' : `${slope > 0 ? '+' : ''}${slope.toFixed(2)}/yr`;
     const slopeColor = slope === null ? INK_4 : slope > 0 ? D_HIGH : slope < 0 ? D_LOW : INK_4;
-    const ratioColor = ratio > 1.2 ? D_HIGH : ratio < 0.8 ? D_LOW : INK;
+    const ratioColor = ratio === null ? INK : ratio > 1.2 ? D_HIGH : ratio < 0.8 ? D_LOW : INK;
 
     const tooltipHtml = `
       <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;min-width:186px;${isPriority ? `border-top:3px solid ${D_HIGH};` : ''}">
@@ -287,7 +297,7 @@ const stateRate = useMemo(() => {
         ${selectedCause ? `
           <div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:4px;">
             <span style="color:${INK_4}">Rate&nbsp;/&nbsp;100k</span>
-            <span style="color:${INK}">${rate > 0 ? rate.toFixed(1) : 'n/a'}</span>
+            <span style="color:${INK}">${rateVal !== null ? rateVal.toFixed(1) : 'n/a'}</span>
           </div>
           <div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:4px;">
             <span style="color:${INK_4}">vs.&nbsp;state&nbsp;avg</span>
@@ -298,33 +308,48 @@ const stateRate = useMemo(() => {
             <span style="color:${slopeColor}">${slopeStr}</span>
           </div>
           ${isPriority ? `<div style="margin-top:6px;padding:3px 7px;background:${D_HIGH_TINT};font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:${D_HIGH};">Priority county</div>` : ''}
-          ${providerOverlay && provVal > 0 ? `
+          ${providerOverlay ? `
           <div style="display:flex;justify-content:space-between;gap:16px;margin-top:6px;padding-top:6px;border-top:1px solid ${RULE};">
             <span style="color:${INK_4}">${escHtml(providerMetricShort[providerOverlay] ?? providerOverlay)}</span>
-            <span style="color:${provRatio > 1.1 ? D_LOW : provRatio < 0.9 ? D_HIGH : INK}">${provVal.toFixed(1)}</span>
-          </div>` : ''}
+            <span style="color:${provColor}">${escHtml(provText)}</span>
+          </div>
+          ${provNote ? `<div style="margin-top:2px;font-size:10px;color:${INK_4};">${escHtml(provNote)}</div>` : ''}` : ''}
         ` : `<div style="color:${INK_4}">Select a cause to view data</div>`}
         <div style="margin-top:6px;font-size:9px;letter-spacing:0.06em;text-transform:uppercase;color:${INK_4};">Click to drill in &rarr;</div>
       </div>
     `;
 
     return tooltipHtml;
-  }, [rateMap, stateRate, nameMap, priorityCounties, selectedCause, selectedYear, trendFrom, countyData, providerMap, stateProvVal, providerOverlay]);
+  }, [rateMap, stateRate, nameMap, priorityCounties, selectedCause, selectedYear, trendFrom, countyData, providerMap, stateProvVal, providerOverlay, meta]);
 
-  // Leaflet binds these handlers once, when the layer is created. The GeoJSON
-  // layer is rebuilt the moment a cause is picked, which is before that cause's
-  // rates have arrived, so a handler that closed over getStyle captured an
-  // empty rateMap and repainted the county grey on mouseout. Refs keep the
-  // handlers pointed at the current functions instead of the ones that existed
-  // at creation time.
+  // Leaflet binds these handlers once, when the layer is created, and the layer
+  // now lives for the whole visit: new fills arrive through setStyle, because
+  // rebuilding it on a cause or year change destroyed the focused county. A
+  // handler that closed over getStyle would repaint from the first, empty
+  // rateMap on mouseout. Refs keep the handlers pointed at the current
+  // functions instead of the ones that existed at creation time.
   const styleRef = useRef(getStyle);
   const tooltipRef = useRef(buildTooltip);
   useEffect(() => { styleRef.current = getStyle; }, [getStyle]);
   useEffect(() => { tooltipRef.current = buildTooltip; }, [buildTooltip]);
 
+  // The layer outlives a data change, so a tooltip open at that moment would
+  // keep the old year's numbers, and the restyle would drop the focused look.
+  const layerRef = useRef<L.GeoJSON | null>(null);
+  useEffect(() => {
+    layerRef.current?.eachLayer(l => {
+      const path = l as L.Path;
+      if (path.isTooltipOpen()) path.getTooltip()?.update();
+      if (path.getElement() === document.activeElement) path.setStyle({ weight: 2.5, fillOpacity: 1 });
+    });
+  }, [getStyle, buildTooltip]);
+
   const onEachFeature = useCallback((feature: Feature, layer: L.Layer) => {
     const key = ((feature.properties?.COUNTY_NAM as string) || '').toLowerCase();
-    const titleName = nameMap[key] || (feature.properties?.COUNTY_NAM as string) || '';
+    // From the fixed list, not the loaded rates: these handlers keep this value
+    // for the life of the layer, and the layer can be created before any rates
+    // arrive, which sent every link to /county/SANGAMON and an empty profile.
+    const titleName = CANONICAL_COUNTY[key] || (feature.properties?.COUNTY_NAM as string) || '';
     const path = layer as L.Path;
 
     // A function, not a string: Leaflet calls it each time the tooltip opens,
@@ -337,7 +362,8 @@ const stateRate = useMemo(() => {
 
     path.on('mouseover', () => {
       path.setStyle({ weight: 2.5, fillOpacity: 1 });
-      path.bringToFront();
+      // bringToFront moves the element in the DOM, which would drop focus.
+      if (document.activeElement !== path.getElement()) path.bringToFront();
     });
     path.on('mouseout', () => {
       path.setStyle(styleRef.current(feature));
@@ -364,10 +390,11 @@ const stateRate = useMemo(() => {
         }
       });
       // Focus should look like hover, and leaving should restore the band
-      // styling rather than whatever the hover handler last set.
+      // styling rather than whatever the hover handler last set. No bringToFront
+      // here: it is parent.appendChild, and moving the focused element in the
+      // DOM drops focus to <body> and reshuffles the tab order.
       el.addEventListener('focus', () => {
         path.setStyle({ weight: 2.5, fillOpacity: 1 });
-        path.bringToFront();
         path.openTooltip();
       });
       el.addEventListener('blur', () => {
@@ -375,7 +402,7 @@ const stateRate = useMemo(() => {
         path.closeTooltip();
       });
     });
-  }, [nameMap, navigate]);
+  }, [navigate]);
 
   return (
     <div className="view fade-in" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -471,7 +498,7 @@ const stateRate = useMemo(() => {
           >
             {geoData && (
               <LeafletGeoJSON
-                key={`${selectedCause}-${selectedYear}-${providerOverlay}`}
+                ref={layerRef}
                 data={geoData}
                 style={getStyle as (feature?: Feature) => L.PathOptions}
                 onEachFeature={onEachFeature}
@@ -491,14 +518,14 @@ const stateRate = useMemo(() => {
             {providerOverlay ? (
               <>
                 {[
-                  { c: BV_HIGH_LOW,  label: 'High mort · Low access',  sub: 'Priority' },
-                  { c: BV_HIGH_HIGH, label: 'High mort · High access', sub: 'Mortality focus' },
-                  { c: BV_LOW_LOW,   label: 'Low mort · Low access',   sub: 'Resilient' },
-                  { c: BV_LOW_HIGH,  label: 'Low mort · High access',  sub: 'Well-served' },
+                  { c: BV_HIGH_LOW,  label: `High mort · ${providerOverlay === HPSA_METRIC ? 'Designated' : 'Low access'}`,      sub: 'Priority' },
+                  { c: BV_HIGH_HIGH, label: `High mort · ${providerOverlay === HPSA_METRIC ? 'Not designated' : 'High access'}`, sub: 'Mortality focus' },
+                  { c: BV_LOW_LOW,   label: `Low mort · ${providerOverlay === HPSA_METRIC ? 'Designated' : 'Low access'}`,       sub: 'Resilient' },
+                  { c: BV_LOW_HIGH,  label: `Low mort · ${providerOverlay === HPSA_METRIC ? 'Not designated' : 'High access'}`,  sub: 'Well-served' },
                   { c: D_NULL_TINT,  label: 'No data', sub: '' },
                 ].map(({ c, label, sub }) => (
                   <div key={label} className="legend-row">
-                    <span className="legend-swatch" style={{ background: c, borderLeft: `3px solid ${c}` }} />
+                    <span className="legend-swatch" style={c === D_NULL_TINT ? NODATA_SWATCH : { background: c, borderLeft: `3px solid ${c}` }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'baseline' }}>
                       <span style={{ color: 'var(--ink)', fontSize: 11.5 }}>{label}</span>
                       {sub && <span className="num" style={{ fontSize: 10, color: 'var(--ink-4)' }}>{sub}</span>}
@@ -506,13 +533,16 @@ const stateRate = useMemo(() => {
                   </div>
                 ))}
                 <p className="caption" style={{ marginTop: 8, color: 'var(--ink-4)' }}>
-                  Relative to statewide average for both mortality and {providerMetricShort[providerOverlay]}.
+                  {providerOverlay === HPSA_METRIC
+                    ? 'Mortality relative to the statewide rate. HPSA reads designated or not designated, with no statewide comparison.'
+                    : `Relative to statewide average for both mortality and ${providerMetricShort[providerOverlay]}. Zero providers counts as low access.`}
+                  {imputedNote(meta.provider_metrics, providerOverlay, selectedYear) && ` ${providerMetricShort[providerOverlay]}: ${imputedNote(meta.provider_metrics, providerOverlay, selectedYear)}.`}
                 </p>
               </>
             ) : (
-              PRIORITY_BANDS.map(({ fill: c, border, label, sub }) => (
+              PRIORITY_BANDS.map(({ band, fill: c, border, label, sub }) => (
                 <div key={label} className="legend-row">
-                  <span className="legend-swatch" style={{ background: c, borderLeft: `3px solid ${border}` }} />
+                  <span className="legend-swatch" style={band === 'nodata' ? NODATA_SWATCH : { background: c, borderLeft: `3px solid ${border}` }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'baseline' }}>
                     <span style={{ color: 'var(--ink)', fontSize: 12.5 }}>{label}</span>
                     <span className="num" style={{ fontSize: 10, color: 'var(--ink-4)' }}>{sub}</span>
@@ -529,8 +559,11 @@ const stateRate = useMemo(() => {
               <span className="caption">High rate + worsening trend</span>
             </div>
             <p className="caption" style={{ color: 'var(--ink-4)' }}>
-              Counties where rate exceeds state average by ≥ 20% and 2015–{selectedYear} slope is positive.
+              Counties where rate exceeds state average by more than {Math.round((A.HIGH_RATIO - 1) * 100)}% and {Math.min(trendFrom, selectedYear)}–{selectedYear} slope is positive.
             </p>
+            {selectedCause && countyData.length > 0 && crossesPopulationSeam(trendFrom, selectedYear, stateRow(countyData as unknown as Row[])) && (
+              <p className="caption" style={{ marginTop: 8 }}>{meta.population_note}</p>
+            )}
           </div>
 
           <div>

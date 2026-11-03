@@ -4,15 +4,16 @@ import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Cell,
 } from 'recharts';
-import { causeLabels, causes, EXCLUDED_COUNTIES, providerMetricLabels, providerMetrics, providerMetricInverted } from '../data/constants';
+import { causeLabels, causes, continuousProviderMetrics, EXCLUDED_COUNTIES, providerMetricLabels } from '../data/constants';
 import type { SharedState } from '../App';
-import { asRows, D_NULL, HIGH_RATIO, calcSlope, toRate, trendBase } from '../data/analytics';
+import { asRows, D_NULL, HIGH_RATIO, calcSlope, crossesPopulationSeam, stateRow, toRate, trendBase, QUADRANT_DESC, quadrantOf, INK_4 } from '../data/analytics';
+import type { Row, QuadrantKey } from '../data/analytics';
 import YearScrub from './YearScrub';
-import { fetchDeathRates, fetchProviderData } from '../data/useDataset';
+import { fetchDeathRates, fetchProviderData, useMeta } from '../data/useDataset';
 
 interface DeathRate   { County: string; [key: string]: number | string; }
 interface ProviderRow { County: string; [year: string]: number | string; }
-interface CountyPoint { county: string; x: number; y: number; rate: number; stateRate: number; provRatio: number; }
+interface CountyPoint { county: string; x: number; y: number | null; rate: number; stateRate: number; provRatio: number | null; }
 
 interface ViewProps { shared: SharedState; setShared: (s: SharedState) => void; }
 
@@ -21,7 +22,6 @@ const D_MID = '#C68B3C';
 const D_LOW = '#4F7A4D';
 const INK = '#1C1B18';
 const INK_3 = '#6B675F';
-const INK_4 = '#9A968C';
 const RULE = '#E6E3DC';
 const ACCENT = '#1F5C5A';
 
@@ -29,7 +29,6 @@ function isPriorityPoint(p: { x: number; y: number | null }): boolean {
   return p.x > HIGH_RATIO && p.y !== null && p.y > 0;
 }
 
-type QuadrantKey = 'priority' | 'watch' | 'recovering' | 'stable' | 'nodata';
 type MarkShape = 'triangle' | 'diamond' | 'square' | 'circle';
 
 /**
@@ -42,18 +41,12 @@ type MarkShape = 'triangle' | 'diamond' | 'square' | 'circle';
  * red against amber.
  */
 const QUADRANTS: Record<QuadrantKey, { color: string; shape: MarkShape; label: string; desc: string }> = {
-  priority:   { color: D_HIGH, shape: 'triangle', label: 'Priority',   desc: 'Above the state rate and worsening' },
-  watch:      { color: D_MID,  shape: 'diamond',  label: 'Watch',      desc: 'At or below the state rate but worsening' },
-  recovering: { color: ACCENT, shape: 'square',   label: 'Recovering', desc: 'Above the state rate but improving' },
-  stable:     { color: D_LOW,  shape: 'circle',   label: 'Stable',     desc: 'Below the state rate and improving' },
-  nodata:     { color: D_NULL, shape: 'circle',   label: 'No trend',   desc: 'Too few years to fit a trend' },
+  priority:   { color: D_HIGH, shape: 'triangle', label: 'Priority',   desc: QUADRANT_DESC.priority },
+  watch:      { color: D_MID,  shape: 'diamond',  label: 'Watch',      desc: QUADRANT_DESC.watch },
+  recovering: { color: ACCENT, shape: 'square',   label: 'Recovering', desc: QUADRANT_DESC.recovering },
+  stable:     { color: D_LOW,  shape: 'circle',   label: 'Stable',     desc: QUADRANT_DESC.stable },
+  nodata:     { color: D_NULL, shape: 'circle',   label: 'No trend',   desc: QUADRANT_DESC.nodata },
 };
-
-function quadrantOf(x: number, y: number | null): QuadrantKey {
-  if (y === null) return 'nodata';
-  if (x > HIGH_RATIO) return y > 0 ? 'priority' : 'recovering';
-  return y > 0 ? 'watch' : 'stable';
-}
 
 /** One mark, used by the scatter and by the legend swatches. */
 function Mark({ shape, cx, cy, r, ...rest }: {
@@ -82,8 +75,9 @@ const CustomDot = (props: { cx?: number; cy?: number; payload?: CountyPoint; has
   // When provider metric active: larger dot = less access (inverted ratio)
   // provRatio 0 means the county reported no providers at all. Draw it at the
   // maximum size rather than the neutral default, which hid exactly the
-  // counties the view exists to find.
-  const r = !hasProvider
+  // counties the view exists to find. A missing value is not a shortage, so it
+  // keeps the neutral default.
+  const r = !hasProvider || payload.provRatio === null
     ? 5
     : payload.provRatio > 0
       ? Math.max(3, Math.min(14, 8 / payload.provRatio))
@@ -124,18 +118,27 @@ const CustomTooltip = ({ active, payload, selectedYear, trendFrom, providerMetri
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 4 }}>
         <span style={{ color: INK_3 }}>Slope ({Math.min(trendFrom, selectedYear)}–{selectedYear})</span>
-        <span style={{ color: d.y > 0 ? D_HIGH : D_LOW }}>{d.y > 0 ? '+' : ''}{d.y.toFixed(2)}/yr</span>
+        {/* y is null where the window holds one point, such as the first data year. */}
+        {d.y === null
+          ? <span style={{ color: INK_4 }}>n/a</span>
+          : <span style={{ color: d.y > 0 ? D_HIGH : D_LOW }}>{d.y > 0 ? '+' : ''}{d.y.toFixed(2)}/yr</span>}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, paddingTop: 6, borderTop: `1px solid ${RULE}` }}>
         <span style={{ color: INK_3 }}>Rate ({selectedYear})</span>
         <span style={{ color: INK }}>{d.rate.toFixed(1)} /100k</span>
       </div>
-      {providerMetric && d.provRatio > 0 && (
+      {providerMetric && (
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 4 }}>
           <span style={{ color: INK_3 }}>Access (vs state)</span>
-          <span style={{ color: d.provRatio < 0.8 ? D_HIGH : d.provRatio > 1.2 ? D_LOW : INK }}>
-            {d.provRatio > 0 ? `${((d.provRatio - 1) * 100) > 0 ? '+' : ''}${((d.provRatio - 1) * 100).toFixed(0)}%` : 'n/a'}
-          </span>
+          {d.provRatio === null ? (
+            <span style={{ color: INK_3 }}>unknown</span>
+          ) : d.provRatio === 0 ? (
+            <span style={{ color: D_HIGH }}>no providers</span>
+          ) : (
+            <span style={{ color: d.provRatio < 0.8 ? D_HIGH : d.provRatio > 1.2 ? D_LOW : INK }}>
+              {`${((d.provRatio - 1) * 100) > 0 ? '+' : ''}${((d.provRatio - 1) * 100).toFixed(0)}%`}
+            </span>
+          )}
         </div>
       )}
       <div style={{ marginTop: 8, color: INK_4, fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
@@ -149,6 +152,7 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
   const navigate = useNavigate();
   const { selectedCause, selectedYear } = shared;
   const trendFrom = trendBase(shared.dataYearRange);
+  const { meta } = useMeta();
   const [deathData, setDeathData] = useState<DeathRate[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,7 +164,9 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
   const cause = selectedCause || null;
 
   useEffect(() => {
-    if (!cause) { setDeathData([]); setError(null); return; }
+    // Clearing the cause cancels any request in flight, so nothing else would
+    // clear `loading`.
+    if (!cause) { setDeathData([]); setError(null); setLoading(false); return; }
     setLoading(true);
     // A slower earlier request must not land after a newer one and
     // overwrite it. Switching cause or metric quickly can otherwise leave
@@ -193,22 +199,21 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
     const stateRate = Number(stateRow[yrStr]);
     if (!stateRate) return [];
     const stateProvVal = Number(providerData.find(d => d.County === 'ILLINOIS')?.[yrStr]) || 0;
-    const inverted = providerMetricInverted[providerMetric] ?? false;
     return deathData
       .filter(d => !EXCLUDED_COUNTIES.includes(d.County))
       .map(d => {
         const countyRate = toRate(d as never, yrStr);
         if (countyRate === null) return null;
         const slope = calcSlope(d as never, Math.min(trendFrom, selectedYear), selectedYear);
-        const countyProvVal = Number(providerData.find(p => p.County === d.County)?.[yrStr]) || 0;
-        // provRatio: >1 = better access, <1 = worse. For inverted metrics flip it.
-        const provRatio = stateProvVal > 0 && countyProvVal > 0
-          ? (inverted ? stateProvVal / countyProvVal : countyProvVal / stateProvVal)
-          : 0;
+        const countyProvVal = toRate(providerData.find(p => p.County === d.County) as never, yrStr);
+        // provRatio: >1 = better access, <1 = worse, 0 = no providers, null = unknown.
+        const provRatio = stateProvVal > 0 && countyProvVal !== null
+          ? countyProvVal / stateProvVal
+          : null;
         return { county: d.County, x: countyRate / stateRate, y: slope, rate: countyRate, stateRate, provRatio };
       })
       .filter(Boolean) as CountyPoint[];
-  }, [deathData, selectedYear, trendFrom, providerData, providerMetric]);
+  }, [deathData, selectedYear, trendFrom, providerData]);
 
   const priorityCount = useMemo(() => points.filter(isPriorityPoint).length, [points]);
 
@@ -241,7 +246,7 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
               value={providerMetric}
               onChange={e => setProviderMetric(e.target.value)}>
               <option value="">None</option>
-              {providerMetrics.map(m => <option key={m} value={m}>{providerMetricLabels[m]}</option>)}
+              {continuousProviderMetrics.map(m => <option key={m} value={m}>{providerMetricLabels[m]}</option>)}
             </select>
           </label>
           {priorityCount > 0 && !loading && (
@@ -275,16 +280,16 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
               {points.length > 0 && (
                 <>
                   <div style={{ position: 'absolute', top: 44, right: 50, opacity: 0.15, pointerEvents: 'none', fontSize: 9, fontFamily: 'var(--mono)', color: D_HIGH, letterSpacing: '0.12em', textTransform: 'uppercase', textAlign: 'right' }}>
-                    High · Worsening
+                    {QUADRANTS.priority.label}
                   </div>
                   <div style={{ position: 'absolute', top: 44, left: 58, opacity: 0.15, pointerEvents: 'none', fontSize: 9, fontFamily: 'var(--mono)', color: D_MID, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                    Low · Worsening
+                    {QUADRANTS.watch.label}
                   </div>
                   <div style={{ position: 'absolute', bottom: 56, right: 50, opacity: 0.15, pointerEvents: 'none', fontSize: 9, fontFamily: 'var(--mono)', color: ACCENT, letterSpacing: '0.12em', textTransform: 'uppercase', textAlign: 'right' }}>
-                    High · Improving
+                    {QUADRANTS.recovering.label}
                   </div>
                   <div style={{ position: 'absolute', bottom: 56, left: 58, opacity: 0.15, pointerEvents: 'none', fontSize: 9, fontFamily: 'var(--mono)', color: D_LOW, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                    Low · Improving
+                    {QUADRANTS.stable.label}
                   </div>
                 </>
               )}
@@ -299,7 +304,11 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
                     tickFormatter={v => `${v > 0 ? '+' : ''}${Number(v).toFixed(1)}`}
                     label={{ value: `Annual rate change ${Math.min(trendFrom, selectedYear)}–${selectedYear} (/100k/yr)`, angle: -90, position: 'insideLeft', offset: 8, fontSize: 11, fill: INK_4 }}
                     tick={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", fill: INK_4 }} />
-                  <ReferenceLine x={1} stroke={INK_4} strokeDasharray="6 4" strokeWidth={1} />
+                  <ReferenceLine x={1} stroke={INK_4} strokeDasharray="6 4" strokeWidth={1}
+                    label={{ value: 'State rate', position: 'insideTopRight', fontSize: 10, fill: INK_4 }} />
+                  {/* The line the quadrants actually split on. */}
+                  <ReferenceLine x={HIGH_RATIO} stroke={INK_3} strokeDasharray="6 4" strokeWidth={1} ifOverflow="extendDomain"
+                    label={{ value: `${HIGH_RATIO}x state`, position: 'insideTopLeft', fontSize: 10, fill: INK_3 }} />
                   <ReferenceLine y={0} stroke={INK_4} strokeDasharray="6 4" strokeWidth={1} />
                   <Tooltip content={<CustomTooltip selectedYear={selectedYear} trendFrom={trendFrom} providerMetric={providerMetric} />} cursor={{ fill: 'transparent' }} />
                   <Scatter data={points} shape={<CustomDot hasProvider={!!providerMetric} />}
@@ -317,8 +326,11 @@ const PriorityMatrix = ({ shared, setShared }: ViewProps) => {
           <div>
             <div className="eyebrow" style={{ marginBottom: 8 }}>How to read</div>
             <p className="caption">
-              Each dot is a county. X-axis: current rate ÷ state rate (right = above average). Y-axis: long-term slope; positive = worsening.
+              Each dot is a county. X-axis: current rate ÷ state rate (right = above average). Y-axis: long-term slope; positive = worsening. Quadrants split at {HIGH_RATIO}x the state rate, not at the state rate itself.
             </p>
+            {deathData.length > 0 && crossesPopulationSeam(trendFrom, selectedYear, stateRow(deathData as unknown as Row[])) && (
+              <p className="caption" style={{ marginTop: 8 }}>{meta.population_note}</p>
+            )}
           </div>
 
           <div>

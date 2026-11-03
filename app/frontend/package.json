@@ -17,7 +17,9 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "smoke": "node smoke.mjs"
+    "smoke": "node smoke.mjs",
+    "test": "node --test --experimental-strip-types tests/*.test.mjs",
+    "check:export": "node export-check.mjs"
   },
   "devDependencies": {
     "@types/geojson": "^7946.0.16",

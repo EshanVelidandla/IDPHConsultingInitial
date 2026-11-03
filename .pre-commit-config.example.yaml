@@ -1,0 +1,10 @@
+# Example only (review issue #8). Nothing reads this file under this name.
+#
+# To turn it on, copy it to .pre-commit-config.yaml and run `pre-commit install`.
+# pre-commit then fetches gitleaks from GitHub. Check the pinned rev first, and
+# run the same scan in CI, because a local hook can be skipped.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.2
+    hooks:
+      - id: gitleaks

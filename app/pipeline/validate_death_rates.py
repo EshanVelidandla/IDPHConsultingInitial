@@ -17,9 +17,10 @@ import sys
 
 import pandas as pd
 
-BASE = os.path.dirname(os.path.abspath(__file__))
-TABLES_DIR = os.path.join(BASE, "..", "backend", "static", "death_rate_tables")
-POP_FILE = os.path.join(BASE, "..", "..", "data", "reference", "population_by_county_year.csv")
+from pipeline_paths import output_path
+
+TABLES_DIR = output_path("app", "backend", "static", "death_rate_tables")
+POP_FILE = output_path("data", "reference", "population_by_county_year.csv")
 
 YEARS = [str(y) for y in range(2008, 2023)]
 EXPECTED_ROWS = 105  # ILLINOIS + 102 counties + Chicago + Suburban Cook

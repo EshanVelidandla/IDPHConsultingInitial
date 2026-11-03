@@ -22,15 +22,26 @@ function fetchCached<T>(url: string): Promise<T> {
   if (hit) return hit as Promise<T>;
   const p = axios.get<T>(url).then((r) => r.data);
   cache.set(url, p);
-  // A failed request must not be cached, or the view can never recover.
-  p.catch(() => cache.delete(url));
+  // A failed request must not be cached, or the view can never recover. Only
+  // evict this request's own entry: an older failure can settle after an
+  // invalidation and a newer request for the same URL.
+  p.catch(() => { if (cache.get(url) === p) cache.delete(url); });
   return p;
 }
 
-/** Drop everything cached. Called after an admin upload or delete. */
+/** Drop everything cached. Runs after every successful write, see below. */
 export function invalidateDataCache(): void {
   cache.clear();
 }
+
+// Any successful write may change what a read returns. Doing this here rather
+// than in each handler means a new handler cannot forget it, which is how
+// deletes and annotation edits came to serve stale data. It runs before the
+// caller's own continuation, so a reload straight after a write sees new data.
+axios.interceptors.response.use((response) => {
+  if (response.config.method !== 'get') invalidateDataCache();
+  return response;
+});
 
 export interface Meta {
   year_min: number;
@@ -40,6 +51,7 @@ export interface Meta {
   rate_basis: string;
   rate_label: string;
   rate_note: string;
+  population_note: string;
   provider_metrics: Record<string, ProviderProvenance>;
 }
 
@@ -60,8 +72,15 @@ const META_FALLBACK: Meta = {
   rate_basis: 'crude',
   rate_label: 'Crude rate per 100,000',
   rate_note: 'Crude rates, not age-adjusted.',
+  population_note: 'Population estimates change Census series at 2020, so rate changes across 2019-2020 partly reflect the population series, not only deaths.',
   provider_metrics: {},
 };
+
+/** The one /meta request, cached like every other read. Rejects if unreachable. */
+export function fetchMeta(): Promise<Meta> {
+  return fetchCached<Partial<Meta>>(`${API_BASE}/meta`)
+    .then((d) => ({ ...META_FALLBACK, ...d }));
+}
 
 /** Server-declared year range, county list and rate wording. */
 export function useMeta(): { meta: Meta; loading: boolean } {
@@ -69,8 +88,8 @@ export function useMeta(): { meta: Meta; loading: boolean } {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let live = true;
-    fetchCached<Partial<Meta>>(`${API_BASE}/meta`)
-      .then((d) => { if (live) setMeta({ ...META_FALLBACK, ...d }); })
+    fetchMeta()
+      .then((d) => { if (live) setMeta(d); })
       .catch(() => { /* fall back to the defaults above */ })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };

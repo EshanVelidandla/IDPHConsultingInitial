@@ -16,6 +16,9 @@ Stage 1 runs first for both paths because stages 2 and 4 both divide by those
 populations. Every stage is a pure function of committed inputs: nothing reads
 its own previous output, so two runs from a clean checkout give the same
 numbers.
+
+Set PIPELINE_OUTPUT_ROOT to write everything under another folder instead of
+over the published tables. See pipeline_paths.py.
 """
 
 import sys

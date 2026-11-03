@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext';
 import { causeLabels, causes, API_BASE } from '../data/constants';
-import { useMeta, invalidateDataCache } from '../data/useDataset';
-import { asRows } from '../data/analytics';
+import { useMeta } from '../data/useDataset';
+import { asRows, INK_4 } from '../data/analytics';
 
 // ── Types ────────────────────────────────────────────────────
 
-interface Dataset { cause: string; filename: string; size_kb: number; modified: string; }
+interface Dataset { cause: string; filename: string; size_kb: number; modified: string; source: 'committed' | 'uploaded'; }
 interface Annotation { id: string; county: string; cause: string | null; text: string; type: string; created_by: string; created_at: string; }
-interface Threshold { id: string; cause: string; rate: number; notify_email: string | null; created_by: string; updated_at: string; }
+interface Threshold { id: string; cause: string; rate: number; created_by: string; updated_at: string; }
 interface Preset { id: string; name: string; cause: string; year: number; district: number | null; is_public: boolean; created_by: string; created_at: string; }
 interface UserRow { id: string; username: string; name: string; role: string; created_at: string; }
 interface AuditEntry { id: string; user: string; action: string; resource: string; detail: string; timestamp: string; ip: string | null; }
@@ -18,13 +18,28 @@ interface AuditEntry { id: string; user: string; action: string; resource: strin
 
 const INK = '#1C1B18';
 const INK_3 = '#6B675F';
-const INK_4 = '#9A968C';
 const RULE = '#E6E3DC';
 const D_HIGH = '#B23A2E';
 const D_LOW = '#4F7A4D';
 const ACCENT = '#1F5C5A';
 
 // ── Shared sub-components ────────────────────────────────────
+
+function apiError(err: unknown, fallback = 'Request failed. Please try again.'): string {
+  const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail.map(d => (d as { msg?: string }).msg ?? String(d)).join('; ');
+  }
+  return fallback;
+}
+
+// Sits with the table rather than the form, because the form is hidden from
+// roles that can still read the table.
+function LoadError({ message }: { message: string }) {
+  if (!message) return null;
+  return <div className="error-banner" role="alert" style={{ margin: 12 }}>{message}</div>;
+}
 
 function Badge({ type }: { type: string }) {
   const map: Record<string, { bg: string; color: string }> = {
@@ -57,17 +72,34 @@ function ActionBtn({ danger, children, onClick, disabled }: { danger?: boolean; 
 
 let fieldSeq = 0;
 
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+const FORM_CONTROLS = ['input', 'select', 'textarea'];
+
+export function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   // Labels were <div>s, so nothing associated them with their input. Wrapping
   // the control in a <label> gives the association without needing every
-  // caller to invent an id.
+  // caller to invent an id. The id goes on the first form control, since a row
+  // can also hold a hint, and it used to land only on a lone child.
   const id = React.useMemo(() => `field-${++fieldSeq}`, []);
+  let bound = false;
+  const kids = React.Children.map(children, child => {
+    if (bound || !React.isValidElement(child) || typeof child.type !== 'string' || !FORM_CONTROLS.includes(child.type)) return child;
+    bound = true;
+    return React.cloneElement(child as React.ReactElement<{ id?: string }>, { id });
+  });
+  // A radio group has no single control to point at, and a for attribute on one
+  // radio would select it on click. Name the group instead.
+  if (!bound) {
+    return (
+      <div role="group" aria-labelledby={id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className="field-label" id={id}>{label}</div>
+        {kids}
+      </div>
+    );
+  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <label className="field-label" htmlFor={id}>{label}</label>
-      {React.isValidElement(children)
-        ? React.cloneElement(children as React.ReactElement<{ id?: string }>, { id })
-        : children}
+      {kids}
     </div>
   );
 }
@@ -106,8 +138,11 @@ function DataTab() {
   // Whether the last action succeeded. The message used to be coloured red
   // only if it contained the word "failed", so "Invalid CSV: …" showed green.
   const [feedbackOk, setFeedbackOk] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
-  const load = () => axios.get(`${API_BASE}/admin/datasets`).then(r => setDatasets(asRows(r.data)));
+  const load = () => axios.get(`${API_BASE}/admin/datasets`)
+    .then(r => { setDatasets(asRows(r.data)); setLoadError(''); })
+    .catch(err => setLoadError(`Could not load datasets: ${apiError(err)}`));
   useEffect(() => { load(); }, []);
 
   async function handleUpload(e: React.FormEvent) {
@@ -122,18 +157,23 @@ function DataTab() {
       setFeedback(`Uploaded ${r.data.rows} rows.`
         + (r.data.backup ? ` Previous version kept as ${r.data.backup}.` : ''));
       setFile(null); setUploadCause('');
-      invalidateDataCache();
       load();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? 'Upload failed.';
       setFeedbackOk(false);
-      setFeedback(msg);
+      setFeedback(apiError(err, 'Upload failed.'));
     } finally { setUploading(false); }
   }
 
   async function handleDelete(cause: string) {
     if (!confirm(`Delete dataset "${cause}"? This cannot be undone.`)) return;
-    await axios.delete(`${API_BASE}/admin/datasets/${cause}`);
+    setFeedback('');
+    try {
+      await axios.delete(`${API_BASE}/admin/datasets/${cause}`);
+    } catch (err) {
+      setFeedbackOk(false);
+      setFeedback(apiError(err, 'Delete failed.'));
+      return;
+    }
     load();
   }
 
@@ -141,17 +181,19 @@ function DataTab() {
     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32, alignItems: 'start' }}>
       <div className="panel">
         <div className="panel-head">
-          <div className="titles"><div className="eyebrow eyebrow-ink">Datasets</div><div className="h3">{datasets.length} cause files on disk</div></div>
+          <div className="titles"><div className="eyebrow eyebrow-ink">Datasets</div><div className="h3">{loadError ? 'Could not load' : `${datasets.length} cause files on disk`}</div></div>
           <ActionBtn onClick={load}>Refresh</ActionBtn>
         </div>
         <div className="panel-body" style={{ padding: 0 }}>
+          <LoadError message={loadError} />
           <table className="admin-table">
-            <thead><tr><th>Cause</th><th>Size</th><th>Modified</th><th></th></tr></thead>
+            <thead><tr><th>Cause</th><th>Source</th><th>Size</th><th>Modified</th><th></th></tr></thead>
             <tbody>
-              {datasets.length === 0 ? <EmptyRow text="No CSV files found" /> :
+              {datasets.length === 0 ? <EmptyRow text={loadError ? 'Not loaded' : 'No CSV files found'} /> :
                 datasets.map(d => (
                   <tr key={d.cause}>
                     <td><span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{causeLabels[d.cause] ?? d.cause}</span></td>
+                    <td><span className="num" style={{ fontSize: 11 }}>{d.source}</span></td>
                     <td><span className="num" style={{ fontSize: 11 }}>{d.size_kb} KB</span></td>
                     <td><span className="num" style={{ fontSize: 11 }}>{new Date(d.modified).toLocaleDateString()}</span></td>
                     <td><ActionBtn danger onClick={() => handleDelete(d.cause)}>Delete</ActionBtn></td>
@@ -173,7 +215,7 @@ function DataTab() {
           <input type="file" accept=".csv"
             onChange={e => setFile(e.target.files?.[0] ?? null)}
             style={{ fontSize: 12, fontFamily: 'var(--mono)', color: INK_3 }} />
-          <span className="tiny">Must have a 'County' column and one column per year.</span>
+          <span className="tiny">Columns: County, then 2008 to 2022 in order. One row each for the 102 counties, Chicago, Suburban Cook and ILLINOIS. Cells are numbers or empty. Any other file is refused and the current table stays.</span>
         </FieldRow>
         {feedback && <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: feedbackOk ? D_LOW : D_HIGH }}>{feedback}</div>}
         <button type="submit" className="login-btn" disabled={uploading || !uploadCause || !file}>
@@ -196,19 +238,15 @@ function AnnotationsTab() {
   const [editing, setEditing] = useState<string | null>(null);
 
   const [formError, setFormError] = useState('');
-  const { meta } = useMeta();
+  const [loadError, setLoadError] = useState('');
+  const { meta, loading: metaLoading } = useMeta();
+  // True while loading too, so nothing can be picked before the list arrives.
+  const noCounties = meta.counties.length === 0;
 
-  const load = () => axios.get(`${API_BASE}/annotations`).then(r => setAnnotations(asRows(r.data)));
+  const load = () => axios.get(`${API_BASE}/annotations`)
+    .then(r => { setAnnotations(asRows(r.data)); setLoadError(''); })
+    .catch(err => setLoadError(`Could not load annotations: ${apiError(err)}`));
   useEffect(() => { load(); }, []);
-
-  function apiError(err: unknown): string {
-    const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
-    if (typeof detail === 'string') return detail;
-    if (Array.isArray(detail)) {
-      return detail.map(d => (d as { msg?: string }).msg ?? String(d)).join('; ');
-    }
-    return 'Request failed. Please try again.';
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -255,12 +293,13 @@ function AnnotationsTab() {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32, alignItems: 'start' }}>
       <div className="panel">
-        <div className="panel-head"><div className="titles"><div className="eyebrow eyebrow-ink">Annotations</div><div className="h3">{annotations.length} entries</div></div></div>
+        <div className="panel-head"><div className="titles"><div className="eyebrow eyebrow-ink">Annotations</div><div className="h3">{loadError ? 'Could not load' : `${annotations.length} entries`}</div></div></div>
         <div className="panel-body" style={{ padding: 0 }}>
+          <LoadError message={loadError} />
           <table className="admin-table">
             <thead><tr><th>County</th><th>Cause</th><th>Type</th><th>Note</th><th>By</th><th></th></tr></thead>
             <tbody>
-              {annotations.length === 0 ? <EmptyRow text="No annotations yet" /> :
+              {annotations.length === 0 ? <EmptyRow text={loadError ? 'Not loaded' : 'No annotations yet'} /> :
                 annotations.map(a => (
                   <tr key={a.id}>
                     <td style={{ fontWeight: 500 }}>{a.county}</td>
@@ -286,10 +325,18 @@ function AnnotationsTab() {
               {/* A select of the canonical names the data uses. Free text let
                   people type "Dupage", which the API rejected with a 422 that
                   the form never showed. */}
-              <select className="sel" value={county} onChange={e => setCounty(e.target.value)} style={{ width: '100%' }}>
-                <option value="">Select a county…</option>
-                {meta.counties.map(c => <option key={c} value={c}>{c}</option>)}
+              <select className="sel" value={county} disabled={noCounties} onChange={e => setCounty(e.target.value)} style={{ width: '100%' }}>
+                <option value="">{!metaLoading && noCounties ? 'County list unavailable' : 'Select a county…'}</option>
+                {/* While editing with no list, still show the county being edited. */}
+                {noCounties && county && <option value={county}>{county}</option>}
+                {/* ILLINOIS is the statewide row. The value stays as the data has it. */}
+                {meta.counties.map(c => <option key={c} value={c}>{c === 'ILLINOIS' ? 'Illinois (statewide)' : c}</option>)}
               </select>
+              {!metaLoading && noCounties && (
+                <div role="alert" style={{ marginTop: 4, fontSize: 11, fontFamily: 'var(--mono)', color: D_HIGH }}>
+                  The county list could not be loaded, so new annotations cannot be added. Reload the page to try again.
+                </div>
+              )}
             </FieldRow>
             <FieldRow label="Cause (optional)">
               <select className="sel" value={cause} onChange={e => setCause(e.target.value)} style={{ width: '100%' }}>
@@ -315,7 +362,7 @@ function AnnotationsTab() {
               placeholder="Enter annotation text…" rows={3} style={{ width: '100%', resize: 'vertical' }} />
           </FieldRow>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" className="login-btn" disabled={!text || (!editing && !county)} style={{ flex: 1 }}>
+            <button type="submit" className="login-btn" disabled={(noCounties && !editing) || !text || (!editing && !county)} style={{ flex: 1 }}>
               {editing ? 'Save' : 'Add'}
             </button>
             {editing && <ActionBtn onClick={() => { setEditing(null); setCounty(''); setCause(''); setText(''); setType('info'); }}>Cancel</ActionBtn>}
@@ -333,41 +380,49 @@ function ThresholdsTab() {
   const [thresholds, setThresholds] = useState<Threshold[]>([]);
   const [cause, setCause] = useState('');
   const [rate, setRate] = useState('');
-  const [email, setEmail] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [loadError, setLoadError] = useState('');
 
-  const load = () => axios.get(`${API_BASE}/thresholds`).then(r => setThresholds(asRows(r.data)));
+  const load = () => axios.get(`${API_BASE}/thresholds`)
+    .then(r => { setThresholds(asRows(r.data)); setLoadError(''); })
+    .catch(err => setLoadError(`Could not load thresholds: ${apiError(err)}`));
   useEffect(() => { load(); }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!cause || !rate) return;
     try {
-      await axios.post(`${API_BASE}/thresholds`, { cause, rate: parseFloat(rate), notify_email: email || null });
-      setFeedback('Saved.'); setCause(''); setRate(''); setEmail('');
+      await axios.post(`${API_BASE}/thresholds`, { cause, rate: parseFloat(rate) });
+      setFeedback('Saved.'); setCause(''); setRate('');
       load();
-    } catch { setFeedback('Failed to save.'); }
+    } catch (err) { setFeedback(apiError(err, 'Failed to save.')); }
   }
 
   async function handleDelete(c: string) {
-    await axios.delete(`${API_BASE}/thresholds/${c}`);
+    setFeedback('');
+    try {
+      await axios.delete(`${API_BASE}/thresholds/${c}`);
+    } catch (err) {
+      setFeedback(apiError(err, 'Failed to delete.'));
+      return;
+    }
     load();
   }
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32, alignItems: 'start' }}>
       <div className="panel">
-        <div className="panel-head"><div className="titles"><div className="eyebrow eyebrow-ink">Alert Thresholds</div><div className="h3">{thresholds.length} active thresholds</div></div></div>
+        <div className="panel-head"><div className="titles"><div className="eyebrow eyebrow-ink">Reference thresholds (not monitored)</div><div className="h3">{loadError ? 'Could not load' : `${thresholds.length} ${thresholds.length === 1 ? 'threshold' : 'thresholds'}`}</div></div></div>
         <div className="panel-body" style={{ padding: 0 }}>
+          <LoadError message={loadError} />
           <table className="admin-table">
-            <thead><tr><th>Cause</th><th>Rate threshold</th><th>Notify email</th><th>Set by</th><th></th></tr></thead>
+            <thead><tr><th>Cause</th><th>Rate threshold</th><th>Set by</th><th></th></tr></thead>
             <tbody>
-              {thresholds.length === 0 ? <EmptyRow text="No thresholds configured" /> :
+              {thresholds.length === 0 ? <EmptyRow text={loadError ? 'Not loaded' : 'No thresholds configured'} /> :
                 thresholds.map(t => (
                   <tr key={t.id}>
                     <td>{causeLabels[t.cause] ?? t.cause}</td>
                     <td><span className="num" style={{ color: D_HIGH }}>{'>'} {t.rate} /100k</span></td>
-                    <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: INK_4 }}>{t.notify_email ?? 'n/a'}</td>
                     <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: INK_4 }}>{t.created_by}</td>
                     <td>{isAdmin && <ActionBtn danger onClick={() => handleDelete(t.cause)}>Delete</ActionBtn>}</td>
                   </tr>
@@ -388,9 +443,6 @@ function ThresholdsTab() {
           <FieldRow label="Rate threshold (per 100k)">
             <input className="inp" type="number" min="0" step="0.1" value={rate} onChange={e => setRate(e.target.value)} placeholder="e.g. 250" style={{ width: '100%' }} />
           </FieldRow>
-          <FieldRow label="Notify email (optional)">
-            <input className="inp" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="analyst@idph.illinois.gov" style={{ width: '100%' }} />
-          </FieldRow>
           {feedback && <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: feedback === 'Saved.' ? D_LOW : D_HIGH }}>{feedback}</div>}
           <button type="submit" className="login-btn" disabled={!cause || !rate}>Save Threshold</button>
         </FormPanel>
@@ -409,32 +461,49 @@ function PresetsTab() {
   const [year, setYear] = useState('2022');
   const [district, setDistrict] = useState('');
   const [isPublic, setIsPublic] = useState(true);
+  const [formError, setFormError] = useState('');
+  const [loadError, setLoadError] = useState('');
 
-  const load = () => axios.get(`${API_BASE}/presets`).then(r => setPresets(asRows(r.data)));
+  const load = () => axios.get(`${API_BASE}/presets`)
+    .then(r => { setPresets(asRows(r.data)); setLoadError(''); })
+    .catch(err => setLoadError(`Could not load presets: ${apiError(err)}`));
   useEffect(() => { load(); }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name || !cause) return;
-    await axios.post(`${API_BASE}/presets`, { name, cause, year: parseInt(year), district: district ? parseInt(district) : null, is_public: isPublic });
+    setFormError('');
+    try {
+      await axios.post(`${API_BASE}/presets`, { name, cause, year: parseInt(year), district: district ? parseInt(district) : null, is_public: isPublic });
+    } catch (err) {
+      setFormError(apiError(err));
+      return;
+    }
     setName(''); setCause(''); setYear('2022'); setDistrict(''); setIsPublic(true);
     load();
   }
 
   async function handleDelete(id: string) {
-    await axios.delete(`${API_BASE}/presets/${id}`);
+    setFormError('');
+    try {
+      await axios.delete(`${API_BASE}/presets/${id}`);
+    } catch (err) {
+      setFormError(apiError(err));
+      return;
+    }
     load();
   }
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32, alignItems: 'start' }}>
       <div className="panel">
-        <div className="panel-head"><div className="titles"><div className="eyebrow eyebrow-ink">Saved Presets</div><div className="h3">{presets.length} configurations</div></div></div>
+        <div className="panel-head"><div className="titles"><div className="eyebrow eyebrow-ink">Saved Presets</div><div className="h3">{loadError ? 'Could not load' : `${presets.length} configurations`}</div></div></div>
         <div className="panel-body" style={{ padding: 0 }}>
+          <LoadError message={loadError} />
           <table className="admin-table">
             <thead><tr><th>Name</th><th>Cause</th><th>Year</th><th>District</th><th>Visibility</th><th>By</th><th></th></tr></thead>
             <tbody>
-              {presets.length === 0 ? <EmptyRow text="No presets saved" /> :
+              {presets.length === 0 ? <EmptyRow text={loadError ? 'Not loaded' : 'No presets saved'} /> :
                 presets.map(p => (
                   <tr key={p.id}>
                     <td style={{ fontWeight: 500 }}>{p.name}</td>
@@ -477,6 +546,11 @@ function PresetsTab() {
             </label>
           </div>
         </FieldRow>
+        {formError && (
+          <div role="alert" style={{ fontSize: 11, fontFamily: 'var(--mono)', color: D_HIGH }}>
+            {formError}
+          </div>
+        )}
         <button type="submit" className="login-btn" disabled={!name || !cause}>Save Preset</button>
       </FormPanel>
     </div>
@@ -495,8 +569,11 @@ function UsersTab() {
   const [feedback, setFeedback] = useState('');
   const [editId, setEditId] = useState<string | null>(null);
   const [editRole, setEditRole] = useState('');
+  const [loadError, setLoadError] = useState('');
 
-  const load = () => axios.get(`${API_BASE}/admin/users`).then(r => setUsers(asRows(r.data)));
+  const load = () => axios.get(`${API_BASE}/admin/users`)
+    .then(r => { setUsers(asRows(r.data)); setLoadError(''); })
+    .catch(err => setLoadError(`Could not load users: ${apiError(err)}`));
   useEffect(() => { load(); }, []);
 
   async function handleCreate(e: React.FormEvent) {
@@ -507,28 +584,40 @@ function UsersTab() {
       setFeedback('User created.'); setUsername(''); setName(''); setPassword(''); setRole('viewer');
       load();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? 'Failed.';
-      setFeedback(msg);
+      setFeedback(apiError(err, 'Failed.'));
     }
   }
 
   async function handleRoleUpdate(id: string) {
-    await axios.put(`${API_BASE}/admin/users/${id}`, { role: editRole });
+    setFeedback('');
+    try {
+      await axios.put(`${API_BASE}/admin/users/${id}`, { role: editRole });
+    } catch (err) {
+      setFeedback(apiError(err));
+      return;
+    }
     setEditId(null);
     load();
   }
 
   async function handleDelete(id: string, uname: string) {
     if (!confirm(`Delete user "${uname}"?`)) return;
-    await axios.delete(`${API_BASE}/admin/users/${id}`);
+    setFeedback('');
+    try {
+      await axios.delete(`${API_BASE}/admin/users/${id}`);
+    } catch (err) {
+      setFeedback(apiError(err));
+      return;
+    }
     load();
   }
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32, alignItems: 'start' }}>
       <div className="panel">
-        <div className="panel-head"><div className="titles"><div className="eyebrow eyebrow-ink">Users</div><div className="h3">{users.length} accounts</div></div></div>
+        <div className="panel-head"><div className="titles"><div className="eyebrow eyebrow-ink">Users</div><div className="h3">{loadError ? 'Could not load' : `${users.length} accounts`}</div></div></div>
         <div className="panel-body" style={{ padding: 0 }}>
+          <LoadError message={loadError} />
           <table className="admin-table">
             <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Created</th><th></th></tr></thead>
             <tbody>
@@ -606,24 +695,27 @@ function AuditTab() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const PAGE = 50;
+  const [loadError, setLoadError] = useState('');
 
   const load = (p: number) =>
     axios.get(`${API_BASE}/admin/audit?limit=${PAGE}&offset=${p * PAGE}`)
-      .then(r => { setEntries(r.data.entries); setTotal(r.data.total); });
+      .then(r => { setEntries(r.data.entries); setTotal(r.data.total); setLoadError(''); })
+      .catch(err => setLoadError(`Could not load the audit log: ${apiError(err)}`));
 
   useEffect(() => { load(page); }, [page]);
 
   return (
     <div className="panel">
       <div className="panel-head">
-        <div className="titles"><div className="eyebrow eyebrow-ink">Audit Log</div><div className="h3">{total} events recorded</div></div>
+        <div className="titles"><div className="eyebrow eyebrow-ink">Audit Log</div><div className="h3">{loadError ? 'Could not load' : `${total} events recorded`}</div></div>
         <ActionBtn onClick={() => { setPage(0); load(0); }}>Refresh</ActionBtn>
       </div>
       <div className="panel-body" style={{ padding: 0 }}>
+        <LoadError message={loadError} />
         <table className="admin-table">
           <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Resource</th><th>Detail</th><th>IP</th></tr></thead>
           <tbody>
-            {entries.length === 0 ? <EmptyRow text="No audit entries yet" /> :
+            {entries.length === 0 ? <EmptyRow text={loadError ? 'Not loaded' : 'No audit entries yet'} /> :
               entries.map(e => (
                 <tr key={e.id}>
                   <td className="num" style={{ fontSize: 10, color: INK_4, whiteSpace: 'nowrap' }}>
@@ -680,7 +772,7 @@ export default function AdminPanel() {
           <div className="eyebrow eyebrow-ink">Admin Panel</div>
           <h1 className="h-display" style={{ marginTop: 8 }}>System management.</h1>
           <p className="body" style={{ marginTop: 10, color: 'var(--ink-3)', maxWidth: 480 }}>
-            Data uploads, annotations, alert thresholds, filter presets, user accounts, and audit history.
+            Data uploads, annotations, reference thresholds, filter presets, user accounts, and audit history.
           </p>
         </div>
         <div className="ix">

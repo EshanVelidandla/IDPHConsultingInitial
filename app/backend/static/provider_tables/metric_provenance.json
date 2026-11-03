@@ -51,21 +51,21 @@
     "label": "Hospital beds",
     "kind": "rate",
     "source_years": [
-      2010,
-      2015,
-      2020
-    ],
-    "imputed_years": [
       2008,
       2009,
+      2010,
       2011,
       2012,
       2013,
       2014,
+      2015,
       2016,
       2017,
-      2018,
       2019,
+      2020
+    ],
+    "imputed_years": [
+      2018,
       2021,
       2022
     ],
@@ -75,21 +75,21 @@
     "label": "Psychiatry MDs",
     "kind": "rate",
     "source_years": [
-      2010,
-      2015,
-      2020
-    ],
-    "imputed_years": [
       2008,
-      2009,
+      2010,
       2011,
       2012,
       2013,
       2014,
+      2015,
       2016,
       2017,
-      2018,
       2019,
+      2020
+    ],
+    "imputed_years": [
+      2009,
+      2018,
       2021,
       2022
     ],
@@ -109,6 +109,7 @@
       2010,
       2011,
       2012,
+      2013,
       2015,
       2016,
       2017,
@@ -119,7 +120,6 @@
       2022
     ],
     "imputed_years": [
-      2013,
       2014
     ],
     "method": "carried forward from the most recent source year"

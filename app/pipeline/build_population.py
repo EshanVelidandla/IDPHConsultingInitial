@@ -19,8 +19,13 @@ Sources (Census Population Estimates Program, downloaded once and committed):
              (subcounty "place" estimates, SUMLEV 162 = incorporated place)
 
 The vintage changes at 2010 and again at 2020 because Census rebases its
-estimates after each decennial count. That is standard practice for a
-2008-2022 series and is why the 2020 values step up slightly.
+estimates after each decennial count. The 2010 join is quiet: no county moves
+more than 3% from 2009 to 2010. The 2020 join is not. From 2019 to 2020, 25 of
+the 102 counties move more than 3% (18 down, 7 up), against 0 to 2 counties in
+every other year pair. Alexander is -10.28%, Pope -10.13%, Carroll +9.56%, Cook
++2.20%, Chicago +1.83%, Suburban Cook +2.61%, Illinois +0.94%. Rate changes
+across 2019-2020 are therefore partly an artefact of the denominator. See
+data/source/census/README.md.
 
 Run: python build_population.py
 """
@@ -29,13 +34,15 @@ import csv
 import os
 import sys
 
+from pipeline_paths import output_path
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 CENSUS_DIR = os.path.join(BASE, "..", "..", "data", "source", "census")
-OUT_FILE = os.path.join(BASE, "..", "..", "data", "reference", "population_by_county_year.csv")
+OUT_FILE = output_path("data", "reference", "population_by_county_year.csv")
 # The backend serves only from app/backend/static/, so a deployment that ships
 # app/ alone still has the denominators. data/reference/ stays the canonical
 # copy for the pipeline and for anyone reading the repo.
-SERVED_COPY = os.path.join(BASE, "..", "backend", "static", "population_by_county_year.csv")
+SERVED_COPY = output_path("app", "backend", "static", "population_by_county_year.csv")
 
 YEARS = list(range(2008, 2023))
 
@@ -157,7 +164,7 @@ def main() -> None:
 
     os.makedirs(os.path.dirname(OUT_FILE), exist_ok=True)
     with open(OUT_FILE, "w", newline="") as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, lineterminator='\n')
         writer.writerow(["County"] + [str(y) for y in YEARS])
         writer.writerow(["ILLINOIS"] + [counties["ILLINOIS"][y] for y in YEARS])
         for name in sorted(c for c in counties if c != "ILLINOIS"):
@@ -167,8 +174,8 @@ def main() -> None:
     with open(OUT_FILE) as src, open(SERVED_COPY, "w", newline="") as dst:
         dst.write(src.read())
 
-    print(f"  {len(counties)} rows x {len(YEARS)} years -> {os.path.relpath(OUT_FILE, BASE)}")
-    print(f"  served copy -> {os.path.relpath(SERVED_COPY, BASE)}")
+    print(f"  {len(counties)} rows x {len(YEARS)} years -> {os.path.normpath(OUT_FILE)}")
+    print(f"  served copy -> {os.path.normpath(SERVED_COPY)}")
     print(f"  Illinois 2008 {counties['ILLINOIS'][2008]:,}  2022 {counties['ILLINOIS'][2022]:,}")
     print(f"  Suburban Cook 2008 {counties['Suburban Cook'][2008]:,}  "
           f"2022 {counties['Suburban Cook'][2022]:,}")

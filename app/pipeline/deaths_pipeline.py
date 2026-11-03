@@ -4,9 +4,14 @@ End-to-end deaths pipeline: IDPH PDFs -> crude death rate tables.
 Steps:
   1. Extract raw counts from the PDFs (year-specific schemas, header-verified)
   2. Load committed county populations
-  3. Compute crude death rates per 100,000 population
-  4. Write per-cause pivot CSVs to backend/static/death_rate_tables/
-  5. Audit: report missing/duplicate counties and out-of-range rates
+  3. Compute crude death rates per 100,000 population, failing if the statewide
+     total and the county sum disagree
+  4. Audit: fail on missing counties, blank all-cause cells and out-of-range
+     rates
+  5. Write count files and per-cause pivot CSVs to backend/static/death_rate_tables/
+
+Any failure raises before step 5, so a failed run leaves the previous output
+untouched.
 
 Input:   data/source/idph_death_reports/*.pdf
          data/reference/population_by_county_year.csv
@@ -25,13 +30,14 @@ import re
 import pandas as pd
 
 from extract_pdf_data import extract_year, VALID_COUNTIES, SchemaError
+from pipeline_paths import output_path
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.join(BASE, "..", "..")
+REPO = os.path.normpath(os.path.join(BASE, "..", ".."))
 PDF_DIR = os.path.join(REPO, "data", "source", "idph_death_reports")
-COUNTS_DIR = os.path.join(REPO, "data", "extracted", "death_counts_by_year")
-TABLES_DIR = os.path.join(BASE, "..", "backend", "static", "death_rate_tables")
-POP_FILE = os.path.join(REPO, "data", "reference", "population_by_county_year.csv")
+COUNTS_DIR = output_path("data", "extracted", "death_counts_by_year")
+TABLES_DIR = output_path("app", "backend", "static", "death_rate_tables")
+POP_FILE = output_path("data", "reference", "population_by_county_year.csv")
 
 YEARS = list(range(2008, 2023))
 
@@ -53,6 +59,12 @@ COOK_SUBDIVISIONS = ['Chicago', 'Suburban Cook']
 ALL_CAUSE_RATE_MIN = 100.0
 ALL_CAUSE_RATE_MAX = 3_000.0
 
+# Largest allowed gap between IDPH's published statewide deaths and the sum of
+# the counties. The worst year today is 0.076%. This is only a backstop: a county
+# the size of Hardin moves the sum by about 0.05%, so audit's county check is
+# what catches a missing county.
+STATE_DRIFT_MAX_PCT = 0.5
+
 
 def _pdf_for_year(year: int) -> str | None:
     if not os.path.isdir(PDF_DIR):
@@ -67,7 +79,6 @@ def _pdf_for_year(year: int) -> str | None:
 
 
 def extract_all_years() -> dict[int, pd.DataFrame]:
-    os.makedirs(COUNTS_DIR, exist_ok=True)
     all_dfs: dict[int, pd.DataFrame] = {}
     for year in YEARS:
         pdf = _pdf_for_year(year)
@@ -88,8 +99,13 @@ def extract_all_years() -> dict[int, pd.DataFrame]:
         df = df.drop_duplicates(subset='County', keep='first')
 
         all_dfs[year] = df
-        df.to_csv(os.path.join(COUNTS_DIR, f'death_data_{year}.csv'), index=False)
     return all_dfs
+
+
+def write_count_files(all_dfs: dict[int, pd.DataFrame]) -> None:
+    os.makedirs(COUNTS_DIR, exist_ok=True)
+    for year, df in all_dfs.items():
+        df.to_csv(os.path.join(COUNTS_DIR, f'death_data_{year}.csv'), index=False, lineterminator='\n')
 
 
 def load_population() -> pd.DataFrame:
@@ -145,11 +161,16 @@ def compute_rates(all_dfs: dict[int, pd.DataFrame], pop: pd.DataFrame) -> dict[s
                         state_counts[cause][yr] = float(row[cause])
                 continue
             if county not in pop.index:
-                print(f'  WARNING: no population for {county}, skipping')
-                continue
+                raise ValueError(
+                    f'No population row for {county} in {POP_FILE}. Its rates '
+                    'would come out blank; refusing to continue.'
+                )
             denom = pop.at[county, year]
-            if not denom or denom <= 0:
-                continue
+            if pd.isna(denom) or denom <= 0:
+                raise ValueError(
+                    f'Unusable population for {county} {year}: {denom}. Its '
+                    'rates would come out blank; refusing to continue.'
+                )
             for cause in ALL_CAUSES:
                 if cause not in row.index or pd.isna(row[cause]):
                     continue
@@ -169,7 +190,7 @@ def compute_rates(all_dfs: dict[int, pd.DataFrame], pop: pd.DataFrame) -> dict[s
         # Statewide rate uses IDPH's own published ILLINOIS count over the state
         # population. That is the most defensible figure to show IDPH, since it
         # is their number. _cross_check_state below compares it against summing
-        # the 102 counties and warns if the two disagree.
+        # the 102 counties and fails if the two disagree.
         state_row = {'County': 'ILLINOIS'}
         for yr in year_cols:
             count = state_counts[cause].get(yr)
@@ -183,24 +204,36 @@ def compute_rates(all_dfs: dict[int, pd.DataFrame], pop: pd.DataFrame) -> dict[s
 
 
 def _cross_check_state(all_dfs, pop, state_counts, real_counties) -> None:
-    """Compare IDPH's published statewide total against the sum of the counties."""
+    """Fail if IDPH's published statewide total and the county sum disagree."""
     print('\n-- Statewide cross-check (Total_Deaths) --')
+    problems = []
     for year in YEARS:
         df = all_dfs[year].set_index('County')
         summed = df.loc[df.index.isin(real_counties), 'Total_Deaths'].sum()
         published = state_counts['Total_Deaths'].get(str(year))
         if not published:
+            print(f'  {year}: NO PUBLISHED ILLINOIS TOTAL')
+            problems.append(f'{year}: no published ILLINOIS total')
             continue
         drift = (summed - published) / published * 100
-        flag = '  <-- CHECK' if abs(drift) > 2 else ''
+        flag = '  <-- CHECK' if abs(drift) > STATE_DRIFT_MAX_PCT else ''
         print(f'  {year}: published {published:>10,.0f} | county sum {summed:>10,.0f} | {drift:+.2f}%{flag}')
+        if flag:
+            # Name any absent county here, since this check runs before audit.
+            missing = sorted(set(real_counties) - set(df.index))
+            problems.append(f'{year}: {drift:+.2f}%, missing counties {missing}')
+    if problems:
+        raise ValueError(
+            f'Statewide cross-check failed (limit {STATE_DRIFT_MAX_PCT}%): '
+            f'{"; ".join(problems)}. Refusing to write bad tables.'
+        )
 
 
 def write_rate_tables(pivots: dict[str, pd.DataFrame]) -> None:
     os.makedirs(TABLES_DIR, exist_ok=True)
     for cause, df in pivots.items():
         out = os.path.join(TABLES_DIR, f'{cause}_death_rates_by_county_year.csv')
-        df.to_csv(out, index=False)
+        df.to_csv(out, index=False, lineterminator='\n')
         year_cols = [c for c in df.columns if c != 'County']
         filled = int(df[year_cols].notna().sum().sum())
         total = len(df) * len(year_cols)
@@ -210,23 +243,42 @@ def write_rate_tables(pivots: dict[str, pd.DataFrame]) -> None:
 def audit(all_dfs: dict[int, pd.DataFrame], pivots: dict[str, pd.DataFrame]) -> None:
     expected = VALID_COUNTIES - {'ILLINOIS'}
     print('\n-- County audit --')
+    missing_by_year = {}
     for year in YEARS:
         present = set(all_dfs[year]['County']) - {'ILLINOIS'}
         missing = expected - present
         line = f'  {year}: {len(present)} counties'
         if missing:
             line += f' | MISSING: {sorted(missing)}'
+            missing_by_year[year] = sorted(missing)
         print(line)
+    if missing_by_year:
+        raise ValueError(
+            f'Expected county-years are missing: {missing_by_year}. The most '
+            'likely cause is a county spelled differently in a PDF. Refusing '
+            'to write tables with blank counties.'
+        )
 
     print('\n-- Plausibility check on all-cause rates --')
     total = pivots['Total_Deaths']
     year_cols = [c for c in total.columns if c != 'County']
     bad = []
+    blank = []
+    checked = 0
     for _, row in total.iterrows():
         for yr in year_cols:
             v = row[yr]
-            if pd.notna(v) and not (ALL_CAUSE_RATE_MIN <= v <= ALL_CAUSE_RATE_MAX):
+            if pd.isna(v):
+                blank.append(f"{row['County']} {yr}")
+                continue
+            checked += 1
+            if not (ALL_CAUSE_RATE_MIN <= v <= ALL_CAUSE_RATE_MAX):
                 bad.append((row['County'], yr, v))
+    if blank:
+        raise ValueError(
+            f'{len(blank)} all-cause cells are blank: {blank[:20]}. Every county '
+            'publishes a total each year; refusing to write bad tables.'
+        )
     if bad:
         for county, yr, v in bad[:20]:
             print(f'  OUT OF RANGE: {county} {yr} = {v:,.2f} per 100k')
@@ -235,7 +287,7 @@ def audit(all_dfs: dict[int, pd.DataFrame], pivots: dict[str, pd.DataFrame]) -> 
             f'{ALL_CAUSE_RATE_MIN}-{ALL_CAUSE_RATE_MAX} per 100k. '
             'That means a denominator is wrong; refusing to write bad tables.'
         )
-    print(f'  All {len(total) * len(year_cols)} all-cause cells within '
+    print(f'  All {checked} all-cause cells within '
           f'{ALL_CAUSE_RATE_MIN:.0f}-{ALL_CAUSE_RATE_MAX:.0f} per 100k.')
 
 
@@ -252,7 +304,8 @@ def main() -> None:
     print('\nSTEP 4  Audit')
     audit(all_dfs, pivots)
 
-    print('\nSTEP 5  Write rate tables')
+    print('\nSTEP 5  Write count files and rate tables')
+    write_count_files(all_dfs)
     write_rate_tables(pivots)
 
     print(f'\nDone. {len(pivots)} cause tables -> {os.path.normpath(TABLES_DIR)}')
